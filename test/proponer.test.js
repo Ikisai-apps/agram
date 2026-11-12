@@ -2,10 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { proponer, consolidar, descubrir, OPERADORES } from '../src/motor.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 // Después de la compra (13:30) y de su cuenta (14:10): el t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js).
 const T = '2026-11-07T15:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 test('operadores Q, B, C', () => {
   assert.deepEqual(OPERADORES, { Q: 'descubrir', B: 'proponer', C: 'consolidar' });

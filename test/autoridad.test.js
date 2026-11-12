@@ -7,9 +7,10 @@ import { crearEvento } from '../src/evento.js';
 import { generarClaves, firmar, verificar, exportarPrivada, importarPrivada, publicaDe, clavePublicaValida, firmarPosesion, verificarPosesion, huella } from '../src/autoridad.js';
 import { schnorr } from '../src/vendor/noble-secp256k1.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-06T20:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 test('firmar y verificar un evento; el id no cambia con la firma', async () => {
   const { publica, privada } = await generarClaves();

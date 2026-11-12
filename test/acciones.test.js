@@ -23,10 +23,11 @@ import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { raizDeAmbito } from '../src/tokens.js';
 import { generarClaves, firmar as firmarEvento } from '../src/autoridad.js';
 import { costeT, exigido, tDelCoste } from '../src/escritura.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 const T1 = '2026-11-08T12:00:00Z';
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 const nombres = (lista) => lista.map((x) => x.nombre);
 const movs = (ev) => ev.movimientos.map((m) => [m.token, m.cantidad, m.de, m.a]);
@@ -317,7 +318,7 @@ test('stage (X.4.8): lo anunciado y pendiente, por estación (E pagar, P decidir
   const g = eje.genesisId;
   // La cocina abre un encargo con tres anuncios: la huésped paga euros (E), le cede poder sobre la compra (P) y la casa devuelve su R a la huésped… no: la huésped devuelve R a la casa (R).
   const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
-  const anuncio = (serie, cantidad, que, de, a) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [[serie], [cantidad], [que], [[de], [a]]], movimientos: [minuto('cocina', 4)] });
+  const anuncio = (serie, cantidad, que, de, a) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [[serie], [cantidad], [que], [[de], [a]]], movimientos: [minuto('cocina')] });
   const aE = await anuncio('E:casa/EUR', 5, 'pagar', 'huesped', 'cocina');
   const aP = await anuncio('P:' + compra.id + '/huesped', 1, 'decidir', 'huesped', 'cocina');
   const aR = await anuncio('R:casa', 1, 'atender', 'huesped', 'casa');
@@ -401,7 +402,7 @@ test('camino: las sugerencias pasan por las mismas reglas, el orden sigue el cri
   const { eje, menu, compra } = await ejemploCompra();
   // Un encargo de la cocina que pide a la huésped más euros de los que tiene.
   const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo caro', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
-  await eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [['E:casa/EUR'], [1000], ['pagar'], [['huesped'], ['cocina']]], movimientos: [minuto('cocina', 4)] });
+  await eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [['E:casa/EUR'], [1000], ['pagar'], [['huesped'], ['cocina']]], movimientos: [minuto('cocina')] });
   const auto = await A.autoejecutar(eje, encargo.id, 'huesped', null, { t: T1 });
   assert.deepEqual([auto.hechos, auto.parado.paso.hacer.plantilla, auto.parado.motivos], [[], 'pay', [{ regla: null, mensaje: 'saldo insuficiente de E:casa/EUR en huesped' }]]);
   // Las sugerencias: un gancho sin LLM; cada una se construye y valida, y queda marcada.
@@ -588,7 +589,7 @@ test('doble ejecución (cerrada): las sentencias de cada plantilla mueven lo que
   // anuncios de antes (un payload que imita un movimiento) es lo que mueven sus sentencias.
   const { eje, menu, compra } = await ejemploCompra();
   const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
-  const anuncio = (serie, cantidad, que, de, a) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [[serie], [cantidad], [que], [[de], [a]]], movimientos: [minuto('cocina', 4)] });
+  const anuncio = (serie, cantidad, que, de, a) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [[serie], [cantidad], [que], [[de], [a]]], movimientos: [minuto('cocina')] });
   const aE = await anuncio('E:casa/EUR', 5, 'pagar', 'huesped', 'cocina');
   const aP = await anuncio('P:' + compra.id + '/huesped', 1, 'decidir', 'huesped', 'cocina');
   for (const [cual, a] of [['pay', aE], ['deliver', aP]]) {
@@ -632,7 +633,7 @@ test('#48: un pago cumple un solo anuncio (el que lo lleva anclado); antes, uno 
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
   const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
   // Dos anuncios iguales: la huésped paga 5 euros a la cocina, dos veces.
-  const anuncio = (t) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t, payload: [['E:casa/EUR'], [5], ['pagar'], [['huesped'], ['cocina']]], movimientos: [minuto('cocina', 4)] });
+  const anuncio = (t) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t, payload: [['E:casa/EUR'], [5], ['pagar'], [['huesped'], ['cocina']]], movimientos: [minuto('cocina')] });
   const [a1, a2] = [await anuncio(T1), await anuncio('2026-11-08T12:01:00Z')];
   // La fórmula de antes (el primer ocupante del 2 de «stage») casaba por existencia: un solo pago en X los cerraba los dos.
   const antes = EPOCA_0_BTML.lecturas.find((r) => r[0][0] === 'stage')[2][0];

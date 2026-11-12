@@ -17,13 +17,14 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { crearEvento } from '../src/evento.js';
 import { generarClaves, firmar, firmarPosesion } from '../src/autoridad.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-07T23:00:00Z';
 // Las altas, un mes antes de T0 (ya no hace falta: cada persona escribe con su asignación de T del día (VG, 8-11)).
 const ALTA = '2026-10-07T23:00:00Z';
 // T no cruza de persona (VG, 7-11 noche): ceder minutos a otro es E de la serie de tiempo de quien los da
 // (E:<de>/minuto, que el génesis emite); sin destinatario, consumir T propio.
-const minuto = (de, cantidad = 1, a = null) => (a === null ? { token: 'T', escala: 'minuto', cantidad, de, a } : { token: 'E', emisor: de, denominacion: 'minuto', cantidad, de, a });
+const minuto = (de, cantidad, a = null) => (a === null ? (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a }) : { token: 'E', emisor: de, denominacion: 'minuto', cantidad: cantidad ?? 1, de, a });
 
 /** Eje de demostración: g da de alta a quien se le pida (persona salvo que se diga otro). */
 async function demo(ids, tipos = {}) {

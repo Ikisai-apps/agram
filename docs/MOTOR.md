@@ -17,7 +17,7 @@ Convenciones:
 | `src/condiciones/` | Las reglas de siempre como condiciones de validez de una transacción, por familias (`evento.js`, `identidad.js`, `ciclo.js`, `tope.js`, y `reglas.js`, que envuelve las reglas de la época), cada una con sus filas del inventario (`docs/notas/CAPA_CERO.md` §3). Las de R (colateral, lente firmada) se retiran con el encargo 3b: `CONDICIONES_DE_R` queda vacía | `index.js`: `CONDICIONES`, `CONDICIONES_GENESIS`, `CONDICIONES_GENESIS_GUARDADO`, `CONDICIONES_DEL_CICLO`, `CONDICIONES_DEL_TOPE`, `CONDICIONES_DE_LA_EPOCA`, `CONDICIONES_DE_R`, `motivosDe`, `catalogo`, `reglasDelTope`, `erroresGenesis`, `erroresFirmaGenesis`, `contratoE`, `SIN_CAPACIDAD` |
 | `src/motor.js` | El ciclo como una sola operación (registrar) y sus lecturas: cerrado, siguiente, recuento y peso (encargo 3b); la fábrica (PV4) sin fases; la capacidad de una posición (§5.1, solo informa) | `registrar`, `descubrir`, `proponer`, `consolidar`, `cerrado`, `siguiente`, `recuento`, `peso`, `propuestas`, `caminoVisible`, `capacidadDe`, `tramoDe`, `registrosEn`, `ocupacion`, `FABRICA`, `ANUNCIO`, `OPERADORES`, `CRITERIO_CAPACIDAD` |
 | `src/lente.js` | R según el corpus y la lente del lector (encargo 3b; §4.4): sin colateral; la lente es la condición de aceptación (los grupos de atención cuyo precio es «their R»); devolver R es pedir atención. Solo lecturas | `claveR`, `PRECIO_LENTE`, `lenteDe`, `peso`, `valor`, `detalleValor`, `devoluciones`, `pendientes` |
-| `src/escritura.js` | El registro de salida de cada modo; la matriz 10×10×10 de la fábrica | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `ubicar`, `costeT`, `escribirDesde`, `escribirSalida`, `CLASES`, `claseDe`, `esReferencia` |
+| `src/escritura.js` | El registro de salida de cada modo; la matriz 10×10×10 de la fábrica | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `ubicar`, `costeT`, `quemaDelCoste`, `escribirDesde`, `escribirSalida`, `CLASES`, `claseDe`, `esReferencia` |
 | `src/modos.js` | Mínimo y máximo por modo (los mismos para leer y emitir), proporción | `MODOS`, `nombreModo`, `maximo`, `minimo`, `alcanceDe`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7), §8; reexporta de `bases.js` lo del 8 que otros módulos leían aquí (§8.3) | `banda`, `ejeTemporal`; de `bases.js`: `HITOS`, `ALCANCES`, `MEDIDAS`, `comparables`, `confluir`, `proyectoDe`, `etiquetaClave`, `SIN_BASE_ESCRITA` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal`, `apartarLocal`, `VERSION` |
@@ -101,20 +101,20 @@ console.log('registros antes y después:', eje.orden.length);
 
 ```text
 1 1000000000 4 candidatos
-  propio     e5c47e11 camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → bb20b26e · exacto
-  propio     e5c47e11 camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
-  referencia bb20b26e camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
-  escrito    3e811872 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
+  propio     c2ee5ef8 camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → 66d10594 · exacto
+  propio     c2ee5ef8 camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
+  referencia 66d10594 camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
+  escrito    a5c4122b camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
 2 2000000000 3 candidatos
-  propio     e5c47e11 camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
-  referencia bb20b26e camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
-  propio     e5c47e11 camino [2] visible [2] · RESUELTO · all announced movements happened · etiqueta all announced movements happened · exacto
+  propio     c2ee5ef8 camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
+  referencia 66d10594 camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
+  propio     c2ee5ef8 camino [2] visible [2] · RESUELTO · all announced movements happened · etiqueta all announced movements happened · exacto
 3 3000000000 2 candidatos
-  propio     e5c47e11 camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
-  propio     e5c47e11 camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
+  propio     c2ee5ef8 camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
+  propio     c2ee5ef8 camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
 4 4000000000 2 candidatos
-  propio     e5c47e11 camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
-  propio     e5c47e11 camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
+  propio     c2ee5ef8 camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
+  propio     c2ee5ef8 camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 8
 ```
@@ -163,9 +163,9 @@ console.log(importe.cantidad, importe.unidad, '· EUR cocina', eje.saldo('cocina
 
 ```text
 {"Q":"descubrir","B":"proponer","C":"consolidar"}
-{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"3e811872","dir":"3000000000"}}
+{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"a5c4122b","dir":"3000000000"}}
 ["1:formula","2:formula","3:foco"] []
-["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"3e811872","dir":"3000000000"}] · texto
+["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"a5c4122b","dir":"3000000000"}] · texto
 14 EUR · EUR cocina 26 huesped 34 · [["Pago de la cuenta",true]] all announced movements happened
 ```
 
@@ -229,8 +229,8 @@ console.log(JSON.stringify(cerrado(eje, c.id)));
 
 ```text
 true true huesped
-["Pago del menú",{"ref":"3e811872","dir":"0000000000"},"sin lactosa",{"ref":"e5c47e11","dir":"3000000000"},"pagar 14 EUR"]
-{"motor":"fabrica","fuentes":["3e811872"],"encaje":[{"posicion":1,"evento":"3e811872","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
+["Pago del menú",{"ref":"a5c4122b","dir":"0000000000"},"sin lactosa",{"ref":"c2ee5ef8","dir":"3000000000"},"pagar 14 EUR"]
+{"motor":"fabrica","fuentes":["a5c4122b"],"encaje":[{"posicion":1,"evento":"a5c4122b","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
 [{"token":"T","escala":"minuto","cantidad":5,"de":"huesped","a":null}] minutos gastados 5 EUR movidos 0
 {"cerrado":true,"plantilla":"all announced movements happened","estado":"RESUELTO","motivo":null}
 ```
@@ -276,7 +276,7 @@ hueco en 6: elige algo o quita las posiciones siguientes
 fuente desconocida en 1
 Mapped emite como mucho 1000 posiciones; este registro tiene 1001
 evento rechazado: every record hangs on a record of the ledger: nadie is not one
-ok ["Consolidación",["dos","menús"],{"ref":"e5c47e11","dir":"2000000000"},{"ref":"bb20b26e","dir":"2000000000"}] en 4000000000
+ok ["Consolidación",["dos","menús"],{"ref":"c2ee5ef8","dir":"2000000000"},{"ref":"66d10594","dir":"2000000000"}] en 4000000000
 ok ["Consolidación","uno"] en 1400000000
 ```
 
@@ -339,26 +339,27 @@ Ejemplo: la persona huésped pide dos menús más. Escribe el trato, con la plan
 ```sh
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 import { registrar, cerrado, siguiente, ANUNCIO } from './src/motor.js';
 const T = '2026-11-07T16:00:00Z';
 const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const { eje, menu } = await ejemploCompra();
-const trato = await registrar(eje, { autor: 'huesped', sobre: menu.id, t: T, movimientos: [gastaT('huesped')], payload: ['Dos menús más', ['x'], ['all announced movements happened']] });
-await registrar(eje, { autor: 'huesped', sobre: trato.id, en: ANUNCIO, t: T, movimientos: [gastaT('huesped', 4)], payload: [['E:casa/EUR'], [24], ['pagar'], [['huesped'], ['cocina']]] });
+const trato = await escribirPagando(eje, { autor: 'huesped', sobre: menu.id, t: T, movimientos: [gastaT('huesped')], payload: ['Dos menús más', ['x'], ['all announced movements happened']] });
+await escribirPagando(eje, { autor: 'huesped', sobre: trato.id, en: ANUNCIO, t: T, movimientos: [gastaT('huesped')], payload: [['E:casa/EUR'], [24], ['pagar'], [['huesped'], ['cocina']]] });
 console.log(corto(cerrado(eje, trato.id)));
 for (const yo of ['huesped', 'cocina']) console.log(yo, corto(siguiente(eje, trato.id, yo)));
-await registrar(eje, { autor: 'cocina', sobre: trato.id, t: T, movimientos: [gastaT('cocina'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 24, de: 'huesped', a: 'cocina' }], payload: 'cobro' }).catch((e) => console.log(e.message));
+await escribirPagando(eje, { autor: 'cocina', sobre: trato.id, t: T, movimientos: [gastaT('cocina'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 24, de: 'huesped', a: 'cocina' }], payload: 'cobro' }).catch((e) => console.log(e.message));
 const [paso] = siguiente(eje, trato.id, 'huesped').faltaDeMi;
-const pago = await registrar(eje, { ...paso.transaccion, t: T });
+const pago = await escribirPagando(eje, { ...paso.transaccion, t: T });
 console.log(corto(pago.payload), corto(pago.movimientos), '·', cerrado(eje, trato.id).cerrado, '· EUR cocina', eje.saldo('cocina', 'E:casa/EUR'));
 "
 ```
 
 ```text
 {"cerrado":false,"plantilla":"all announced movements happened","estado":"RESUELTO","motivo":null}
-huesped {"cerrado":false,"faltaDeMi":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"c3e7618d","plantilla":"move what was announced","transaccion":{"autor":"huesped","sobre":"c3e7618d","en":"4000000000","movimientos":[{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":24,"de":"huesped","a":"cocina"}],"payload":["mover 24 E:casa/EUR de huesped a cocina"]}}],"espera":[]}
-cocina {"cerrado":false,"faltaDeMi":[],"espera":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"c3e7618d","de":"huesped"}]}
+huesped {"cerrado":false,"faltaDeMi":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"5656b3ba","plantilla":"move what was announced","transaccion":{"autor":"huesped","sobre":"5656b3ba","en":"4000000000","movimientos":[{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":24,"de":"huesped","a":"cocina"}],"payload":["mover 24 E:casa/EUR de huesped a cocina"]}}],"espera":[]}
+cocina {"cerrado":false,"faltaDeMi":[],"espera":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"5656b3ba","de":"huesped"}]}
 evento rechazado: nobody moves tokens of others: cocina moves from huesped
 ["mover 24 E:casa/EUR de huesped a cocina"] [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":24,"de":"huesped","a":"cocina"}] · true · EUR cocina 36
 ```
@@ -396,24 +397,25 @@ Ejemplo: la casa ya tiene P por lo que ha escrito (el génesis, las altas, sus i
 ```sh
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 import { registrar, recuento, peso, siguiente } from './src/motor.js';
 const T = '2026-11-07T16:00:00Z';
 const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 const P = (ambito, cantidad, de, a, extra = {}) => ({ token: 'P', ambito, cantidad, de, a, ...extra });
 const { eje, alta, menu } = await ejemploCompra();
 const g = eje.genesisId;
 console.log('P de la casa sobre el génesis', eje.poderSobre('casa', g), '· sobre las altas', eje.poderSobre('casa', alta.id), '· de cocina sobre el menú', eje.poderSobre('cocina', menu.id), '· de la huésped sobre el génesis', eje.poderSobre('huesped', g));
-const D = await registrar(eje, { autor: 'casa', sobre: alta.id, t: T, movimientos: [gastaT('casa')], payload: ['¿Abrimos el domingo?', ['x'], [['decidir'], [1], ['weighted mean', 'above 0.1']]] });
+const D = await escribirPagando(eje, { autor: 'casa', sobre: alta.id, t: T, movimientos: [gastaT('casa')], payload: ['¿Abrimos el domingo?', ['x'], [['decidir'], [1], ['weighted mean', 'above 0.1']]] });
 console.log('peso de la casa: génesis', peso(eje, 'casa', g), '· decisión', peso(eje, 'casa', D.id), '·', corto(recuento(eje, D.id)));
 console.log('huesped', corto(siguiente(eje, D.id, 'huesped')));
-await registrar(eje, { autor: 'casa', sobre: g, t: T, movimientos: [gastaT('casa'), P(D.id, 10, 'casa', null), P(g, 1, null, 'casa')], payload: 'subo dos niveles' }).catch((e) => console.log(e.message));
-await registrar(eje, { autor: 'casa', sobre: g, t: T, movimientos: [gastaT('casa'), P(alta.id, 1, null, 'casa')], payload: 'a mano' }).catch((e) => console.log(e.message));
-await registrar(eje, { autor: 'casa', sobre: g, t: T, movimientos: [gastaT('casa'), P(D.id, 10, 'casa', null), P(alta.id, 1, null, 'casa')], payload: 'subo' });
+await escribirPagando(eje, { autor: 'casa', sobre: g, t: T, movimientos: [gastaT('casa'), P(D.id, 10, 'casa', null), P(g, 1, null, 'casa')], payload: 'subo dos niveles' }).catch((e) => console.log(e.message));
+await escribirPagando(eje, { autor: 'casa', sobre: g, t: T, movimientos: [gastaT('casa'), P(alta.id, 1, null, 'casa')], payload: 'a mano' }).catch((e) => console.log(e.message));
+await escribirPagando(eje, { autor: 'casa', sobre: g, t: T, movimientos: [gastaT('casa'), P(D.id, 10, 'casa', null), P(alta.id, 1, null, 'casa')], payload: 'subo' });
 console.log('tras subir: altas', eje.poderSobre('casa', alta.id), '· decisión', eje.poderSobre('casa', D.id));
 const [paso] = siguiente(eje, D.id, 'casa').faltaDeMi;
 console.log(paso.plantilla, corto(paso.transaccion.movimientos[1]));
-await registrar(eje, { ...paso.transaccion, t: T });
+await escribirPagando(eje, { ...paso.transaccion, t: T });
 console.log(corto(recuento(eje, D.id)));
 "
 ```
@@ -425,7 +427,7 @@ huesped {"cerrado":true,"faltaDeMi":[],"espera":[{"que":"el recuento de casa (we
 evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent, a child or one of its views, keeping its origin
 evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent, a child or one of its views, keeping its origin
 tras subir: altas 11 · decisión 0
-commit P {"token":"P","ambito":"1fbe1422","cantidad":11,"de":"casa","a":"casa","estado":"bloqueo","salida":"58797d69"}
+commit P {"token":"P","ambito":"3e5f41ab","cantidad":11,"de":"casa","a":"casa","estado":"bloqueo","salida":"13b11f94"}
 {"plantilla":"weighted mean","valor":0.180327869,"umbral":0.1,"pasa":true,"estado":"RESUELTO","motivo":null}
 ```
 
@@ -470,8 +472,8 @@ console.log('entra en', ok.en, '· la casa tiene R:ana', eje.saldo('casa', 'R:an
 ```
 
 ```text
-génesis [] "f3d39225"
-[["invitation"],["1 R:casa"],[{"ref":"f3d39225"}],[["casa"],["ana"]],["tu primera transacción firmada, anclada sobre esta invitación: tu alta"],[{"ref":"95d5600f"}],[{"ref":"95d5600f"}],["sin plazo"],[3],["la cena del sábado"]] · guardado para ana 1
+génesis [] "1b1763da"
+[["invitation"],["1 R:casa"],[{"ref":"1b1763da"}],[["casa"],["ana"]],["tu primera transacción firmada, anclada sobre esta invitación: tu alta"],[{"ref":"32e3e315"}],[{"ref":"32e3e315"}],["sin plazo"],[3],["la cena del sábado"]] · guardado para ana 1
 evento rechazado: nobody moves tokens of others: huesped moves from casa
 alta de ana sobre la invitación true · persona true · R:casa 1 · P sobre el génesis 10
 5 → 4 → 1 → 7 → 2 → 8 → 9 → 3 → después
@@ -520,16 +522,17 @@ propuestas(eje, foco, camino = [])  // → [{ id, autor, t, titulo, cerrado, fue
 ```sh
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 import { consolidar, registrar, propuestas, cerrado, ANUNCIO } from './src/motor.js';
 const T = '2026-11-07T16:00:00Z';
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const { eje, compra } = await ejemploCompra();
 const una = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, titulo: 'Dos menús', elecciones: { 1: 'dos menús' } });
 const otra = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, titulo: 'Tres menús', elecciones: { 1: 'tres menús' } });
-await registrar(eje, { autor: 'huesped', sobre: otra.id, en: ANUNCIO, t: T, movimientos: [gastaT('huesped', 4)], payload: [['E:casa/EUR'], [36], ['pagar'], [['huesped'], ['cocina']]] });
-await registrar(eje, { autor: 'cocina', sobre: otra.id, t: T, movimientos: [gastaT('cocina')], payload: 'falso', contexto: { fase: 'ejecutado' } });
+await escribirPagando(eje, { autor: 'huesped', sobre: otra.id, en: ANUNCIO, t: T, movimientos: [gastaT('huesped')], payload: [['E:casa/EUR'], [36], ['pagar'], [['huesped'], ['cocina']]] });
+await escribirPagando(eje, { autor: 'cocina', sobre: otra.id, t: T, movimientos: [gastaT('cocina')], payload: 'falso', contexto: { fase: 'ejecutado' } });
 console.log(JSON.stringify(propuestas(eje, compra.id).map((x) => [x.titulo, x.cerrado])));
-await registrar(eje, { autor: 'huesped', sobre: otra.id, t: T, movimientos: [gastaT('huesped'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 36, de: 'huesped', a: 'cocina' }], payload: 'pago' });
+await escribirPagando(eje, { autor: 'huesped', sobre: otra.id, t: T, movimientos: [gastaT('huesped'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 36, de: 'huesped', a: 'cocina' }], payload: 'pago' });
 console.log(JSON.stringify(propuestas(eje, compra.id).map((x) => [x.titulo, x.cerrado])), cerrado(eje, una.id).plantilla);
 "
 ```
@@ -725,25 +728,25 @@ try { desdeMapped(eje, [], compra.id); } catch (e) { console.log(e.message); }
 ```
 
 ```text
-["hola",12.5,-3,"12 EUR",{"ref":"bb20b26e"},{"ref":"bb20b26e","dir":"1000000000"},"=LOCAL(1)"]
+["hola",12.5,-3,"12 EUR",{"ref":"66d10594"},{"ref":"66d10594","dir":"1000000000"},"=LOCAL(1)"]
 ítem vacío
 referencia desconocida: ffff
 "@zzzz"
 "@ab"
-"@bb20b26e:12"
-{"ref":"bb20b26e"}
+"@66d10594:12"
+{"ref":"66d10594"}
 referencia demasiado corta: @ab
 referencia desconocida: ffff
-"servido" {"ref":"bb20b26e"}
-["llegar",{"ref":"bb20b26e"},3]
+"servido" {"ref":"66d10594"}
+["llegar",{"ref":"66d10594"},3]
 hueco en la posición 1: rellénala o quita las siguientes
 la hilera está vacía
 la hilera tiene más de 10 posiciones
-[{"ref":"e5c47e11","dir":"0000000000"},{"ref":"e5c47e11","dir":"1000000000"},"sin lactosa",{"ref":"e5c47e11","dir":"3000000000"},[["pagado"],["servido a las 14:05"]]] heredadas [0,1,3] coste 6 minutos
+[{"ref":"c2ee5ef8","dir":"0000000000"},{"ref":"c2ee5ef8","dir":"1000000000"},"sin lactosa",{"ref":"c2ee5ef8","dir":"3000000000"},[["pagado"],["servido a las 14:05"]]] heredadas [0,1,3] coste 6 minutos
 la 3 heredada alcanza ["huesped","cocina"] sin copiar
-con camino [1]: {"payload":[{"ref":"e5c47e11","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
+con camino [1]: {"payload":[{"ref":"c2ee5ef8","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
 lo lejano se ancla: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["6"]}],"camino":[]}
-una línea «d.d» es texto: [{"ref":"e5c47e11","dir":"0000000000"},"1.5 kg de harina"]
+una línea «d.d» es texto: [{"ref":"c2ee5ef8","dir":"0000000000"},"1.5 kg de harina"]
 la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda
 ```
 
@@ -789,7 +792,7 @@ await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, c
 
 ```text
 0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 null · 6 null · 7 null · 8 null · 9 null
-ver 1.2: [{"ref":"e5c47e11","dir":"0000000000"},[[{"ref":"e5c47e11","dir":"1000000000"}],[{"ref":"e5c47e11","dir":"1100000000"}],[{"ref":"e5c47e11","dir":"1200000000"}]]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
+ver 1.2: [{"ref":"c2ee5ef8","dir":"0000000000"},[[{"ref":"c2ee5ef8","dir":"1000000000"}],[{"ref":"c2ee5ef8","dir":"1100000000"}],[{"ref":"c2ee5ef8","dir":"1200000000"}]]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
 no hay nada que ver en 2.3: el foco no tiene esa celda
 no hay nada que ver en 0.5: el foco no tiene esa celda
 pagar 1.2.4: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[1,2,4],"en":"1240000000","payload":"pagar 12 EUR","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}],"camino":[]}
@@ -800,12 +803,12 @@ ubicar 7.0.0 {"ubicacion":"anclado","en":"7000000000","dir":"7000000000","faltan
 ubicar 1.5.0 {"ubicacion":"anclado","en":"1500000000","dir":"1500000000","faltan":["1.3","1.4"]}
 ubicar 2.0.0 en mapped {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 ubicar 2.0.0 en pointed {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
-salida {"payload":[{"ref":"e5c47e11","dir":"0000000000"},{"ref":"e5c47e11","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["6"]}],"camino":[]}
+salida {"payload":[{"ref":"c2ee5ef8","dir":"0000000000"},{"ref":"c2ee5ef8","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["6"]}],"camino":[]}
 1 celda sin base en el foco se ancla aparte (7.0.0 en 7000000000): escribe la salida entera con escribirSalida
-registro en 0000000000 [{"ref":"e5c47e11","dir":"0000000000"},{"ref":"e5c47e11","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 4, por debajo. No es error: la proporción propone, el máximo (1000) manda."}
+registro en 0000000000 [{"ref":"c2ee5ef8","dir":"0000000000"},{"ref":"c2ee5ef8","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 4, por debajo. No es error: la proporción propone, el máximo (1000) manda."}
 celda 9.0.0 → 9000000000 "volver"
-celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"e5c47e11","dir":"1000000000"},{"ref":"e5c47e11","dir":"1100000000"},{"ref":"e5c47e11","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
-celda 3.0.0 bajo [1] en Pointed → 1000000000 [{"ref":"e5c47e11","dir":"1000000000"},{"ref":"e5c47e11","dir":"1100000000"},{"ref":"e5c47e11","dir":"1200000000"},"flan"] · 4 minutos
+celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"c2ee5ef8","dir":"1000000000"},{"ref":"c2ee5ef8","dir":"1100000000"},{"ref":"c2ee5ef8","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
+celda 3.0.0 bajo [1] en Pointed → 1000000000 [{"ref":"c2ee5ef8","dir":"1000000000"},{"ref":"c2ee5ef8","dir":"1100000000"},{"ref":"c2ee5ef8","dir":"1200000000"},"flan"] · 4 minutos
 la celda 3.0.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000
 ```
 
@@ -849,8 +852,8 @@ celda 2.4.0 bajo [1] → anclado en 1240000000 · cae en 1240000000 · clase 0 (
 celda 0.1.0 bajo [1] → anclado en 1010000000 · cae en 1010000000 · clase 0 (desde la raíz 1)
 celda 7.3.4 bajo [1] → anclado en 1734000000 · cae en 1734000000 · clase 4 (desde la raíz 3)
 celda 1.0.4 bajo [1,2] → anclado en 1210400000 · cae en 1210400000 · clase 4 (desde la raíz 1)
-salida bajo [1]: registro en 1000000000 [{"ref":"e5c47e11","dir":"1000000000"},{"ref":"e5c47e11","dir":"1100000000"},{"ref":"e5c47e11","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
-génesis (terminal): [{"ref":"95d5600f","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
+salida bajo [1]: registro en 1000000000 [{"ref":"c2ee5ef8","dir":"1000000000"},{"ref":"c2ee5ef8","dir":"1100000000"},{"ref":"c2ee5ef8","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
+génesis (terminal): [{"ref":"32e3e315","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
 ```
 
 Lectura: pagar el precio desde la raíz es la celda `1.2.4` (clase 4); la misma dirección `1240000000`, leída bajo `[1]`, es la celda `2.4.0`, de clase 0. Bajo `[1]`, `@:0.4 pagar 12 EUR` en la posición 2 es la celda `2.0.4`: cae en `1204000000` y su clase, leída desde `[1]`, es 4 (desde la raíz sería 0). El génesis y el precio son terminales: escribir en su posición 1 hereda la 0, cuya dirección alcanza el terminal (como en `main`; **[X] decidir VG**, §7.2).
@@ -944,20 +947,21 @@ Orden: `pasado` del más cercano al presente al más lejano; `futuro` del más c
 ```sh
 node --input-type=module -e "
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 import { ejeTemporal, banda } from './src/tiempo.js';
 import { consolidar, registrar, ANUNCIO } from './src/motor.js';
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 console.log([0, 59, 60, 3599, 3600, 86400, 7 * 86400, 28 * 86400, 365 * 86400].map((s) => s + ':' + banda(s)).join(' '), '· banda(-90)', banda(-90));
 const { eje, compra } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
-await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '7000000000', t: '2026-11-13T13:30:00Z', movimientos: [gastaT('huesped')], payload: 'repetir el viernes' });
+await escribirPagando(eje, { autor: 'huesped', sobre: compra.id, en: '7000000000', t: '2026-11-13T13:30:00Z', movimientos: [gastaT('huesped')], payload: 'repetir el viernes' });
 const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:30:00Z', elecciones: { 1: 'dos menús' } });
-await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T14:31:00Z', movimientos: [gastaT('huesped', 4)], payload: [['E:casa/EUR'], [24], ['pagar'], [['huesped'], ['cocina']]] });
+await escribirPagando(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T14:31:00Z', movimientos: [gastaT('huesped')], payload: [['E:casa/EUR'], [24], ['pagar'], [['huesped'], ['cocina']]] });
 const e = ejeTemporal(eje, compra.id, { ahora: '2026-11-07T15:00:00Z' });
 console.log('ahora', e.ahora, '· pasado', e.pasado.length, 'de', e.totalPasado, '· futuro', e.futuro.length, 'de', e.totalFuturo);
 for (const x of e.pasado) console.log('  pasado', x.tipo.padEnd(13), x.id.slice(0, 8), x.autor.padEnd(8), x.t, String(x.delta).padStart(7), x.banda);
 for (const x of e.futuro) console.log('  futuro', x.tipo.padEnd(13), x.id.slice(0, 8), x.autor.padEnd(8), x.t, String(x.delta).padStart(7), x.banda, x.cerrado ?? '');
-const plan = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T14:00:00Z', movimientos: [gastaT('casa')], payload: ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'cena el sábado'] });
+const plan = await escribirPagando(eje, { autor: 'casa', sobre: compra.id, t: '2026-11-07T14:00:00Z', movimientos: [gastaT('casa')], payload: ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'cena el sábado'] });
 const d = ejeTemporal(eje, plan.id, { ahora: '2026-11-07T15:00:00Z', maximo: 2 });
 console.log(d.futuro.map((x) => x.tipo + ':' + x.contenido + ':' + x.delta + ':' + x.banda).join(' '), '· pasado', d.pasado.length, 'de', d.totalPasado);
 "
@@ -966,13 +970,13 @@ console.log(d.futuro.map((x) => x.tipo + ':' + x.contenido + ':' + x.delta + ':'
 ```text
 0:segundo 59:minuto 60:hora 3599:hora 3600:dia 86400:semana 604800:ciclo 2419200:anio 31536000:mas · banda(-90) hora
 ahora 2026-11-07T15:00:00Z · pasado 5 de 5 · futuro 2 de 2
-  pasado registro      03844c48 huesped  2026-11-07T14:30:00Z   -1800 hora
-  pasado registro      3e811872 cocina   2026-11-07T14:10:00Z   -3000 hora
-  pasado registro      bb20b26e cocina   2026-11-07T09:00:00Z  -21600 dia
-  pasado registro      1fbe1422 casa     2026-11-07T09:00:00Z  -21600 dia
-  pasado registro      95d5600f casa     2026-11-07T09:00:00Z  -21600 dia
-  futuro consolidacion 03844c48 huesped  2026-11-07T14:30:00Z   -1800 hora false
-  futuro proyeccion    d02814a6 huesped  2026-11-13T13:30:00Z  513000 semana
+  pasado registro      dae7ae1e huesped  2026-11-07T14:30:00Z   -1800 hora
+  pasado registro      a5c4122b cocina   2026-11-07T14:10:00Z   -3000 hora
+  pasado registro      66d10594 cocina   2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      3e5f41ab casa     2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      32e3e315 casa     2026-11-07T09:00:00Z  -21600 dia
+  futuro consolidacion dae7ae1e huesped  2026-11-07T14:30:00Z   -1800 hora false
+  futuro proyeccion    b82f9057 huesped  2026-11-13T13:30:00Z  513000 semana
 declarado:cena el sábado:0:segundo · pasado 2 de 4
 ```
 
@@ -1053,18 +1057,19 @@ En Node no hay `localStorage`: `guardarLocal` devuelve `true` sin guardar nada (
 ```sh
 node --input-type=module -e "
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 import { consolidar, registrar, cerrado, ANUNCIO } from './src/motor.js';
 import { serializar, restaurar, guardarLocal, cargarLocal, borrarLocal, VERSION } from './src/persistencia.js';
 const T = '2026-11-07T16:00:00Z';
 const { eje, compra } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
 const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 4, de: 'huesped', a: null }], payload: [['E:casa/EUR'], [24], ['pagar'], [['huesped'], ['cocina']]] });
+await escribirPagando(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [pagaElCoste('huesped')], payload: [['E:casa/EUR'], [24], ['pagar'], [['huesped'], ['cocina']]] });
 const datos = JSON.parse(JSON.stringify(serializar(eje)));
 console.log(datos.version === VERSION, datos.exigirFirmas, datos.eventos.length, 'eventos ·', Object.keys(datos).join(','), '·', Object.keys(datos.eventos[5]).join(','));
 const otro = await restaurar(datos);
 console.log(otro.orden.length, cerrado(otro, c.id).cerrado, JSON.stringify(otro.identidades()), otro.saldo('cocina', 'E:casa/EUR'), otro.sobre(c.id).length);
-const e = await registrar(otro, { autor: 'huesped', sobre: c.id, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 24, de: 'huesped', a: 'cocina' }], payload: 'pago' });
+const e = await escribirPagando(otro, { autor: 'huesped', sobre: c.id, t: T, movimientos: [pagaElCoste('huesped'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 24, de: 'huesped', a: 'cocina' }], payload: 'pago' });
 console.log('en la copia', cerrado(otro, c.id).cerrado, '· en el original', cerrado(eje, c.id).cerrado, eje.obtener(e.id) === undefined);
 datos.eventos[datos.eventos.length - 1].payload = '==no pago';
 await restaurar(datos).catch((err) => console.log(err.message));
@@ -1097,6 +1102,7 @@ Guardar como `motor-ejemplo.mjs` en la raíz del repositorio y ejecutar `node mo
 // ejecutable: guardar en la raíz del repositorio como motor-ejemplo.mjs y ejecutar
 //   node motor-ejemplo.mjs      (o, sin guardar: node --input-type=module < motor-ejemplo.mjs)
 import { Eje } from './src/eje.js';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 import { descubrir, consolidar, registrar, cerrado, siguiente, propuestas, FABRICA, ANUNCIO } from './src/motor.js';
 import { desdeMapped, escribirDesde } from './src/escritura.js';
 import { ejeTemporal } from './src/tiempo.js';
@@ -1105,7 +1111,7 @@ import { serializar, restaurar } from './src/persistencia.js';
 import { evaluar } from './src/bql.js';
 
 const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const t = (hora) => '2026-11-07T' + hora + ':00Z';
 
 // 1. Génesis: el alta de la casa, sin movimientos; su emisión (su R y sus euros) va en una segunda transacción. T no
@@ -1116,9 +1122,9 @@ console.log('génesis sin movimientos', eje.obtener(eje.genesisId).movimientos.l
 //    alta la escribe la casa) y escribe con el T que ella le da; la huésped recibe euros.
 const inv = await eje.invitar({ autor: 'casa', invitado: 'huesped', t: t('09:00') });
 await eje.aceptar(inv, {}, { t: t('09:00') });
-const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('09:00'), movimientos: [gastaT('casa'), { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'cocina' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50, de: 'casa', a: 'huesped' }], payload: ['Altas', ['cocina', 'huesped']] });
+const alta = await escribirPagando(eje, { autor: 'casa', sobre: eje.genesisId, t: t('09:00'), movimientos: [gastaT('casa'), { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'cocina' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50, de: 'casa', a: 'huesped' }], payload: ['Altas', ['cocina', 'huesped']] });
 // 3. Cocina publica el menú sobre el alta.
-const menu = await eje.escribir({ autor: 'cocina', sobre: alta.id, t: t('09:30'), movimientos: [gastaT('cocina')], payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano'], ['cocina'], ['servir', 'cobrar 14 EUR']] });
+const menu = await escribirPagando(eje, { autor: 'cocina', sobre: alta.id, t: t('09:30'), movimientos: [gastaT('cocina')], payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano'], ['cocina'], ['servir', 'cobrar 14 EUR']] });
 // 4. La persona huésped escribe desde Mapped sobre el menú: una décupla que hereda del foco lo que no rellena.
 const celdas = [];
 celdas[1] = ['@' + menu.id.slice(0, 8) + ':1100000000', '1'];
@@ -1134,11 +1140,11 @@ const guiso = d[0].candidatos.find((c) => c.origen === 'referencia');
 const cons = await consolidar(eje, { autor: 'huesped', foco: pedido.id, t: t('13:40'), titulo: 'Pedido del guiso', elecciones: { 1: { candidato: guiso }, 2: 'sin lactosa', 4: 'pagar 14 EUR' } });
 console.log('consolidación', corto(cons.payload), '· en la fábrica', cons.en === FABRICA, '· encaje', corto(cons.contexto.encaje));
 // 7. La huésped anuncia en el 4.1 de su consolidación lo que va a moverse: 14 EUR a cocina. Queda abierta.
-await registrar(eje, { autor: 'huesped', sobre: cons.id, en: ANUNCIO, t: t('13:41'), movimientos: [gastaT('huesped', 4)], payload: [['E:casa/EUR'], [14], ['pagar'], [['huesped'], ['cocina']]] });
+await escribirPagando(eje, { autor: 'huesped', sobre: cons.id, en: ANUNCIO, t: t('13:41'), movimientos: [gastaT('huesped')], payload: [['E:casa/EUR'], [14], ['pagar'], [['huesped'], ['cocina']]] });
 console.log('cerrado', cerrado(eje, cons.id).cerrado, '· cocina espera', corto(siguiente(eje, cons.id, 'cocina').espera.map((x) => x.que)));
 // 8. Registrar el pago: la transacción que propone siguiente. Cada uno mueve lo suyo; nadie autoriza nada.
 const [paso] = siguiente(eje, cons.id, 'huesped').faltaDeMi;
-const pago = await registrar(eje, { ...paso.transaccion, t: t('14:05') });
+const pago = await escribirPagando(eje, { ...paso.transaccion, t: t('14:05') });
 console.log('pago', corto(pago.movimientos), '· cerrado', cerrado(eje, cons.id).cerrado);
 console.log('EUR cocina', eje.saldo('cocina', 'E:casa/EUR'), 'huesped', eje.saldo('huesped', 'E:casa/EUR'), '· hilo del pago:', eje.hilo(pago.id).map((x) => x.autor).join(' → '));
 console.log('propuestas del pedido', corto(propuestas(eje, pedido.id)));
@@ -1155,16 +1161,16 @@ console.log('restaurado', otro.orden.length, 'eventos · cerrado', cerrado(otro,
 
 ```text
 génesis sin movimientos true · P de la casa sobre él 10
-pedido [{"ref":"621db3ee","dir":"0000000000"},[[{"ref":"621db3ee","dir":"1100000000"}],[1]],{"ref":"621db3ee","dir":"2000000000"},[["huesped"],["cocina"]]] · heredadas [0,2] · coste 6 min
+pedido [{"ref":"905dd335","dir":"0000000000"},[[{"ref":"905dd335","dir":"1100000000"}],[1]],{"ref":"905dd335","dir":"2000000000"},[["huesped"],["cocina"]]] · heredadas [0,2] · coste 6 min
 posición 1 propio [2 posiciones] (exacto) · propio PENDIENTE: posición sin desarrollar: 1100000000 cae dentro de la lista de la 1; una dirección no nombra ocupantes de una lista (se leen por índice: BUSCAR o LOCAL) (exacto) · referencia guiso (reducir)
-posición 2 propio → 621db3ee (exacto) · referencia sin gluten · vegetariano (exacto)
+posición 2 propio → 905dd335 (exacto) · referencia sin gluten · vegetariano (exacto)
 posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
-consolidación ["Pedido del guiso",{"ref":"621db3ee","dir":"1100000000"},"sin lactosa",{"ref":"b24b883e","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · encaje [{"posicion":1,"evento":"621db3ee","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
+consolidación ["Pedido del guiso",{"ref":"905dd335","dir":"1100000000"},"sin lactosa",{"ref":"9c33af55","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · encaje [{"posicion":1,"evento":"905dd335","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
 cerrado false · cocina espera ["mover 14 E:casa/EUR de huesped a cocina"]
 pago [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}] · cerrado true
 EUR cocina 14 huesped 36 · hilo del pago: huesped → huesped → huesped → huesped → cocina → casa → casa
-propuestas del pedido [{"id":"64a575ac","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","cerrado":true,"fuentes":["621db3ee"]}]
+propuestas del pedido [{"id":"4e338180","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","cerrado":true,"fuentes":["905dd335"]}]
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
 8 entre hermanos: sin base escrita · n 1 · T:minuto: foco 6 caja 5 · cuota 1 · terminales (recuento): 6
 restaurado 10 eventos · cerrado true · posición 2 de la consolidación: sin lactosa
@@ -1210,6 +1216,7 @@ export function desdeSequenced(eje, textos: string[]): terminal[];
 export function desdeMapped(eje, entrada: string[][] | { i, j?, k?, contenido? }[], foco, camino = []): { payload: any[] | null, heredadas: (number | string)[], vistas: string[], anclados: { celda, en, payload, faltan }[], camino: number[] };
 export function ubicar(eje, foco, celda: number[], { camino = [], escritas = [], modo?, contenido? } = {}): { ubicacion: 'dentro' | 'anclado', en, dir, faltan: string[], motivo? };
 export function costeT(payload): number;
+export function quemaDelCoste(autor, payload, escala = 'minuto', { eje?, epoca? }?): { token: 'T', escala, cantidad, de: autor, a: null } | null; // la quema que exige la regla «the cost of writing»: la condición «writing burns today's T» exige al menos esto (VG 12-11, #64 b); la usan escribirDesde, invitar, aceptar, englobar y escribirBase
 export async function escribirDesde(eje, { modo, autor, sobre, en = direccion(camino), payload, t = ahora, contexto = {}, celda?, camino = [], heredadas = [] }, privada?): Promise<Evento>;
 export async function escribirSalida(eje, { modo = 'mapped', autor, sobre, salida, t = ahora, contexto = {} }, privada?): Promise<{ registro: Evento | null, anclados: Evento[], proporcion }>;
 export const CLASES: (string | null)[10];  // ver/sustituir, impulso de recursos, criterio, comunicación, acción; 5–9 null ([X] decidir VG)

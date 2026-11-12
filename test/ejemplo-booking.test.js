@@ -14,6 +14,7 @@ import { ejeTemporal } from '../src/tiempo.js';
 import { generarClaves } from '../src/autoridad.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { claveToken } from '../src/tokens.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 // Encargo 3b (mapa §15 [D] «Una sola operación: registrar»): ya no hay consolidar, autorizar, ejecutar ni estados
 // del motor en el ciclo de la reserva. Cada parte escribe su propio movimiento sobre la reserva (la casa entrega sus
@@ -22,7 +23,7 @@ import { claveToken } from '../src/tokens.js';
 
 const T = '2026-11-09T09:00:00Z';
 const SIETE = '7000000000';
-const minutos = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minutos = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 
 /**
  * Otra persona huésped: la casa la invita y ella acepta (su alta; mapa §16 [D] «El árbol mínimo es la invitación»),
@@ -119,10 +120,10 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   const consumido = (id) => eje.orden.map((x) => eje.obtener(x)).filter((e) => e.autor === id && e.contexto?.genesis !== true)
     .reduce((s, e) => s + e.movimientos.filter((m) => m.token === 'T' && m.escala === 'minuto' && m.de === id && m.a === null).reduce((x, m) => x + m.cantidad, 0), 0);
   assert.equal(eje.saldo(CASA, 'T:minuto'), 0);
-  // La casa: su emisión (1), las dos invitaciones (1 cada una), las altas de la temporada (1), alojamiento (1),
-  // habitación (10), su oferta pública (1), temporada (1) y la entrega (1).
-  assert.equal(consumido(CASA), 1 + 2 + 1 + 1 + habitacion.movimientos[0].cantidad + 1 + 1 + entrega.movimientos[0].cantidad);
-  assert.equal(consumido(CASA), 18);
+  // La casa: lo que exige la regla del coste por las posiciones de cada registro suyo (VG 12-11, #64 b: un minuto por
+  // posición): su emisión, las dos invitaciones, las altas de la temporada, alojamiento, habitación, su oferta pública,
+  // temporada y la entrega.
+  assert.equal(consumido(CASA), 46);
   // Recepción y la persona huésped no recibieron T: escriben con su asignación del día y no tienen T explícito.
   assert.deepEqual([eje.saldo('recepcion', 'T:minuto'), eje.saldo('huesped', 'T:minuto')], [0, 0]);
   // Recepción: su alta (1, B1), «atiende» (1) y su respaldo (1). Ya no autoriza nada.

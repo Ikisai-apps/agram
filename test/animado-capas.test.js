@@ -14,11 +14,12 @@ import * as C from '../src/contrato.js';
 import * as modelos from '../src/modelos.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const MUNDOS = [1, 2, 3, 4, 6, 7, 8, 9];
 const T1 = '2026-11-08T10:00:00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const CSS = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
 
 /** Las filas que VG fijó (11-11): por dado, el nombre del elemento en cada mundo. */

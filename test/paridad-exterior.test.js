@@ -30,9 +30,10 @@ import { EPOCA_0_BTML } from '../src/epocas.js';
 import { preferencias } from '../carta/carta.js';
 import * as G from '../carta/guia.js';
 import { Archivos, destinoDe } from '../carta/archivos.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const AHORA_DEL_RELE = '2026-11-10T10:20:00Z';
 const AHORA_DE_LA_CADENA = '2026-11-10T10:30:00Z';
 const NOMBRE_DEL_EJE = 'paridad-exterior';

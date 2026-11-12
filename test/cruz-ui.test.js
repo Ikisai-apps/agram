@@ -7,6 +7,7 @@ import { crearUi, piezasCruz, previaVigente, marcaDe, datosCaminoDe } from '../a
 import { lenteDe } from '../antigua/mundos/cruz.js';
 import { datosCielo } from '../antigua/mundos/cielo.js';
 import { previsualizar, tituloPropuesta } from '../antigua/mundos/camino.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const AHORA = '2026-11-07T15:00:00Z';
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
@@ -48,7 +49,7 @@ test('animado: el cielo y la senda en las celdas 8 y 9; la primera mirada no ani
   // Encargo 3b (mapa §15 [D] «Una sola operación: registrar»): no hay paso de autorizar. La huésped consolida y anuncia
   // en su 4.1 un pago que aún no ha hecho: la propuesta queda abierta y lo que falta es un paso «siguiente», que aparece.
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T15:10:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
-  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T15:10:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: [['E:casa/EUR'], [2], ['pagar'], [['huesped'], ['cocina']]] });
+  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T15:10:00Z', movimientos: [pagaElCoste('huesped')], payload: [['E:casa/EUR'], [2], ['pagar'], [['huesped'], ['cocina']]] });
   ui.vista = true;
   const segunda = piezasCruz(estado, ui, { animado: true, ahora: AHORA });
   assert.match(segunda.celda9, new RegExp(`class="paso tipo-siguiente nuevo aparece" [^>]*data-evento="${c.id}"`));
@@ -89,7 +90,7 @@ test('una previsualización vale solo para el eje, el foco, el camino y quien mi
     assert.equal(previaVigente(u, otro), null);
   }
   // Se escribe algo desde cualquier sitio (aquí, Pointed): la previsualización se descarta.
-  await eje.escribir({ autor: 'huesped', sobre: compra.id, t: '2026-11-07T15:20:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: 'pan del día' });
+  await eje.escribir({ autor: 'huesped', sobre: compra.id, t: '2026-11-07T15:20:00Z', movimientos: [pagaElCoste('huesped')], payload: 'pan del día' });
   const despues = piezasCruz(estado, ui, { animado: true, ahora: AHORA });
   assert.equal(ui.previa, null);
   assert.ok(!despues.vista.includes('class="previa"') && !despues.celda9.includes('previsto'));

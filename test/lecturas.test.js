@@ -25,6 +25,7 @@ import { evaluar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { pasoDe } from '../src/pasos.js';
 import * as J from './paridad-lecturas-js.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const completa = (X, pv, extra = {}) => ({ foco: { X, pv }, ...extra });
@@ -187,7 +188,7 @@ test('Core en la carta: el mundo 1 del alta de VG trae a Core derivado en su 3 (
 test('la anidación con el jardín y el parque: el 2 de un elemento lee sus criterios; el 3 sobre el 2, los comentarios sobre esos criterios; el 2 contiene al 1 y el 3 al 2', async () => {
   const c = await ejemploCompra();
   const j = await ejemploJardinYParque(c.eje, c);
-  const comentario = await c.eje.escribir({ autor: 'casa', sobre: j.decision.id, en: '3000000000', t: '2026-11-07T15:30:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }], payload: 'el sábado no abrimos' });
+  const comentario = await c.eje.escribir({ autor: 'casa', sobre: j.decision.id, en: '3000000000', t: '2026-11-07T15:30:00Z', movimientos: [pagaElCoste('casa')], payload: 'el sábado no abrimos' });
   // el 2 de la compra: sus criterios (lo anclado en el 2 y en el 2.1)
   const dos = C.leer(c.eje, c.compra.id, 2);
   assert.ok(dos.lista.some((x) => x.valor?.ref === j.decision.id), 'la decisión, en el 2');
@@ -213,7 +214,7 @@ test('la anidación con el jardín y el parque: el 2 de un elemento lee sus crit
 /** Una compra con algo anclado en su 1.1, su 1.1.1 y su 1.1.1.1 (y en su 2.1.1.1 y su 3.1.1.1.1), para bajar por los dígitos. */
 async function conProfundidad() {
   const c = await ejemploCompra();
-  const T1 = [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }];
+  const T1 = [pagaElCoste('huesped')];
   const anclar = (en, payload, minuto) => c.eje.escribir({ autor: 'huesped', sobre: c.compra.id, en, t: '2026-11-08T10:' + String(minuto).padStart(2, '0') + ':00Z', movimientos: T1, payload });
   const a11 = await anclar('1100000000', 'uno.uno', 1);
   const a111 = await anclar('1110000000', 'uno.uno.uno', 2);
@@ -253,7 +254,7 @@ test('la carta baja toda la profundidad del 1 con la dirección entera (1 → 1.
   const r3 = await enMundo(3, 5);
   assert.deepEqual([r3.nivel, r3.direccion], [2, '3.1']);
   // entrar en un registro (con el dígito de su celda) también suma su dígito a la dirección
-  const nota = await c.eje.escribir({ autor: 'huesped', sobre: c.compra.id, en: '3000000000', t: '2026-11-08T11:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: [['Nota']] });
+  const nota = await c.eje.escribir({ autor: 'huesped', sobre: c.compra.id, en: '3000000000', t: '2026-11-08T11:00:00Z', movimientos: [pagaElCoste('huesped')], payload: [['Nota']] });
   const dentro = (await arbol(completa(c.compra.id, 1, { profundidad: { 1: [{ X: nota.id, d: 3 }] } }), c.eje, 'huesped', GRANDE)).centro.rejilla;
   assert.deepEqual([dentro.X, dentro.direccion, dentro.ruta], [nota.id, '1.3', [nota.id]]);
   const sinDigito = (await arbol(completa(c.compra.id, 1, { profundidad: { 1: [nota.id] } }), c.eje, 'huesped', GRANDE)).centro.rejilla;
@@ -368,7 +369,7 @@ test('paridad JS ↔ BQL: el diario (por llegada, «soonest» y «latest»), est
 
 test('el 1 cuenta lo propio (#44): lo que el dueño acuña para sí en lo suyo cuenta; lo que solo quema al escribir, no; el JavaScript de antes no lo contaba', async () => {
   const c = await ejemploCompra();
-  const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const minuto = (de) => pagaElCoste(de);
   // una cosa de la casa (solo quema el T de escribir) y, colgados de ella, los bonos que la casa se acuña
   const tienda = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, en: '1000000000', t: '2026-11-07T17:00:00Z', movimientos: [minuto('casa')], payload: [['La tienda de la casa']] });
   const nota = await c.eje.escribir({ autor: 'casa', sobre: tienda.id, en: '2000000000', t: '2026-11-07T17:01:00Z', movimientos: [minuto('casa')], payload: [['Una nota de la casa']] });
@@ -424,7 +425,7 @@ test('el 6 lee las dos cosas (#45): el hilo (su primera fórmula, nivel negativo
 
 test('sin tope en el núcleo (#44): una lectura encadenada sigue todos los nodos (más de 200) y los contadores son exactos', async () => {
   const c = await ejemploCompra();
-  const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const minuto = (de) => pagaElCoste(de);
   const N = 205;
   for (let k = 0; k < N; k++) {
     await c.eje.escribir({ autor: 'casa', sobre: c.menu.id, en: '9000000000', t: '2026-11-07T17:' + String(Math.floor(k / 60)).padStart(2, '0') + ':' + String(k % 60).padStart(2, '0') + 'Z', movimientos: [minuto('casa')], payload: [['nota ' + k]] });

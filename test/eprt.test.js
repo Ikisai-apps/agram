@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { recuento, peso } from '../src/motor.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-07T10:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 async function mundo() {
   const eje = await Eje.genesis({

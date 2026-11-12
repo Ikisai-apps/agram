@@ -17,8 +17,9 @@ import { validarPayload } from '../src/btml.js';
 import { evaluar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const T = '2026-11-07T18:00:00Z';
 
 /** Una copia de la época 0 con cambios, con sus modelos. */

@@ -37,15 +37,16 @@ La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node -
 
 ```js
 import { Eje, encaje, bql } from './src/index.js';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 const t = '2026-11-07T10:00:00Z';
-const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gasta = (de) => pagaElCoste(de);
 const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'R', cantidad: 5 }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
 // Ana y bea aceptan una invitación de la casa: su aceptación es su alta (VG, 9-11 y 10-11, B1: son personas); T no
 // cruza de persona (VG, 7-11 noche): reciben euros y escriben con su asignación de T del día (VG, 8-11).
 for (const id of ['ana', 'bea']) await eje.aceptar(await eje.invitar({ autor: 'casa', invitado: id, t }), {}, { t });
-const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'ana' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']] });
-const disp = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa')], payload: ['Disponibilidad 14-16 nov', ['Habitaciones', [['doble'], '80 EUR'], [['individual'], '50 EUR']]] });
-const reserva = (quien, noches) => eje.escribir({
+const alta = await escribirPagando(eje, { autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'ana' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']] });
+const disp = await escribirPagando(eje, { autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa')], payload: ['Disponibilidad 14-16 nov', ['Habitaciones', [['doble'], '80 EUR'], [['individual'], '50 EUR']]] });
+const reserva = (quien, noches) => escribirPagando(eje, {
   autor: quien, sobre: disp.id, en: '1100000000', t, movimientos: [gasta(quien)],
   payload: ['Reserva de ' + quien, [{ ref: disp.id, dir: '1110000000' }], 'sin mascotas', [quien, 'casa'], '=LOCAL(1, 0) * LOCAL(7) + LOCAL(7) * 24 h', { ref: disp.id, dir: '1150000000' }, { ref: disp.id, dir: '1160000000' }, noches],
 });

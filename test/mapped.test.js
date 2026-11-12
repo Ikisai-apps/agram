@@ -8,8 +8,9 @@ import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { direccion } from '../src/btml.js';
 import { Eje } from '../src/eje.js';
 import { contenido } from '../src/modos.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 const soloMedidas = (m) => Object.fromEntries(MEDIDAS.map(({ clave }) => [clave, m[clave]]));
 
 test('la matriz es 1 8 2 / 6 5 7 / 3 9 4', () => {
@@ -94,7 +95,7 @@ test('mapa: corta duro en 1000 posiciones (el foco, el hilo y los hijos, por ese
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: 'g', t: T0 });
   const lista = (n) => Array.from({ length: n }, (_, i) => 'o' + i);
   // El foco, 1 + 300 = 301, y su hilo, el génesis, 1; los hijos, 301 cada uno: entran dos (904) y el tercero pasaría (1205).
-  const foco = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['foco', lista(300)] });
+  const foco = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [pagaElCoste('raiz', 'hora')], payload: ['foco', lista(300)] }); // 301 minutos: en horas, para que quepan los de los hijos en los minutos del día
   const hijos = [];
   for (let i = 0; i < 4; i++) hijos.push(await eje.escribir({ autor: 'raiz', sobre: foco.id, t: T0, movimientos: [gastaT('raiz')], payload: ['hijo ' + i, lista(300)] }));
   const m = mapa(eje, foco.id);
@@ -107,7 +108,7 @@ test('mapa: corta duro en 1000 posiciones (el foco, el hilo y los hijos, por ese
   assert.equal(lineas[0], 'aviso: ' + m.avisos[0]); // arriba
   assert.equal(lineas.at(-1), 'aviso: ' + m.avisos[0]); // y abajo
   // Un foco que solo ya pasa del máximo entra recortado por índice, como en Pointed, y nada más.
-  const enorme = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['enorme', lista(1200)] });
+  const enorme = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [pagaElCoste('raiz', 'dia')], payload: ['enorme', lista(1200)] });
   const e = mapa(eje, enorme.id);
   assert.equal(e.alcance.conseguido, 1000);
   assert.deepEqual([e.hilo, e.hijos], [[], []]);

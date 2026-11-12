@@ -10,9 +10,10 @@ import { generarClaves, firmar, verificar } from '../src/autoridad.js';
 import { crearEvento } from '../src/evento.js';
 import { direccion } from '../src/btml.js';
 import { serializar, restaurar } from '../src/persistencia.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-07T10:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 function azar(semilla) {
   let a = semilla >>> 0;

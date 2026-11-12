@@ -18,9 +18,10 @@ import { decupla, render } from '../src/pointed.js';
 import { mapa } from '../src/mapped.js';
 import { ARIDAD, esLista, esDecupla } from '../src/btml.js';
 import { contarPosiciones, cabeTope } from '../src/modos.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const PREGUNTAS = PV.map((_, d) => EPOCA_0.reglaCorta(1, d));
-const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gasta = (de) => pagaElCoste(de);
 
 async function compraConCuenta() {
   const base = await ejemploCompra();

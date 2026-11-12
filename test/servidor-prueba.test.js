@@ -10,9 +10,10 @@ import { arrancar } from '../servidor/prueba/servidor.mjs';
 import { LIMITE_CUERPO, PAGINA, generarClaveLectura, hashDeClave } from '../servidor/supabase/funciones/eventos/api.js';
 import { Eje } from '../src/eje.js';
 import { generarClaves } from '../src/autoridad.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = (m) => '2026-11-10T09:' + String(m).padStart(2, '0') + ':00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 
 let servidor;
 const reloj = Date.parse('2026-11-10T12:00:00Z');

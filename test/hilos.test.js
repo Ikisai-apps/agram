@@ -11,9 +11,10 @@ import {
   datosHilos, svgHilos, htmlHilos, memoria, rotuloToken, efectosNuevos,
 } from '../antigua/mundos/hilos.js';
 import { crearUi, piezasHilos } from '../antigua/mundos/hilos-ui.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const AHORA = '2026-11-07T15:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
 
 /** Etiquetas de apertura de los elementos que llevan data-evento = id. */

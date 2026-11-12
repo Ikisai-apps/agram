@@ -25,7 +25,7 @@ Las de solo leer (ask for a recommendation, compare with another record, view th
 
 - **Retirar las listas** cuando «admit someone» esté migrada: entonces `recetasDe`, `movimientosDe` y `serieDe` de `src/acciones.js` se van, y con ellos el «extra» de la posición 2 y el texto `"nobody"`.
 - **`motor.siguiente`** sigue armando en JavaScript «move what was announced» y «commit P» (ahora anclado sobre el anuncio); el estudio pide que pase por las plantillas.
-- **El coste en la validación**: «writing burns today's T» sigue pidiendo al menos una quema de T de hoy, no lo exigido por posición; exigirlo obligaría a pagar por posición a todo lo que se escribe a mano (ejemplos y pruebas). Core, pendiente de revisar VG.
+- **El coste en la validación** (DECIDIDO VG 12-11, #64 b, rama `beta-costeexigido`): «writing burns today's T» exige lo que calcula la regla del coste (la T quemada por el autor en escalas del calendario, en segundos, ≥ lo exigido por el payload); lo escrito a mano calcula su quema con `escritura.quemaDelCoste`. Queda abierto el coste de las bases (ver DECISIONES_2026-11-12, #64 b).
 - **El ajuste fino por escalas y el botón de ejecutar con el rango** (decisión 7) son de la carta.
 - **«Declarar T futuro» como anuncio de T**: hoy es el T informativo con su fecha (sin cambiar el evento, por la doble ejecución); que lo cumpla el T real que se trabaja anclado sobre él queda por decidir.
 - **Los ejemplos de antes**: compra (`ejemploFabrica`), Booking y Tasks escriben ya el anuncio como movimientos anunciados; las pruebas y los ejemplos que lo escriben como payload siguen leyéndose con la misma fórmula. Retirar esa forma es otro paso.

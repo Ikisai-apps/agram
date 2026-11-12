@@ -15,9 +15,10 @@ import { esLista, esDecupla, validarPayload, resolver, direccion } from '../src/
 import { consultar, evaluar } from '../src/bql.js';
 import { seguir } from '../src/encaje.js';
 import { capacidadDe } from '../src/motor.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-08T10:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 async function ejeCon(payload) {
   const eje = await Eje.genesis({

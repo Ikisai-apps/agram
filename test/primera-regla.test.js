@@ -13,6 +13,7 @@ import { crearEvento, canonico, cuerpo, hash, RAIZ } from '../src/evento.js';
 import { diaCivil } from '../src/tokens.js';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const REGLA = EPOCA_0_BTML.condiciones[0];
 const juzgar = (eje, ev) => evaluarRegla(REGLA, new ContextoEje(eje, { ev, epoch: EPOCA_0_BTML }));
@@ -77,7 +78,7 @@ test('inválido a mano: escribir sin quemar T; el eje lo rechaza y la regla no p
   const r = juzgar(eje, ev);
   assert.equal(r.pasa, false);
   assert.equal(r.estado, 'RESUELTO');
-  assert.equal(r.motivo, "writing burns today's T: huesped burns no T, or more T than is left today (day " + diaCivil(t) + ')');
+  assert.equal(r.motivo, "writing burns today's T: huesped burns less T than writing costs (60 seconds), or more T than is left today (day " + diaCivil(t) + ')');
 });
 
 test('inválido a mano: quemar más T del que da la asignación del día; el eje lo rechaza y la regla no pasa', async () => {
@@ -90,7 +91,7 @@ test('inválido a mano: quemar más T del que da la asignación del día; el eje
     payload: ['Un día de 25 horas'],
   });
   const errores = await eje.validar(ev);
-  assert.ok(errores.some((e) => /^writing burns today's T: huesped burns no T, or more T than is left today/.test(e)), errores.join('; '));
+  assert.ok(errores.some((e) => /^writing burns today's T: huesped burns less T than writing costs \(\d+ seconds\), or more T than is left today/.test(e)), errores.join('; '));
   assert.equal(juzgar(eje, ev).pasa, false);
 });
 
@@ -119,7 +120,7 @@ test('una cosa no tiene asignación (B1: su alta la escribió otro): la regla le
 
 test('sin época la regla no puede leer la asignación: PENDIENTE, y no pasa', async () => {
   const { eje, menu } = await ejemploCompra();
-  const ev = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T16:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: ['x'] });
+  const ev = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T16:00:00Z', movimientos: [pagaElCoste('huesped')], payload: ['x'] });
   const r = evaluarRegla(REGLA, new ContextoEje(eje, { ev }));
   assert.deepEqual([r.pasa, r.estado], [false, 'PENDIENTE']);
   assert.match(r.motivo, /no hay epoch/);

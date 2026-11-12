@@ -16,6 +16,7 @@ import { validarMovimiento } from '../src/tokens.js';
 import { Libro, acunar, bloquear, transaccion } from '../src/libro.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const REGLA = EPOCA_0_BTML.condiciones[0];
 const uno = (src, ctx) => {
@@ -52,7 +53,7 @@ test('SEG-09 una décupla del payload que imita un movimiento no cuenta: las pri
 
 test('SEG-10 la expansión de ocupantes tiene un presupuesto por evaluación; las referencias repetidas se siguen una vez', async () => {
   const { eje, menu } = await ejemploCompra();
-  const minuto = { token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null };
+  const minuto = pagaElCoste('huesped');
   const grande = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [minuto], payload: ['Lista enorme', Array.from({ length: 20000 }, (_, k) => 'x' + k)] });
   const ctx = new ContextoEje(eje, { ev: grande });
   const r = evaluar('count ev.1', ctx);
@@ -74,10 +75,10 @@ test('SEG-11 «nadie» es un símbolo: una identidad que se llama así no se con
     autor: 'casa',
     sobre: eje.genesisId,
     t: '2026-11-07T15:00:00Z',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 5, de: 'casa', a: 'nadie' }],
+    movimientos: [pagaElCoste('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 5, de: 'casa', a: 'nadie' }],
     payload: ['Alta de alguien que se llama nadie', ['nadie']],
   });
-  const ev = await crearEvento({ autor: 'nadie', sobre: alta.id, t: '2026-11-07T16:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'nadie', a: null }], payload: ['Escribe nadie'] });
+  const ev = await crearEvento({ autor: 'nadie', sobre: alta.id, t: '2026-11-07T16:00:00Z', movimientos: [pagaElCoste('nadie')], payload: ['Escribe nadie'] });
   const ctx = new ContextoEje(eje, { ev, epoch: EPOCA_0_BTML });
   assert.equal(uno('first ev.3', ctx), 'nadie');
   assert.equal(uno('first ev.1.3.1', ctx), NADIE);
@@ -97,7 +98,7 @@ test('SEG-12 una salida o una serie llamada «__proto__» o «constructor»: el 
     autor: 'casa',
     sobre: eje.genesisId,
     t: '2026-11-07T15:00:00Z',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'P', ambito: 'genesis', cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: '__proto__' }],
+    movimientos: [pagaElCoste('casa'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: '__proto__' }],
     payload: ['bloqueo raro'],
   }), /salida no puede llamarse «__proto__»/);
   // El libro, por debajo de la validación: las claves raras son claves propias y el prototipo no cambia.
@@ -117,7 +118,7 @@ test('SEG-12 una salida o una serie llamada «__proto__» o «constructor»: el 
 
 test('SEG-13 el presupuesto cobra lo que devuelve cada referencia aunque esté memoizada: muchas referencias a un registro grande no salen gratis', async () => {
   const { eje, menu } = await ejemploCompra();
-  const minuto = { token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null };
+  const minuto = pagaElCoste('huesped');
   const grande = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [minuto], payload: ['Doscientos', Array.from({ length: 200 }, (_, k) => 'x' + k)] });
   const ref = { ref: grande.id, dir: '1000000000' };
   const cien = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:01:00Z', movimientos: [minuto], payload: ['Cien referencias', Array.from({ length: 100 }, () => ref)] });
@@ -144,7 +145,7 @@ test('SEG-14 nadie mueve lo ajeno desde una regla: una regla de la época con un
   assert.throws(() => epocaCambiada({ regla: { nombre: 'stage', formula: '=put 10 at (first it.3).2.1.(it)' } }), /coloca \(put\) sin ser una regla que escribe/);
   // Evaluada a mano (sin el cargador), la regla con un verbo es ERROR: nunca se mueve nada desde una regla.
   const { eje, menu } = await ejemploCompra();
-  const ev = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: ['x'] });
+  const ev = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [pagaElCoste('huesped')], payload: ['x'] });
   const ctx = new ContextoEje(eje, { ev, epoch: EPOCA_0_BTML });
   const r = evaluarRegla([['thief'], [], ['=1 = 1 or transfer 12 E.("casa").("EUR") from "cocina" to first ev.3'], ['ev.3'], ['transfer'], ['*'], ['x'], ['epoch 0'], ['first'], ['no']], ctx);
   assert.deepEqual([r.pasa, r.estado], [false, 'ERROR']);

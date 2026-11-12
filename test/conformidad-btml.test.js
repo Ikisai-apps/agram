@@ -34,11 +34,12 @@ import { mapa } from '../src/mapped.js';
 import { lectura, MODOS } from '../src/modos.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { generarClaves, firmar, verificar } from '../src/autoridad.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-07T10:00:00Z';
 // Encargo 3b (mapa §15 [D] «P como peso de criterio»): el génesis ya no emite P a mano (se obtiene al escribir).
 const EMISION = [];
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 /**
  * Dar minutos de T a una cosa. T no cruza de persona (VG, 7-11 noche), pero una persona sí da su T a una cosa
  * (Core, 8-11): en estas pruebas la raíz es una persona y quienes da de alta, cosas que escriben con su T.
@@ -428,7 +429,7 @@ test('BTML-17b una posición puede referir a una rama',
 test('BTML-18 las referencias no copian: lo referido se lee al resolver, nunca al escribir', async () => {
   const { eje, id } = await ejeCon(['Casa']);
   // Se prepara A sin añadirlo: su id ya existe porque es el hash de su cuerpo.
-  const a = await crearEvento({ autor: 'raiz', sobre: id, t: T0, movimientos: [gastaT('raiz')], payload: ['A', 'contenido de A'] });
+  const a = await crearEvento({ autor: 'raiz', sobre: id, t: T0, movimientos: [gastaT('raiz', 2)], payload: ['A', 'contenido de A'] }); // dos posiciones, dos minutos (crearEvento no calcula el coste)
   // C1 (VG, 10-11): mientras A no está, B no entra (con red, se resolvería antes de aceptar).
   await assert.rejects(escribe(eje, id, ['B', { ref: a.id, dir: '1000000000' }, '=LOCAL(1)']), /referencia a un evento que no está en el eje/);
   await eje.anadir(a);

@@ -15,9 +15,10 @@ import { htmlConfiguracion, html } from '../carta/dom.js';
 import { destinoDe } from '../carta/archivos.js';
 import { t } from '../carta/textos.js';
 import { ejemploCompra, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const PLANTILLA = exterior.AJUSTES.plantilla;
 
 async function cuentaDeVg() {

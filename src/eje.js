@@ -53,6 +53,7 @@ import { firmar, firmarPosesion } from './autoridad.js';
 import { Libro, EMISION, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
 import { CONDICIONES, CONDICIONES_GENESIS, CONDICIONES_GENESIS_GUARDADO, SIN_CAPACIDAD, contratoE } from './condiciones/index.js';
 import { ContextoEje } from './contexto-eje.js';
+import { quemaDelCoste } from './escritura.js';
 
 export { reglasDelTope, SIN_CAPACIDAD } from './condiciones/tope.js';
 
@@ -1139,7 +1140,7 @@ export class Eje {
     const alta = this.alta(autor);
     if (!alta) throw new Error('invitar: ' + autor + ' no tiene alta');
     if (typeof invitado !== 'string' || !invitado || this.alta(invitado)) throw new Error('invitar: el invitado es una identidad nueva, sin alta: ' + invitado);
-    const movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }];
+    const movimientos = [null]; // la quema del coste de escribir (VG 12-11, #64 b), cuando ya está el payload
     const acunada = new Map();
     for (const d of da) {
       const m = { ...d, ...(d.token === 'E' || d.token === 'R' ? { emisor: d.emisor ?? autor } : {}) };
@@ -1164,6 +1165,7 @@ export class Eje {
       [grupo],
       [tema ?? 'invitación de ' + autor],
     ];
+    movimientos[0] = quemaDelCoste(autor, payload, 'minuto', { eje: this });
     return this.escribir({ autor, sobre: alta.id, en: '3000000000', t, movimientos, payload }, privada);
   }
 
@@ -1181,8 +1183,9 @@ export class Eje {
     const quien = hoja(inv.payload?.[3]?.[1]);
     if (typeof quien !== 'string') throw new Error('aceptar: la invitación no nombra a quién invita (su 3.1)');
     const regalos = this.bloqueos(inv.autor).filter((b) => b.salida === quien);
+    const cuerpo = payload ?? ['Alta de ' + quien];
     const movimientos = [
-      { token: 'T', escala: 'minuto', cantidad: 1, de: quien, a: null },
+      quemaDelCoste(quien, cuerpo, 'minuto', { eje: this }),
       ...regalos.map((b) => {
         const { token, emisor, denominacion, registro, ambito, origen } = b;
         return { token, ...(emisor ? { emisor } : {}), ...(denominacion ? { denominacion } : {}), ...(registro ? { registro } : {}), ...(ambito ? { ambito } : {}), ...(origen ? { origen } : {}), cantidad: b.cantidad, de: inv.autor, a: quien, salida: quien };
@@ -1193,7 +1196,7 @@ export class Eje {
       sobre: inv.id,
       t: t ?? inv.t,
       movimientos,
-      payload: payload ?? ['Alta de ' + quien],
+      payload: cuerpo,
       contexto: clave?.publica ? { claves: { [quien]: clave.publica } } : {},
     }, clave?.privada);
   }

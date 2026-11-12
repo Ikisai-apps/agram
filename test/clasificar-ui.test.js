@@ -14,6 +14,7 @@ import {
   modeloClasificar, htmlClasificar, vistaClasificar, posicionDe, posicionesDe, escribirColocacion, elementoDe,
   colocarEnLente, quitarDeLente, lenteDe, elegirModoClasificar, modoClasificar, huecoDe, colocacionDe, claveDe, MODOS_CLASIFICAR,
 } from '../antigua/ui/clasificar.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = '2026-11-07T16:00:00Z';
 
@@ -117,7 +118,7 @@ test('clasificar, modo crear: un escrito va por referencia; el hueco 0 cae en la
 
 test('clasificar: lo escrito por dirección en una subposición se ve en su hueco; la pieza de la lista es otra cosa', async () => {
   const { eje, compra: c } = await compra();
-  const nota = await eje.escribir({ autor: 'huesped', sobre: c.id, en: '3700000000', t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: 'para las 14:00' });
+  const nota = await eje.escribir({ autor: 'huesped', sobre: c.id, en: '3700000000', t: T, movimientos: [pagaElCoste('huesped')], payload: 'para las 14:00' });
   const m = modeloClasificar(eje, c.id, [3]);
   assert.deepEqual(m.huecos[7].escritos.map((x) => [x.evento, x.colocacion]), [[nota.id, false]]);
   assert.equal(m.piezas.length, 2);

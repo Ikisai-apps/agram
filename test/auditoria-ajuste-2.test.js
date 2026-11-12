@@ -9,6 +9,7 @@ import { item, desdePointed, desdeSequenced } from '../src/escritura.js';
 import { cargarEpoca, EPOCA_0 } from '../src/epocas.js';
 import { confluir } from '../src/tiempo.js';
 import { cortesDe } from '../src/bases.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = '2026-11-07T16:00:00Z';
 
@@ -19,7 +20,7 @@ test('A2-02: un registro que se dice «de la fábrica» escrito fuera de ella no
   const { eje, compra } = await ejemploCompra();
   const falsa = await eje.escribir({
     autor: 'huesped', sobre: compra.id, en: '7000000000', t: T,
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
+    movimientos: [pagaElCoste('huesped')],
     payload: 'mañana',
     contexto: { motor: 'fabrica', fase: 'consolidado' },
   });
@@ -27,7 +28,7 @@ test('A2-02: un registro que se dice «de la fábrica» escrito fuera de ella no
   // Anclado en la posición 4, pero sin motor 'fabrica', tampoco cuenta.
   const sinMotor = await eje.escribir({
     autor: 'huesped', sobre: compra.id, en: '4000000000', t: T,
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
+    movimientos: [pagaElCoste('huesped')],
     payload: 'x', contexto: { fase: 'consolidado' },
   });
   assert.equal(propuestas(eje, compra.id).length, 0);
@@ -100,7 +101,7 @@ test('A2-04: una dirección escrita desde un modo sigue siendo dirección para B
   assert.equal(hilera[5], '1000000000');
   const r = await eje.escribir({
     autor: 'huesped', sobre: compra.id, t: T,
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
+    movimientos: [pagaElCoste('huesped')],
     payload: hilera,
   });
   assert.equal(consultar(eje, r.id, [0], 'BUSCAR(LOCAL(5))').estado, 'RESUELTO');

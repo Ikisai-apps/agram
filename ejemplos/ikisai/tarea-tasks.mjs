@@ -45,7 +45,8 @@ import { Eje } from '../../src/eje.js';
 import { evaluar } from '../../src/bql.js';
 import { indicesDe } from '../../src/btml.js';
 import { claveToken } from '../../src/tokens.js';
-import { costeT, escribirDesde } from '../../src/escritura.js';
+import { escribirDesde } from '../../src/escritura.js';
+import { pagaElCoste, escribirPagando } from './coste.mjs';
 import { descubrir, proponer, consolidar, siguiente, FABRICA, ANUNCIO } from '../../src/motor.js';
 import { entrarPorInvitacion } from './altas.mjs';
 
@@ -331,12 +332,12 @@ export async function ejemploTarea({ claves = {}, hasta = 'pagada' } = {}) {
   // casa (E:casa/hora). Escribir cuesta un minuto por posición, de su propio T. La tarima se queda en la casa.
   for (const id of ['organizadora', 'proveedor']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: T0, clave: claves[id], privadaDe: priv });
   const altas = ['Altas para la fiesta del sábado', ['organizadora', 'proveedor']];
-  r.alta = await eje.escribir({
+  r.alta = await escribirPagando(eje, {
     autor: 'casa',
     sobre: eje.genesisId,
     t: T0,
     movimientos: [
-      { token: 'T', escala: 'minuto', cantidad: costeT(altas), de: 'casa', a: null },
+      pagaElCoste('casa'),
       ...DE_LA_CARPA.map(([concepto, importe]) => ({ token: 'E', emisor: 'casa', denominacion: concepto, cantidad: importe, de: 'casa', a: 'organizadora' })),
       // Cada una escribe y trabaja con su asignación de T del día (VG, 8-11). La casa cede al proveedor 20
       // horas de su tiempo como E:casa/hora (VG, 7-11 noche: T no cruza de persona, se transforma en E).
@@ -428,9 +429,9 @@ export async function ejemploTarea({ claves = {}, hasta = 'pagada' } = {}) {
   // libro (VG 12-11, decisión 8: no tocan saldos), en un anuncio. Es lo que la
   // tarea espera para cerrarse (su plantilla de cerrado).
   const anunciados = movimientosDeEjecucion(eje, r.consolidacion.id, r.tarea.id).map((m) => ({ ...m, estado: 'anunciado' }));
-  r.anuncios = [await eje.escribir({
+  r.anuncios = [await escribirPagando(eje, {
     autor: 'organizadora', sobre: r.tarea.id, en: ANUNCIO, t: '2026-11-08T10:30:00Z',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT('pagar'), de: 'organizadora', a: null }, ...anunciados], payload: 'pagar',
+    movimientos: [pagaElCoste('organizadora'), ...anunciados], payload: 'pagar',
   }, priv('organizadora'))];
   if (tope < 4) return r;
 
@@ -439,13 +440,13 @@ export async function ejemploTarea({ claves = {}, hasta = 'pagada' } = {}) {
   // es una referencia a ellas, no una copia): su propio movimiento.
   const presupuesto = presupuestoElegido(eje, r.consolidacion.id);
   const entrega = ['Carpa montada', { ref: presupuesto.id, dir: '2000000000' }];
-  r.entrega = await eje.escribir({
+  r.entrega = await escribirPagando(eje, {
     autor: 'proveedor',
     sobre: r.consolidacion.id,
     en: FABRICA,
     t: '2026-11-13T16:00:00Z',
     movimientos: [
-      { token: 'T', escala: 'minuto', cantidad: costeT(entrega), de: 'proveedor', a: null },
+      pagaElCoste('proveedor'),
       horasDeEntrega(eje, r.consolidacion.id),
     ],
     payload: entrega,
@@ -456,12 +457,12 @@ export async function ejemploTarea({ claves = {}, hasta = 'pagada' } = {}) {
   // organizadora (motor.siguiente), en un registro suyo anclado sobre su
   // anuncio (VG 12-11, decisión 8: así lo cumple).
   const [{ transaccion }] = siguiente(eje, r.tarea.id, 'organizadora').faltaDeMi;
-  r.pago = await eje.escribir({
+  r.pago = await escribirPagando(eje, {
     autor: 'organizadora',
     sobre: transaccion.sobre,
     en: transaccion.en,
     t: '2026-11-13T18:00:00Z',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'organizadora', a: null }, ...transaccion.movimientos.slice(1)],
+    movimientos: [pagaElCoste('organizadora'), ...transaccion.movimientos.slice(1)],
     payload: 'Carpa montada y pagada',
   }, priv('organizadora'));
   return r;

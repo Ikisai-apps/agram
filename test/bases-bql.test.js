@@ -16,6 +16,7 @@ import { consultar, evaluar, esPendiente } from '../src/bql.js';
 import { CIELO, ETIQUETAS, clavesDeMedidas, medir, leerBase, basesEn, situar, comprobar, esBase } from '../src/bases.js';
 import * as agram from '../src/index.js';
 import { COSAS, ejemploComprasHermanas, escribirBaseDe, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const RAIZ = '0000000000';
 const claves = {};
@@ -69,8 +70,8 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
     + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.');
   // Sin identidad propia y sin nadie con clave y P sobre él, nadie puede escribirla.
   const solo = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: 'Sin poder', t: '2026-11-07T09:00:00Z' });
-  const lista = await solo.escribir({ autor: 'raiz', sobre: solo.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Lista' });
-  const punto = await solo.escribir({ autor: 'raiz', sobre: lista.id, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Punto' });
+  const lista = await solo.escribir({ autor: 'raiz', sobre: solo.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [pagaElCoste('raiz')], payload: 'Lista' });
+  const punto = await solo.escribir({ autor: 'raiz', sobre: lista.id, t: '2026-11-07T09:00:00Z', movimientos: [pagaElCoste('raiz')], payload: 'Punto' });
   assert.equal(consultar(solo, punto.id, [], 'FRESCURA()').motivo, 'sin base escrita en el 8 de ' + lista.id.slice(0, 8) + ' (alcance hermanos). ' + lista.id.slice(0, 8)
     + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.');
   // Con un gancho que no deja leer el registro, la cosa (que sale de su contexto) no se nombra; quien tiene P (los saldos),

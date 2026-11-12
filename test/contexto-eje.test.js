@@ -11,6 +11,7 @@ import { ESCALAS_T, SEGUNDOS, diaCivil } from '../src/tokens.js';
 import { crearEvento } from '../src/evento.js';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva, seriePlaza } from '../ejemplos/ikisai/reserva-booking.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const val = (src, c) => {
   const r = evaluar(src, c);
@@ -166,7 +167,7 @@ test('path: el hilo tiene un tope de diez niveles; más, PENDIENTE', async () =>
   const { eje, menu } = await ejemploCompra();
   let foco = menu;
   for (let k = 0; k < 8; k++) {
-    foco = await eje.escribir({ autor: 'cocina', sobre: foco.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: ['nivel ' + k] });
+    foco = await eje.escribir({ autor: 'cocina', sobre: foco.id, t: '2026-11-07T15:00:00Z', movimientos: [pagaElCoste('cocina')], payload: ['nivel ' + k] });
   }
   const ctx = new ContextoEje(eje, { ev: { autor: 'cocina', sobre: foco.id, t: '2026-11-07T15:00:00Z', movimientos: [], payload: ['hoja'] } });
   const r = evaluar('count path ev', ctx);
@@ -200,7 +201,7 @@ test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida)
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
   assert.equal(uno('("huesped").7.1', ctx), 1, 'el minuto de escribir su propia alta (B1)');
-  assert.equal(uno('("casa").7.1', ctx), 243, 'la casa gastó 3 minutos escribiendo (su emisión inicial, la invitación y las altas) y dio 240 a la cocina');
+  assert.equal(uno('("casa").7.1', ctx), 255, 'la casa gastó 15 minutos escribiendo (su emisión inicial, la invitación y las altas, por lo que la regla del coste exige por sus posiciones) y dio 240 a la cocina');
   assert.deepEqual(val('("huesped").7.8', ctx), [], 'las informativas no se gastan de ninguna asignación');
   // Al día siguiente, la asignación empieza entera: lo gastado vuelve a 0.
   const mañana = new ContextoEje(eje, { ev: { autor: 'huesped', sobre: compra.id, t: '2026-11-08T09:00:00Z', movimientos: [], payload: ['mañana'] } });
@@ -229,14 +230,14 @@ test('vistas: lo bloqueado por salida en A.1.(serie).2, y las series atadas viva
   const tarde = () => new ContextoEje(eje, { ev: { autor: 'casa', sobre: habitacion.id, t: '2026-11-18T10:00:00Z', movimientos: [], payload: ['tarde'] } });
   assert.equal(uno('("' + habitacion.id + '").1.("' + k + '").1', tarde()), eje.vivo(k));
   // Cuando otro escribe pasada esa noche, ya no está viva.
-  await eje.escribir({ autor: 'huesped', sobre: habitacion.id, t: '2026-11-18T09:00:00Z', payload: ['de vuelta'], movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }] });
+  await eje.escribir({ autor: 'huesped', sobre: habitacion.id, t: '2026-11-18T09:00:00Z', payload: ['de vuelta'], movimientos: [pagaElCoste('huesped')] });
   assert.deepEqual(val('("' + habitacion.id + '").1.("' + k + '")', tarde()), []);
   assert.equal(uno('before.6.3', tarde()), '2026-11-18T09:00:00.000Z', 'el reloj de los demás');
 });
 
 test('B6: el reloj de los demás (before.6.3), las series vivas del subárbol (X.7.1), lo bloqueado por salida de todos (before.2) y el orden del movimiento (nth en ev.1)', async () => {
   const { eje, alojamiento, habitacion } = await ejemploReserva({ confirmar: false });
-  const ev = { autor: 'casa', sobre: habitacion.id, t: '2026-11-09T10:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'T', escala: 'hora', cantidad: 1, de: 'casa', a: null }], payload: ['mirar'] };
+  const ev = { autor: 'casa', sobre: habitacion.id, t: '2026-11-09T10:00:00Z', movimientos: [pagaElCoste('casa'), { token: 'T', escala: 'hora', cantidad: 1, de: 'casa', a: null }], payload: ['mirar'] };
   const ctx = new ContextoEje(eje, { ev });
   // El reloj de los demás: el mayor t de las identidades que no son el autor de la candidata.
   assert.equal(uno('before.6.3', ctx), new Date(eje.tMaximo(['casa'])).toISOString());

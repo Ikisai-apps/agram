@@ -193,9 +193,9 @@ Las entradas de datos del contrato núcleo↔pantalla (encargo 3c-1: las plantil
 | 6 de dónde viene | VG, 7-11 noche (escribir consume T del autor), VG, 8-11 (T como asignación diaria), A3 (el calendario de la época), B1 (la asignación es de las personas) y A2 (sin excepción para el génesis) |
 | 7 desde qué época | `epoch 0` |
 | 8 orden | `first` |
-| 9 mensaje | `writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})` |
+| 9 mensaje | `writing burns today's T: {first ev.3} burns less T than writing costs ({first (first ev.8).6.1 * first epoch.7.0.1.1} seconds), or more T than is left today (day {ev.6.0.3})` |
 
-La condición:
+La condición (desde el 12-11, #64 b, además de la quema y del límite del día, exige lo que calcula la regla «the cost of writing»: la T que el autor quema, en segundos —cada escala por su cantidad y los segundos de `epoch.7.0`, una suma de siete términos—, ha de llegar a `first (first ev.8).6.1 * first epoch.7.0.1.1`, lo mismo que da esa lectura; el texto completo está en `datos/epocas/reglas/writing-burns-today-s-t.json`). Abajo, sin ese término:
 
 ```text
 =(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1
@@ -326,7 +326,7 @@ for (const n of [23, 24]) {
 
 ```text
 23 horas: pasa | eje: válido
-24 horas: writing burns today's T: huesped burns no T, or more T than is left today (day 20764) | eje: writing burns today's T: huesped burns no T, or more T than is left today (day 20764)
+24 horas: writing burns today's T: huesped burns less T than writing costs (60 seconds), or more T than is left today (day 20764) | eje: writing burns today's T: huesped burns less T than writing costs (60 seconds), or more T than is left today (day 20764)
 ```
 
 ## 10. Las reglas de la época 0

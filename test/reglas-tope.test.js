@@ -15,9 +15,10 @@ import { ContextoEje } from '../src/contexto-eje.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-08T10:00:00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 const vale = (cantidad, de, a) => ({ token: 'E', emisor: 'g', denominacion: 'vale', cantidad, de, a });
 const regla = (nombre) => EPOCA_0_BTML.escrituras.find((r) => r[0][0] === nombre);

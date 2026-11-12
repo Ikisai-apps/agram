@@ -17,12 +17,13 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, C
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T1 = '2026-11-08T10:00:00Z';
 const ORDENADOR = { ancho: 1200, alto: 800 };
 const GRANDE = { ancho: 1920, alto: 1080 };
 const MOVIL = { ancho: 400, alto: 700 };
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const CASI = 1e-9;
 
 function epocaCon(cambiar) {

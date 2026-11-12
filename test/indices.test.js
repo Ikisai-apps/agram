@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { serializar, restaurar } from '../src/persistencia.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-07T10:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'segundo', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 test('sobre() usa el índice y conserva el orden de entrada; la restauración lo reconstruye', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [], foco: 'g', t: T0 });

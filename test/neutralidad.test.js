@@ -37,6 +37,7 @@ import { direccion } from '../src/btml.js';
 import { generarClaves } from '../src/autoridad.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { raizDeAmbito } from '../src/tokens.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const SEMILLA = 20261107;
 const T0 = '2026-11-07T22:00:00Z';
@@ -59,7 +60,7 @@ function prng(semilla) {
 
 // T no cruza de persona (VG, 7-11 noche): ceder minutos a otro es E de la serie de tiempo de quien los da
 // (E:<de>/minuto, que el génesis emite); sin destinatario, consumir T propio.
-const minuto = (de, cantidad = 1, a = null) => (a === null ? { token: 'T', escala: 'minuto', cantidad, de, a } : { token: 'E', emisor: de, denominacion: 'minuto', cantidad, de, a });
+const minuto = (de, cantidad, a = null) => (a === null ? (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a }) : { token: 'E', emisor: de, denominacion: 'minuto', cantidad: cantidad ?? 1, de, a });
 const eur = (emisor, cantidad, de, a) => ({ token: 'E', emisor, denominacion: 'EUR', cantidad, de, a });
 let cuenta = 0;
 /** Payload único: dos pagos iguales serían el mismo evento (mismo id). */

@@ -12,8 +12,9 @@ import * as G from '../carta/guia.js';
 import { contrato, salida, direccion } from '../src/index.js';
 import { crearEvento } from '../src/evento.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const almacenFalso = () => {
   const m = new Map();
   return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), m };

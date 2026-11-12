@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ALCANCES_VISTA, htmlEscena, vistaEscena, representacion } from '../antigua/ui/escena.js';
 import { escenaDe, CAPACIDAD, ALCANCES } from '../src/scened.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const AHORA = '2026-11-07T15:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 /** La compra con su cuenta y dos compras hermanas más del mismo menú (datos inventados). */
 async function escenario() {
@@ -104,7 +105,7 @@ test('vista Scened: todo el eje con más de mil registros llega a la capacidad d
   const menu = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [gastaT('casa')], payload: ['Menú', ['sopa', 'pan', 'agua', 'fruta', 'café', 'vino', 'postre', 'pan sin gluten']] });
   for (let i = 0; i < 1000; i++) {
     // Cada compra, diez posiciones con contenido: su título y una lista de nueve.
-    await eje.escribir({ autor: 'casa', sobre: menu.id, t: '2026-11-07T13:30:00Z', movimientos: [gastaT('casa')], payload: ['Compra ' + i, [{ ref: menu.id, dir: '1000000000' }, 1, 'sopa', 'pan', 'agua', 'fruta', 'café', 'mesa 4', 'sin prisa']] });
+    await eje.escribir({ autor: 'casa', sobre: menu.id, t: '2026-11-' + String(7 + Math.floor(i / 100)).padStart(2, '0') + 'T13:30:00Z', movimientos: [gastaT('casa')], payload: ['Compra ' + i, [{ ref: menu.id, dir: '1000000000' }, 1, 'sopa', 'pan', 'agua', 'fruta', 'café', 'mesa 4', 'sin prisa']] });
   }
   // 1002 registros: el génesis y el menú (10) y 999 compras de diez llenan las 10000; la última queda fuera.
   const e = escenaDe(eje, menu.id, { alcance: 'general', ahora: AHORA });

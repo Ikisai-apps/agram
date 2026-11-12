@@ -25,6 +25,7 @@ import { ESCALAS_T, diaCivil } from './tokens.js';
 import { EPOCA_0_BTML } from './epocas.js';
 import { crearEvento, canonico, hash, RAIZ } from './evento.js';
 import { mensaje, configuracion } from './contrato.js';
+import { quemaDelCoste } from './escritura.js';
 
 /** La clase de la acuñación de la asignación del día en el libro local (la misma palabra que el eje: src/eje.js). */
 const ASIGNACION = 'asignacion';
@@ -207,7 +208,7 @@ export class LibroLocal {
       sobre: anterior,
       en,
       t: t ?? pendientes[n - 1].t,
-      movimientos: [{ token: 'T', escala: ESCALA_REGISTRO, cantidad: 1, de: this.#yo, a: null }],
+      movimientos: [quemaDelCoste(this.#yo, payload, ESCALA_REGISTRO, { eje: this.#eje })], // lo que la regla del coste exige por sus posiciones (VG 12-11, #64 b)
       payload,
     };
     const ev = typeof firmar === 'function' ? await this.#eje.anadir(await firmar(await crearEvento(datos))) : await this.#eje.escribir(datos, firmar);

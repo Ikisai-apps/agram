@@ -19,6 +19,7 @@ import { escribirDesde, costeT } from '../src/escritura.js';
 import { cabeTope } from '../src/modos.js';
 import { generarClaves, verificar } from '../src/autoridad.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const SEMILLA = 20261107;
 const T0 = '2026-11-07T00:00:00Z';
@@ -36,7 +37,7 @@ function prng(semilla) {
   return { r, int: (a, b) => a + Math.floor(r() * (b - a + 1)), pick: (xs) => xs[Math.floor(r() * xs.length)], si: (p = 0.5) => r() < p };
 }
 const hex = (g, n = 64) => Array.from({ length: n }, () => '0123456789abcdef'[g.int(0, 15)]).join('');
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const ida = (eje) => JSON.parse(JSON.stringify(serializar(eje)));
 const fotoSaldos = (eje) => JSON.stringify([...eje.saldos].map(([k, v]) => [k, [...v]]));
 const foto = (eje) => JSON.stringify({ orden: eje.orden, saldos: fotoSaldos(eje), claves: [...eje.claves], series: eje.series(), personas: eje.identidades().map((i) => eje.esPersona(i)) });
@@ -267,7 +268,7 @@ test('mover T de uno a sí mismo no paga la escritura', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [], foco: 'g', t: T0 });
   await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r' }], payload: 'gratis' }), /escribir consume T del autor/);
   await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 's' }], payload: 'gratis' }), /escribir consume T del autor/);
-  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: null }], payload: 'pagada' });
+  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [pagaElCoste('r')], payload: 'pagada' });
   assert.equal(eje.saldoT('r', 'minuto'), 1439);
 });
 
@@ -293,11 +294,15 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
     // no hay identidades de grupo: VG, 8-11).
     await entrarPorInvitacion(eje, { por: 'r', quien: 'b', t: T0 });
     const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => (a === 'hab' ? { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a } : { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta' });
-    const consumido = new Map([['T:minuto', 4]]); // la emisión de r, la invitación, el alta de b y la de r
+    // Lo quemado hasta aquí (la emisión de r, la invitación, el alta de b y la de r), lo que cuesta cada una por sus posiciones.
+    const consumido = new Map();
+    for (const id of eje.orden) for (const m of eje.obtener(id).movimientos ?? []) if (m.a === null) consumido.set(fam(claveToken(m)), (consumido.get(fam(claveToken(m))) ?? 0) + cantidadBase(m));
     const ids = [eje.genesisId, alta.id];
     for (let paso = 0; paso < 25; paso++) {
       const autor = g.pick(['r', 'r', 'b', 'c', 'hab', 'nadie']);
-      const mov = [{ token: 'T', escala: g.pick(['segundo', 'minuto']), cantidad: g.int(1, 3), de: autor, a: g.si(0.3) ? g.pick(quienes) : null }];
+      const escalaT = g.pick(['segundo', 'minuto']);
+      // La quema de al menos lo que exige la regla del coste por las tres posiciones del payload (VG 12-11, #64 b).
+      const mov = [{ token: 'T', escala: escalaT, cantidad: escalaT === 'minuto' ? g.int(3, 5) : g.int(180, 200), de: autor, a: g.si(0.3) ? g.pick(quienes) : null }];
       const op = g.int(0, 9);
       if (op === 0) mov.push({ token: 'E', denominacion: g.pick(['EUR', 'plaza']), emisor: g.pick(['r', autor]), cantidad: g.int(1, 30), de: autor, a: g.pick([...quienes, null]) });
       if (op === 1) mov.push({ token: 'P', ambito: g.pick([...ids, 'genesis']), cantidad: g.int(1, 4), de: autor, a: g.pick(quienes) });

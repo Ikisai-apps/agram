@@ -8,6 +8,7 @@ import {
   confluir, comparables, proyectoDe, medir, posicionesDe, clavesDe, etiquetaClave, fundir, unitaria, estadisticaVacia, cortesDe,
   ALCANCES, MEDIDAS, HITOS, SIN_BASE_ESCRITA,
 } from '../src/bases.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 // VG, 7-11 noche (mapa §14.2): una sola verdad del 8, la escrita. confluir() queda como respaldo
 // declarado (al vuelo, «sin base escrita»); una sola medida (bases.medir); los cortes son regla de la
@@ -22,7 +23,7 @@ async function ampliada() {
   return { ...base, cuenta, ...vecinas };
 }
 
-const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gasta = (de) => pagaElCoste(de);
 
 test('cortes: regla de la época; la época 0 trae 1 2 3 4 6 10 16 26 42 para las cantidades (R7: los recuentos no tienen)', async () => {
   for (const clave of ['T:hora', 'E:casa/EUR', 'P:genesis', 'tiempo:minuto']) assert.deepEqual(cortesDe(clave), { cortes: ESCALA_0, origen: 'epoca' }, clave);
@@ -163,7 +164,7 @@ test('medir, la única medida: posiciones frente a terminales, tokens por clave,
   assert.equal(m.posiciones, 6); // 0–5 desarrolladas: la misma definición que las bases por posición
   assert.equal(m.escritos, 1);
   // Por serie, sin totales de familia; y el T que gastaron quienes escribieron encima (R7: una cantidad).
-  assert.deepEqual(m.tokens, { 'T:hora': 1, 'E:casa/EUR': 12, 'tiempo:minuto': 3 });
+  assert.deepEqual(m.tokens, { 'T:hora': 1, 'E:casa/EUR': 12, 'tiempo:minuto': 4 });
   for (const familia of ['T', 'E', 'P', 'R']) assert.ok(!(familia in m.tokens));
   assert.equal(m.identidades, 2); // huesped y cocina
   assert.equal(m.profundidadHilo, 3);
@@ -220,7 +221,7 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
   assert.equal(c.tokens[pAlta].encima, 0); // nadie más movió poder sobre el alta
   // R:casa: la emisión (3), lo que guarda la invitación para Ana (1), lo que ella recoge (1) y lo que la casa le da (1).
   assert.deepEqual([c.tokens['R:casa'].maximo, c.tokens['R:casa'].suma], [3, 6]);
-  assert.deepEqual(c.comparables.find((x) => x.id === alta.id).tokens, { 'T:minuto': 1, 'R:casa': 1, 'tiempo:minuto': 1 }); // el alta: una clave por serie, ningún total
+  assert.deepEqual(c.comparables.find((x) => x.id === alta.id).tokens, { 'T:minuto': 2, 'R:casa': 1, 'tiempo:minuto': 1 }); // el alta: una clave por serie, ningún total
   assert.equal(etiquetaClave('P:genesis'), 'P movido sobre el eje'); // la etiqueta de la clave reservada del prefijo de la versión 2
   assert.equal(etiquetaClave('P:' + alta.id), 'P movido sobre ' + alta.id.slice(0, 8));
   assert.equal(etiquetaClave(pAlta), 'P movido sobre ' + alta.id.slice(0, 8) + ' (de casa)');
@@ -255,10 +256,10 @@ test('confluir: las bases del foco entre sus hermanos, sin nivel ni grado', asyn
   assert.equal(c.tokens['T:hora'].foco, 0);
   assert.equal(c.tokens['T:hora'].caja, 0);
   assert.equal(c.tokens['T:minuto'].etiqueta, 'T movido en minuto');
-  assert.equal(c.tokens['T:minuto'].suma, 9);
-  assert.equal(c.tokens['T:minuto'].foco, 1);
-  assert.equal(c.tokens['T:minuto'].caja, 1);
-  assert.deepEqual(c.tokens['T:minuto'].cajas, [1, 9, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal(c.tokens['T:minuto'].suma, 40);
+  assert.equal(c.tokens['T:minuto'].foco, 4);
+  assert.equal(c.tokens['T:minuto'].caja, 4);
+  assert.deepEqual(c.tokens['T:minuto'].cajas, [1, 1, 0, 1, 5, 2, 0, 0, 0, 0]);
   // Recursos: solo la compra y la rápida pagaron 12 EUR de la casa; quien no mueve EUR cuenta 0.
   assert.equal(c.tokens['E:casa/EUR'].foco, 12);
   assert.equal(c.tokens['E:casa/EUR'].minimo, 0);

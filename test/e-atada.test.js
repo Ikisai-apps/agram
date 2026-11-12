@@ -19,11 +19,12 @@ import { crearEvento } from '../src/evento.js';
 import { claveToken, franjaDe, familiaDe } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 // Las altas, un mes antes de T0 (ya no hace falta: cada persona escribe con su asignación de T del día (VG, 8-11)).
 const ALTA = '2026-10-08T10:00:00Z';
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 let cuenta = 0;
 const unico = (texto) => texto + ' #' + (++cuenta);
 

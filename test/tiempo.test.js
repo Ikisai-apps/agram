@@ -5,8 +5,9 @@ import * as tiempo from '../src/tiempo.js';
 import { banda, ejeTemporal, HITOS } from '../src/tiempo.js';
 import * as bases from '../src/bases.js';
 import { consolidar, ANUNCIO } from '../src/motor.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 test('bandas: la escala más pequeña que contiene la distancia', () => {
   assert.equal(banda(30), 'minuto');

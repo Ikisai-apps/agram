@@ -386,7 +386,7 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "36feb4ccdebe65362b08f80d7091e6338bc5c2462255a85a471b3adb198c1506"
+      "ref": "c2113f5b9fd8424d5693b3bb941321a39b7f2be360e2fae34c2ea93de9a00ec2"
     },
     {
       "ref": "342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d"
@@ -524,7 +524,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"
     },
     {
-      "ref": "4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7"
+      "ref": "b40be0667c53f6d16a0e70ccefe4f9f6cd23ffa805a039e85c6a71f388bbec45"
     },
     {
       "ref": "fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a"
@@ -4853,7 +4853,7 @@ export const EPOCA_0_BTML_DATOS = [
           "who has a key signs: {first ev.3} tiene clave y esta transacción no va firmada por él (firmante: {nth 1 ev.3})",
           "without a key nobody acts: {first ev.3} no tiene clave (va en su alta; solo un libro de demostración deja escribir sin ella)",
           "writing a record gives ten P on it: {first ev.3} obtiene {first epoch.1.1.4.1} P sobre el registro que escribe",
-          "writing burns today's T: {first ev.3} no quema T, o quema más T del que le queda hoy (día {ev.6.0.3})",
+          "writing burns today's T: {first ev.3} quema menos T del que cuesta escribir ({first (first ev.8).6.1 * first epoch.7.0.1.1} segundos), o más del que le queda hoy (día {ev.6.0.3})",
           "template admit someone: admitir a alguien",
           "template admit someone param whom label: a quién",
           "template admit someone param whom help: a quién admito en X: una identidad con alta (las opciones son las identidades del eje)",
@@ -8874,7 +8874,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "the-cost-of-writing.json",
-    "id": "4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7",
+    "id": "b40be0667c53f6d16a0e70ccefe4f9f6cd23ffa805a039e85c6a71f388bbec45",
     "registro": [
       [
         "the cost of writing"
@@ -8898,7 +8898,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "VG 12-11 (estudio BQL-transacciones, decisión 7; #49): el coste de escribir es una sola regla de la época, no treinta copias de «quema un minuto» en las plantillas de transacción (el minuto fijo era un sucedáneo); la cantidad es la suma de lo que exige cada posición (la proporción A3: un minuto por posición, la de escribirDesde)",
         "Una lectura con it = la candidata (su 3, ev): se lee antes de firmar, no se materializa en ninguna posición. Da lo exigido en segundos: las posiciones escritas del payload de la candidata ((first it.8).6.1, la medida bruta del 8.6, que en la candidata es solo lo suyo) por lo que exige cada una, el minuto del calendario (epoch.7.0.1.1, sesenta segundos). La leen src/escritura.js (exigido y costeT: escribirDesde) y src/acciones.js (transaccion: la T de una plantilla, en la escala pedida o en la menor que lo cubre); el ajuste fino por escalas y el botón de ejecutar con rango son de la carta",
-        "La condición «writing burns today's T» sigue pidiendo que el autor queme T de hoy (al menos uno, sin pasar de lo que le queda): no exige que la quema llegue a lo exigido. Core, pendiente de revisar VG: exigirlo en la validación obligaría a pagar por posición a todo lo que se escribe a mano (ejemplos y pruebas)"
+        "La condición «writing burns today's T» exige lo que esta regla calcula (VG 12-11, #64 b): lo que el autor quema de T en las escalas del calendario ha de llegar a lo exigido para el payload del registro, venga de donde venga (una plantilla, escribirDesde, un ejemplo a mano, una prueba): una sola tarifa. Quemar de más vale. Lo escrito a mano calcula su quema con la misma cuenta (src/escritura.js: quemaDelCoste, que usa costeT)"
       ],
       [
         "epoch 0"
@@ -9297,7 +9297,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "36feb4ccdebe65362b08f80d7091e6338bc5c2462255a85a471b3adb198c1506",
+    "id": "c2113f5b9fd8424d5693b3bb941321a39b7f2be360e2fae34c2ea93de9a00ec2",
     "registro": [
       [
         "writing burns today's T"
@@ -9308,7 +9308,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.3.1"
       ],
       [
-        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0 or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > sum (first ev.3).1.(it.0).1) = 0))"
+        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and ((sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.0.1) each 1) * epoch.7.0.0.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.1.1) each 1) * epoch.7.0.1.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.2.1) each 1) * epoch.7.0.2.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.3.1) each 1) * epoch.7.0.3.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.4.1) each 1) * epoch.7.0.4.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.5.1) each 1) * epoch.7.0.5.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.6.1) each 1) * epoch.7.0.6.1) >= first (first ev.8).6.1 * first epoch.7.0.1.1 or count (moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and count epoch.7.0.(it.0.0.1) = 1) = 0) and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0 or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > sum (first ev.3).1.(it.0).1) = 0))"
       ],
       [
         "ev.3"
@@ -9325,7 +9325,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])",
         "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla",
         "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño",
-        "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)"
+        "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)",
+        "VG, 12-11, #64 b: la condición exige lo calculado por la regla «the cost of writing»: lo que el autor quema de T en las escalas del calendario (cantidad por los segundos de su escala, epoch.7.0) ha de llegar a lo que esa regla da para el payload (un minuto por posición, A3); una sola tarifa venga de donde venga el registro. Más vale; menos se rechaza. Cada escala se reconoce por sus segundos en el calendario (epoch.7.0.(escala).1 = epoch.7.0.k.1), no por su dígito, para que la regla no lleve números que la época tenga (A3). La quema se lee de `moves ev` (los movimientos de la candidata, sin lo que el payload tenga en su 1) y no de `ev.1`, porque cada lectura de `ev.1` expande también el payload y, siete veces, pasa el presupuesto de cálculo en un registro de mil posiciones. Si el autor no quema nada de T real (solo T informativo: pasado, futuro, inventado), el registro es una memoria o un plan, gratis en T real y no presente, y la regla no le exige el coste (Core, pendiente de revisar VG). La cuenta del coste repite la de la lectura (first (first ev.8).6.1 * first epoch.7.0.1.1) porque una regla no llama a otra: lo comprueba test/coste-exigido.test.js"
       ],
       [
         "epoch 0"
@@ -9334,7 +9335,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "first"
       ],
       [
-        "writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})"
+        "writing burns today's T: {first ev.3} burns less T than writing costs ({first (first ev.8).6.1 * first epoch.7.0.1.1} seconds), or more T than is left today (day {ev.6.0.3})"
       ]
     ]
   }
@@ -16827,7 +16828,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "f3d392255be6063a77ce1104f23554cc66c29186215093200d7299cff1cb65e2";
+export const EPOCA_0_BTML_ID = "1b1763da848b43f5724c9bb7590ccba1cd51f1d864438a89cab62d7afc835ade";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

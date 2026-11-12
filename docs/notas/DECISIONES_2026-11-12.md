@@ -18,7 +18,7 @@ Cada nota tiene cuatro líneas: *Qué se decidió*, *Por qué* (lo que dice la f
 | 2. El 3: admisión, grupos, mínimos y personaje | #29, #31, #32, #33, #34 (sustituida), #35, #37, #38, #46 |
 | 3. El 4, la escalera y el rango | #39, #40, #41, y las decisiones 7 y 8 del estudio (en #49) |
 | 4. BQL con transacciones | #43, #48, #49 (decisiones 1 a 10), #50 |
-| 5. Tiempo e incongruencia | #42, #65, decisión 4 de #49 (los tres relojes, `X.6.8`) |
+| 5. Tiempo e incongruencia | #42, #64 b, #65, decisión 4 de #49 (los tres relojes, `X.6.8`) |
 | 6. Pantalla | #23 |
 
 Al final: «Lo que queda abierto» y «Lo que las fuentes no dicen o dicen distinto».
@@ -252,6 +252,14 @@ Pruebas de 1 a 4 y 9: las del paso 1 y 2 del estudio (ver #43). Para 5 a 8, las 
 - **Por qué.** La escala ya no la declara el autor a ojo sino que la propone el 4 a partir de lo emitido, así que el desajuste no puede darse salvo por fallo del propio 4: eso es cosa de una prueba, no de una marca al usuario.
 - **Qué cambia.** `src/tiempo.js` (fuera `incongruenciaDe` y `recomendacionDeEscala`; entra `escalaQueCubre`), `src/validez.js` (la interpretación ya no lleva `incongruenciaT`), `antigua/` (fuera `htmlRecomendacionT` y la línea tras escribir), `docs/CONTRATO.md`, `docs/FUNDAMENTOS.md`, `docs/MODOS.md`, `docs/notas/NEUTRALIDAD_IDENTIDAD.md` (C16), `docs/notas/INVENTARIO_REGLAS.md` (TT-13 retirada, TT-14 reconvertida). Rama `beta-sinescala`.
 - **Pruebas.** Retirada la de `incongruenciaDe` (`test/t-consumido.test.js`); la de la recomendación de `test/ui.test.js` pasa a probar `escalaQueCubre` (fronteras 0, 1, 10, 11, 100, 1000, 1001, 10^7 y el desborde).
+
+### #64 b — La condición «writing burns today's T» exige lo calculado por la regla del coste (DECIDIDO VG 12-11)
+
+- **Qué se decidió.** El coste de escribir es una regla de la época, «the cost of writing» (un minuto del calendario por posición del payload, A3), y ya lo pagaban las plantillas y `escribirDesde`. La condición «writing burns today's T» solo pedía al menos una quema de T del autor. VG: **la condición exige lo calculado por la regla**: lo que el autor quema de T, en cualquier escala real y convertido a segundos con el calendario, ha de ser ≥ lo exigido por el payload. Menos se rechaza («burns less T than writing costs (N seconds)»); quemar de más vale; el T informativo no paga (pero quien solo quema T informativo escribe una memoria o un plan, gratis en T real y no presente, y no se le exige el coste: Core lo conserva como estaba, pendiente de revisar VG). El génesis sigue fuera de las reglas.
+- **Por qué.** Un registro que paga menos de lo que la regla dice está mal pagado; el libro no acepta dos tarifas según por dónde entre el registro: **una sola tarifa, por posición, venga de donde venga**.
+- **Qué cambia.** `datos/epocas/reglas/writing-burns-today-s-t.json` (la condición y su mensaje es/en); `src/escritura.js` (`quemaDelCoste(autor, payload, escala?, { eje })`, que usan `escribirDesde`, `Eje.invitar`/`aceptar`, `Local.englobar` y `escribirBase`); los ejemplos (`ejemplos/ikisai/coste.mjs`: `pagaElCoste`/`escribirPagando`) y los helpers de las pruebas (`test/ayudas-coste.js`) calculan por payload. La cuenta del coste está repetida en la condición (una regla no llama a otra); `test/coste-exigido.test.js` comprueba que coincide con `exigido`.
+- **Consecuencia abierta (decidir VG).** Una base pesa cientos de posiciones (≈280–360 en el ejemplo), así que escribirla cuesta cientos de minutos; antes, un minuto (`COSTE_BASE`, «[X] decidir VG: el coste de una base»). Las cosas del ejemplo (comprasHermanas) reciben ahora T de su dueño (sábado y domingo) en minutos, segundos, horas y el día, el ciclo o el año enteros para poder escribirlas; `escribirBase` paga en la `escala` que se le pida o, si no, en la primera, empezando por el minuto, que le alcanza (`escritura.escalaQueAlcanza`); y las bases del ejemplo se escriben por defecto el 9-11, un día en que la casa no ha gastado su asignación. El mercado y el puesto del ejemplo pasan del 7-11 al 8-11. Los mensajes de «ver/tocar» (un segundo, local) usan la misma plantilla de la regla.
+- **Pruebas.** `test/coste-exigido.test.js`: la cuenta de la condición es la de la regla; lo exigido pasa, uno menos se rechaza, de más vale; suma de escalas (1 h + 11 min); el T informativo no cuenta; una posición cuesta un minuto.
 
 ### Los tres relojes en `X.6.8` (decisión 4 de #49, DECIDIDO VG)
 

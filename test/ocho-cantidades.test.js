@@ -14,6 +14,7 @@ import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import {
   confluir, situar, medir, esRecuento, esCantidad, cuotaDe, cajaDeCuota, porMasa, masaDe, ochoPorCantidades, MEDIDAS, INFORMATIVOS,
 } from '../src/bases.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const AYER = '2026-11-07T10:00:00Z';
 const T0 = '2026-11-08T10:00:00Z';
@@ -29,7 +30,7 @@ function prng(semilla) {
   return { int: (x, y) => x + Math.floor(r() * (y - x + 1)), pick: (xs) => xs[Math.floor(r() * xs.length)] };
 }
 
-const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gasta = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const eur = (de, a, cantidad) => ({ token: 'E', emisor: 'g', denominacion: 'EUR', cantidad, de, a });
 let cuenta = 0;
 const unico = (x) => x + ' #' + (++cuenta);
@@ -117,7 +118,7 @@ test('el T consumido sobre un registro es una cantidad del 8 (tiempo:<escala>), 
   assert.equal(medir(eje, M).tokens['tiempo:minuto'], 10);
   // Lo escrito sobre el génesis: la emisión inicial de g, sus cuatro invitaciones (encargo 3b: las personas escriben su
   // alta aceptándolas, B1, y cuelga de ellas), las altas de g y el mercado.
-  assert.equal(medir(eje, eje.genesisId).tokens['tiempo:minuto'], 7);
+  assert.equal(medir(eje, eje.genesisId).tokens['tiempo:minuto'], 47);
   // El subárbol del génesis funde el T gastado en todo el eje, sin recorrerlo: lo que da eje.tiempoBajo.
   const general = confluir(eje, M, { alcance: 'general' });
   assert.equal(general.tokens['tiempo:minuto'].suma, eje.tiempoBajo(eje.genesisId).minuto);

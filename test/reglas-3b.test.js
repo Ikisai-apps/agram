@@ -25,9 +25,10 @@ import { lenteDe, valor, devoluciones, pendientes } from '../src/lente.js';
 import { generarClaves } from '../src/autoridad.js';
 import { validez } from '../src/validez.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-08T10:00:00Z';
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 const P = (ambito, cantidad, de, a, extra = {}) => ({ token: 'P', ambito, cantidad, de, a, ...extra });
 const regla = (nombre) => [...EPOCA_0_BTML.condiciones, ...EPOCA_0_BTML.escrituras].find((r) => r[0][0] === nombre);
@@ -232,7 +233,7 @@ test('cerrado y siguiente (N5): lo anunciado en el 4.1 cierra el proceso cuando 
   await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vales', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 10, de: 'g', a: 'ana' }] });
   const trato = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: ['Trato', ['x'], ['all announced movements happened']], movimientos: [minuto('ana')] });
   const anuncio = [['E:g/vale'], [3], ['pagar'], [['ana'], ['g']]];
-  await eje.escribir({ autor: 'ana', sobre: trato.id, en: ANUNCIO, t: T0, payload: anuncio, movimientos: [minuto('ana', 4)] });
+  await eje.escribir({ autor: 'ana', sobre: trato.id, en: ANUNCIO, t: T0, payload: anuncio, movimientos: [minuto('ana')] });
   assert.equal(cerrado(eje, trato.id).cerrado, false);
   const deG = siguiente(eje, trato.id, 'g');
   assert.deepEqual([deG.faltaDeMi.length, deG.espera.map((x) => x.de)], [0, ['ana']], 'g espera a ana');

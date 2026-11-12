@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { secuencia, render } from '../src/sequenced.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-06T20:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 async function cadena(n) {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: 'g', t: T0 });

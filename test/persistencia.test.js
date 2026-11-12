@@ -7,12 +7,13 @@ import { crearEvento } from '../src/evento.js';
 import { generarClaves } from '../src/autoridad.js';
 import { evaluar } from '../src/bql.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 // Encargo 3b-bis (VG, 10-11): el P guarda su origen. Lo guardado son los eventos y las claves se derivan al revalidarlos:
 // un movimiento de P sin origen se lee como P de quien lo mueve (o, al acuñarlo, de quien lo recibe). Sin versión nueva.
 test('P con origen: un eje guardado con movimientos de P sin origen se restaura con las claves P:<ámbito>/<origen>', async () => {
   const t = '2026-11-10T10:00:00Z';
-  const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const minuto = (de) => pagaElCoste(de);
   const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t, foco: 'raíz', emision: [{ token: 'R', cantidad: 5 }] });
   await entrarPorInvitacion(eje, { por: 'g', quien: 'ana', t });
   const X = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, payload: ['Huerto'], movimientos: [minuto('g')] });
@@ -68,7 +69,7 @@ test('con claves, las firmas se verifican también al restaurar', async () => {
   delete roto.eventos[2].firma;
   await assert.rejects(restaurar(roto), /who has a key signs/);
   // Y sin la clave privada, cocina ya no puede escribir.
-  await assert.rejects(otro.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'x' }), /who has a key signs/);
+  await assert.rejects(otro.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [pagaElCoste('cocina')], payload: 'x' }), /who has a key signs/);
 });
 
 test('guardar y cargar en un localStorage simulado', async () => {
@@ -118,7 +119,7 @@ test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalida
   const t = '2026-11-07T09:00:00Z';
   const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', t, foco: 'Casa de ejemplo',
     emision: [{ token: 'R', cantidad: 1 }, { token: 'E', denominacion: 'EUR', cantidad: 50 }] });
-  const gasta = { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null };
+  const gasta = pagaElCoste('casa');
   const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, payload: ['Altas', ['huesped']],
     movimientos: [gasta, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 10, de: 'casa', a: 'huesped' }] });
   await eje.escribir({ autor: 'casa', sobre: alta.id, t, payload: ['Menú del día', ['ensalada', 'guiso']], movimientos: [{ ...gasta, cantidad: 3 }] });

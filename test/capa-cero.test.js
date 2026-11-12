@@ -20,6 +20,7 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { CONDICIONES, catalogo } from '../src/condiciones/index.js';
 import { Libro } from '../src/libro.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 /** La aritmética de antes, evento a evento y sin libro: saldos, bloqueos, series, altas, T gastado y T sobre cada registro. */
 function referencia(eje) {
@@ -148,7 +149,7 @@ test('capa cero: cada evento es una transacción (acuñar, transferir, bloquear,
   const { Eje } = await import('../src/eje.js');
   const libera = await Eje.genesis({ demostracion: true, identidad: 'g', t: '2026-11-07T09:00:00Z', foco: 'raíz' });
   const g = libera.genesisId;
-  const min = { token: 'T', escala: 'minuto', cantidad: 1, de: 'g', a: null };
+  const min = pagaElCoste('g');
   await libera.escribir({ autor: 'g', sobre: g, t: '2026-11-07T09:00:00Z', payload: 'me comprometo', movimientos: [min, { token: 'P', ambito: g, cantidad: 4, de: 'g', a: 'g', estado: 'bloqueo', salida: 'decisión' }] });
   await libera.escribir({ autor: 'g', sobre: g, t: '2026-11-07T09:00:00Z', payload: 'lo suelto', movimientos: [min, { token: 'P', ambito: g, cantidad: 4, de: 'g', a: 'g', estado: 'liberacion', salida: 'decisión' }] });
   for (const eje of [...Object.values(await ejemplos()), libera]) for (const id of eje.orden) {

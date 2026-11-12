@@ -156,7 +156,7 @@ En Booking (`ejemplos/ikisai/reserva-booking.mjs`, `test/ejemplo-booking.test.js
 | P | nadie lo emite a mano: se obtiene o se reposiciona |
 | E | P de quien emite **sobre el registro** al que está atada la serie («minting E needs P on its record»; sin registro nombrado, el alta del emisor: D2) y **R propia emitida** («minting E needs own R issued»: en su cartera, en manos de otros o acuñada en la misma transacción; sin colateral, D1/D2) |
 
-Los mensajes de rechazo son el 9 de cada regla, en inglés corto: «minting E needs own R issued: ana mints E and has never issued R of its own», «minting E needs P on its record: …», «writing burns today's T: … burns no T, or more T than is left today (day …)».
+Los mensajes de rechazo son el 9 de cada regla, en inglés corto: «minting E needs own R issued: ana mints E and has never issued R of its own», «minting E needs P on its record: …», «writing burns today's T: … burns less T than writing costs (… seconds), or more T than is left today (day …)».
 
 Decidido [D] (VG, 7-11, 7-11 noche y, con el encargo 3b, 8-11 a 10-11) e implementado: lo anterior. Abierto [X] decidir VG: si P y R admiten fracciones (hoy sí, en coma flotante: el P se reposiciona en décimas; E solo en las series declaradas divisibles, R2). La regla de T ya no es provisional: es la asignación diaria (VG, 8-11), con lo marcado [X] en «T como asignación diaria». **[X] confirmar VG**: el reloj no va hacia atrás. **[X] decidir VG**: qué hace verificable la salida de un bloqueo.
 

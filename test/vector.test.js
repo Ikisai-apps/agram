@@ -4,8 +4,9 @@ import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs
 import { vector, acuerdo, norma, signo, faltas, excedentes, distancia, ordenarPorEncaje, ocupantes } from '../src/encaje.js';
 import { consultar } from '../src/bql.js';
 import { consolidar, descubrir } from '../src/motor.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 const T = '2026-11-07T16:00:00Z';
 
 test('vector: destino menos origen, dígito a dígito; distancia positiva, acuerdo y signo informativo', () => {

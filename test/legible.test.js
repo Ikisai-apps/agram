@@ -11,9 +11,10 @@ import { html } from '../carta/dom.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T1 = '2026-11-08T10:00:00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const huecos = (s) => [...String(s).matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]).sort();
 const fecha = (iso, idioma, conHora = true) => new Intl.DateTimeFormat(idioma, conHora ? { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' } : { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(iso));
 

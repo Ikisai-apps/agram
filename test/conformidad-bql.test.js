@@ -23,9 +23,10 @@ import { consultar, evaluar, ESTADOS, SUBTIPOS_PENDIENTE, LIMITES, esPendiente }
 // Encargo 3b (mapa §15 [D] «Una sola operación: registrar»): consolidaciones() y estadoDe() se retiraron; la lista de
 // propuestas de un foco es motor.propuestas y su estado, la lectura motor.cerrado.
 import { consolidar, cerrado, propuestas } from '../src/motor.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-07T10:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 const ID_INEXISTENTE = 'f'.repeat(64); // bien formado, pero no está en el eje
 
 /**

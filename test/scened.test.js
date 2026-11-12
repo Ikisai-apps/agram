@@ -9,9 +9,10 @@ import { consultar } from '../src/bql.js';
 import { EPOCA_0 } from '../src/epocas.js';
 import { Eje } from '../src/eje.js';
 import * as agram from '../src/index.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const AHORA = '2026-11-07T15:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 const corto = (id) => id.slice(0, 8);
 
 /** La compra del ejemplo y dos compras hermanas más del mismo menú (datos inventados). */
@@ -260,7 +261,7 @@ test('mil compras hermanas: la escena llega a las diez mil posiciones y lo dice'
   const compras = [];
   for (let i = 0; i < 1000; i++) {
     // Cada compra, diez posiciones con contenido: su título y una lista de nueve.
-    compras.push(await eje.escribir({ autor: 'casa', sobre: menu.id, t: '2026-11-07T13:30:00Z', movimientos: [gastaT('casa')], payload: ['Compra ' + i, [{ ref: menu.id, dir: '1000000000' }, 1, 'sopa', 'pan', 'agua', 'fruta', 'café', 'mesa 4', 'sin prisa']] }));
+    compras.push(await eje.escribir({ autor: 'casa', sobre: menu.id, t: '2026-11-' + String(7 + Math.floor(i / 100)).padStart(2, '0') + 'T13:30:00Z', movimientos: [gastaT('casa')], payload: ['Compra ' + i, [{ ref: menu.id, dir: '1000000000' }, 1, 'sopa', 'pan', 'agua', 'fruta', 'café', 'mesa 4', 'sin prisa']] }));
   }
   const e = escenaDe(eje, compras[0].id, { ahora: AHORA });
   // El menú y el génesis entran una vez (10) y cada compra trae sus 10: 10 + 999 × 10 = 10000.

@@ -19,9 +19,10 @@ import { ContextoEje } from '../src/contexto-eje.js';
 import { relojesFueraDeOrden } from '../src/contrato.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
 import * as agram from '../src/index.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 const conSujeto = (expr, ctx, sujeto) => evaluar(expr, ctx, { sujeto });
 const ctxDe = (eje) => new ContextoEje(eje, { epoch: EPOCA_0_BTML });
 

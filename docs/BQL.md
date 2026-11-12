@@ -817,15 +817,16 @@ Guardar como `bql-ejemplo.mjs` en la raíz del repositorio y ejecutar `node bql-
 // (o, sin guardar, desde la raíz: node --input-type=module < bql-ejemplo.mjs)
 import { Eje } from './src/eje.js';
 import { evaluar, consultar } from './src/bql.js';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 
 const T = '2026-11-07T15:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 // Génesis: la identidad «casa» recibe tokens; el foco raíz es un texto.
 const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'Casa de ejemplo', t: T }); // escribir cuesta minutos
 
 // Un registro con fórmulas en sus slots (posiciones 1–4 de la décupla).
-const compra = await eje.escribir({
+const compra = await escribirPagando(eje, {
   autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')],
   payload: [
     'Compra',                    // 0
@@ -837,12 +838,12 @@ const compra = await eje.escribir({
 });
 
 // Tres propinas escritas en la posición 4 de la compra (sobre + en).
-const p1 = await eje.escribir({ autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '2 EUR' });
-const p2 = await eje.escribir({ autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '5 EUR' });
-const p3 = await eje.escribir({ autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '1 EUR' });
+const p1 = await escribirPagando(eje, { autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '2 EUR' });
+const p2 = await escribirPagando(eje, { autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '5 EUR' });
+const p3 = await escribirPagando(eje, { autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '1 EUR' });
 
 // Un registro que apunta a la compra por referencia (no copia).
-const cuenta = await eje.escribir({
+const cuenta = await escribirPagando(eje, {
   autor: 'casa', sobre: compra.id, en: '1000000000', t: T, movimientos: [gastaT('casa')],
   payload: ['Cuenta', { ref: compra.id, dir: '2000000000' }, '=REF("' + compra.id.slice(0, 8) + '", "1200000000") * 2', '==no es fórmula'],
 });

@@ -13,6 +13,7 @@ import { escribirDesde } from '../src/escritura.js';
 import { ejeTemporal } from '../src/tiempo.js';
 import { situar } from '../src/bases.js';
 import { generarClaves } from '../src/autoridad.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 // Encargo 3b (mapa §15 [D] «Una sola operación: registrar»): ya no hay autorizar, ejecutar ni estados del motor. La
 // fábrica consolida la elección (un registro más), la organizadora anuncia en la tarea lo que va a pagar (su 4.1), el
@@ -33,7 +34,7 @@ const recibidos = (eje, tarea) => consultar(eje, tarea.id, [9], 'CONTAR(FILTRAR(
 /** Los presupuestos que caben en coste y en plazo: la fórmula del 9 sin su ELEGIR. */
 const CABEN = 'FILTRAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"), Y(ACTUAL(1) <= LOCAL(1, 1), ACTUAL(2) <= LOCAL(2, 1)))';
 
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 
 /** El pago de la organizadora: lo que a la tarea le falta de ella (motor.siguiente), en un registro suyo sobre la tarea. */
 // El pago se ancla sobre el anuncio que cumple (VG 12-11, decisión 8; #48): lo que siguiente propone.
@@ -74,7 +75,7 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
     .reduce((s, e) => s + e.movimientos.filter((m) => m.token === 'T' && m.escala === escala && m.de === id && m.a === null).reduce((x, m) => x + m.cantidad, 0), 0));
   // La casa: su emisión (1), las dos invitaciones (1 cada una), las altas (3) y las partidas (10). Sin T explícito
   // (VG, 8-11: no hay T acumulable). Ya no libera P al acabar.
-  assert.deepEqual([T('casa'), consumido('casa')], [[0, 0], [1 + 2 + 3 + 10, 0]]);
+  assert.deepEqual([T('casa'), consumido('casa')], [[0, 0], [36, 0]]);
   assert.deepEqual(eje.recursos('proveedor').filter((r) => r.denominacion === 'hora'), [{ emisor: 'casa', denominacion: 'hora', cantidad: 20 }]);
   // La organizadora: su alta (1), la tarea (33), la fecha límite (1), la consolidación (10), el anuncio (1: su payload
   // dice para qué; lo anunciado son sus dos movimientos, VG 12-11, decisión 8) y el pago (1).

@@ -13,6 +13,7 @@ import { generar } from '../datos/generar-efectos.mjs';
 import {
   CATALOGO, TIPOS_EFECTO, MARCAS_EFECTO, SIN_NOMBRE, efectosDe, efectosDelEje, verEn, sobrio, render, nombreMundo, claseRelativa,
 } from '../src/efectos.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = '2026-11-07T16:00:00Z';
 const X = '[X] decidir VG';
@@ -21,7 +22,7 @@ const sinTokens = (efectos) => efectos.filter((e) => e.tipo !== 'token');
 const lineas = (efectos) => sinTokens(efectos).map((e) => e.etiqueta + ' ' + e.tipo);
 
 function escribe(eje, autor, sobre, en, payload, contexto = {}) {
-  return eje.escribir({ autor, sobre, en, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }], payload, contexto });
+  return eje.escribir({ autor, sobre, en, t: T, movimientos: [pagaElCoste(autor)], payload, contexto });
 }
 
 // Encargo 3b (VG, 8-11; mapa §15 [D] «Una sola operación: registrar»; N6: «los mundos animan registros anclados y
@@ -44,7 +45,7 @@ async function cicloCompleto() {
   });
   const a = await registrar(eje, {
     autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, payload: [['E:casa/EUR'], [14], ['pagar'], [['huesped'], ['cocina']]],
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
+    movimientos: [pagaElCoste('huesped')],
   });
   const e = await registrar(eje, { ...siguiente(eje, c.id, 'huesped').faltaDeMi[0].transaccion, t: T });
   return { eje, menu, compra, c, a, e };
@@ -347,7 +348,7 @@ test('el estado se lee con el eje de ahora; el efecto de la propuesta no cambia 
   assert.equal(cerrado(eje, c.id).cerrado, true, 'sin nada anunciado');
   await registrar(eje, {
     autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, payload: [['E:casa/EUR'], [5], ['pagar'], [['huesped'], ['cocina']]],
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
+    movimientos: [pagaElCoste('huesped')],
   });
   assert.equal(cerrado(eje, c.id).cerrado, false, 'con un pago anunciado y sin hacer');
   assert.deepEqual(efectosDe(eje, c.id), antes);

@@ -12,6 +12,7 @@ import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs
 import { leidos } from '../ejemplos/ikisai/leer.mjs';
 import { htmlLeido, alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { vistaClasificar } from '../antigua/ui/clasificar.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 test('las dos líneas de VG, leídas: el menú (una lista) y la compra (una décupla), salida exacta', async () => {
   const { eje, menu } = await ejemploCompra();
@@ -100,8 +101,8 @@ test('leerEvento: cabecera, payload y los ocupantes anclados bajo su posición, 
   const { eje, menu, compra } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
   // Otro escrito en la 3 (una lista de dos: los propios son los ocupantes 1 y 2) y uno en la raíz.
-  await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '3000000000', t: '2026-11-07T14:20:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'avisar al servir' });
-  await eje.escribir({ autor: 'huesped', sobre: compra.id, t: '2026-11-07T14:30:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: ['Gracias', 'muy rico'] });
+  await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '3000000000', t: '2026-11-07T14:20:00Z', movimientos: [pagaElCoste('cocina')], payload: 'avisar al servir' });
+  await eje.escribir({ autor: 'huesped', sobre: compra.id, t: '2026-11-07T14:30:00Z', movimientos: [pagaElCoste('huesped')], payload: ['Gracias', 'muy rico'] });
   const nombres = { [menu.id]: 'menú', [compra.id]: 'compra' };
   assert.equal(leerEvento(eje, compra.id, { nombres }), [
     'compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000',
@@ -134,7 +135,7 @@ test('leerEvento: cabecera, payload y los ocupantes anclados bajo su posición, 
 
 test('un escrito anclado donde el payload no tiene nada abre su posición vacía', async () => {
   const { eje, compra } = await ejemploCompra();
-  await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '7200000000', t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'a las tres' });
+  await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '7200000000', t: '2026-11-07T15:00:00Z', movimientos: [pagaElCoste('cocina')], payload: 'a las tres' });
   const texto = leerEvento(eje, compra.id);
   assert.match(texto, /\n7 · futuro:\n  2 · con qué condición:\n    ↳ ocupante 1 · cocina · a las tres$/);
 });
@@ -157,7 +158,7 @@ test('la UI pinta el conmutador «leído» y, abierto, el registro en un <pre> q
   assert.match(abierto, /aria-pressed="true"/);
   assert.match(abierto, /<pre id="leido-foco" class="leido-texto"[^>]*>[^<]*0 · representación: Compra del menú del día\n1 · recursos:\n {2}0 · qué es: → menú:1/);
   // El texto va escapado: un < del payload no abre HTML.
-  const raro = await eje.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: ['<b>negrita</b>'] });
+  const raro = await eje.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [pagaElCoste('cocina')], payload: ['<b>negrita</b>'] });
   assert.match(htmlLeido(eje, raro.id, { abierto: true }), /&lt;b&gt;negrita&lt;\/b&gt;/);
   // El conmutador alterna (y en Node, sin almacenamiento, no pasa nada).
   const antes = leidoAbierto();

@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { crearEvento, RAIZ, validarForma } from '../src/evento.js';
 import { direccion } from '../src/btml.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-06T20:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 async function ejeBase() {
   return Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: ['casa', ['menú']], t: T0 });

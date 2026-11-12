@@ -7,8 +7,9 @@ import { serializar } from '../src/persistencia.js';
 import {
   TIPOS, datosCamino, previsualizar, svgCamino, htmlCamino, htmlPrevia, actorDe, tituloPropuesta, copiar, contenidoPropuesto,
 } from '../antigua/mundos/camino.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 /** Un movimiento anunciado en el 4.1 de una propuesta por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
 const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
 const T = '2026-11-07T16:00:00Z';

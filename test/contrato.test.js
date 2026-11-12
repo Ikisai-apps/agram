@@ -23,8 +23,9 @@ import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const CERRADO = 'all announced movements happened';
 const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
 
@@ -176,8 +177,8 @@ test('division: la tabla del espacio de bloque de epoch.8.3 (datos que caben →
 // ---------- 5. la madurez ----------
 
 test('madurez: la lectura «maturity» (X.8.1) con su medida (X.8.6), y el nombre entre los niveles de la época o los de la plantilla del tipo', async () => {
-  assert.deepEqual(C.madurez(eje, compra), { nivel: 11, de: 15, nombre: 'list', clave: 'list', medida: { posiciones: 15, profundidad: 1, cantidad: 16 } });
-  assert.deepEqual(C.madurez(eje, cuenta), { nivel: 4, de: 15, nombre: 'stem', clave: 'stem', medida: { posiciones: 4, profundidad: 0, cantidad: 3 } });
+  assert.deepEqual(C.madurez(eje, compra), { nivel: 11, de: 15, nombre: 'list', clave: 'list', medida: { posiciones: 15, profundidad: 1, cantidad: 17 } });
+  assert.deepEqual(C.madurez(eje, cuenta), { nivel: 4, de: 15, nombre: 'stem', clave: 'stem', medida: { posiciones: 4, profundidad: 0, cantidad: 4 } });
   const T = '2026-11-07T18:00:00Z';
   const semilla = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: T, movimientos: [minuto('huesped')], payload: ['x'] });
   assert.deepEqual(C.madurez(eje, semilla), { nivel: 1, de: 15, nombre: 'seed', clave: 'seed', medida: { posiciones: 1, profundidad: 0, cantidad: 1 } });

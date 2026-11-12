@@ -106,7 +106,7 @@
     ]
   ],
   [
-    {"ref":"36feb4ccdebe65362b08f80d7091e6338bc5c2462255a85a471b3adb198c1506"},
+    {"ref":"c2113f5b9fd8424d5693b3bb941321a39b7f2be360e2fae34c2ea93de9a00ec2"},
     {"ref":"342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d"},
     {"ref":"9f8937d09b05d60e79794298a3ddd96e0880f07559e0391ba5f1d427985724b2"},
     {"ref":"140674b9456c609e4ea0ab855e2dc6d32615065523e92bad5968fea4bd746521"},
@@ -152,7 +152,7 @@
     {"ref":"18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71"},
     {"ref":"6ca50905d9242646b8c92ebf365d470b079504a010a36f7e17ac349425e59d75"},
     {"ref":"bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"},
-    {"ref":"4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7"},
+    {"ref":"b40be0667c53f6d16a0e70ccefe4f9f6cd23ffa805a039e85c6a71f388bbec45"},
     {"ref":"fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a"},
     {"ref":"5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"},
     {"ref":"9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"},
@@ -1801,7 +1801,7 @@
           "who has a key signs: {first ev.3} tiene clave y esta transacción no va firmada por él (firmante: {nth 1 ev.3})",
           "without a key nobody acts: {first ev.3} no tiene clave (va en su alta; solo un libro de demostración deja escribir sin ella)",
           "writing a record gives ten P on it: {first ev.3} obtiene {first epoch.1.1.4.1} P sobre el registro que escribe",
-          "writing burns today's T: {first ev.3} no quema T, o quema más T del que le queda hoy (día {ev.6.0.3})",
+          "writing burns today's T: {first ev.3} quema menos T del que cuesta escribir ({first (first ev.8).6.1 * first epoch.7.0.1.1} segundos), o más del que le queda hoy (día {ev.6.0.3})",
           "template admit someone: admitir a alguien",
           "template admit someone param whom label: a quién",
           "template admit someone param whom help: a quién admito en X: una identidad con alta (las opciones son las identidades del eje)",

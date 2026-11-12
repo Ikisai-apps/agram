@@ -46,6 +46,7 @@ import { ARIDAD, esReferencia, indicesDe } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
 import { AMBITO_GENESIS, ESCALAS_T, claveToken, cantidadBase, partirClave, movimientosReales } from './tokens.js';
 import { ocupantes } from './encaje.js';
+import { quemaDelCoste, escalaQueAlcanza } from './escritura.js';
 // bql.js importa este módulo (BASES, CAJA, FRESCURA): la importación es
 // circular, así que de bql.js solo se usa dentro de funciones, nunca al cargar.
 import { esFormula, evaluar } from './bql.js';
@@ -842,11 +843,12 @@ function leerSiEsBase(eje, ev, previos) {
  * Escribe la base de un registro en su 8 (sobre: registro, en: CIELO). La
  * escribe `autor`: por defecto la propia cosa (identidadDe); si se da otro,
  * ha de tener P sobre el registro. Firma con su clave privada y gasta su T
- * (COSTE_BASE). Contexto { bases: true, n, nSubarbol, hasta, epoca, sinBase };
+ * (lo que la regla del coste exige por las posiciones de la base, un minuto cada una: quemaDelCoste, en la `escala` de T
+ * que se pida o, si no, en la primera, empezando por el minuto, que le alcanza: VG 12-11, #64 b). Contexto { bases: true, n, nSubarbol, hasta, epoca, sinBase };
  * el payload lleva las dos estadísticas y las referencias a lo medido.
  * Corregir = volver a escribir: la anterior queda en el 8.
  */
-export async function escribirBase(eje, { registro, privada, autor, t = new Date().toISOString(), epoca = EPOCA_0 }) {
+export async function escribirBase(eje, { registro, privada, autor, t = new Date().toISOString(), epoca = EPOCA_0, escala }) {
   if (!eje.obtener(registro)) throw new Error('registro desconocido: ' + registro);
   const quien = autor ?? identidadDe(eje, registro);
   if (!quien) {
@@ -857,13 +859,14 @@ export async function escribirBase(eje, { registro, privada, autor, t = new Date
   if (!privada) throw new Error('una base va firmada: falta la clave privada de ' + quien);
   const calculada = calcularBase(eje, registro, { epoca });
   if (calculada.hijos.n === 0) throw new Error('nada que medir: ' + registro.slice(0, 8) + ' no tiene hijos');
+  const payload = payloadDeBase(calculada);
   return eje.escribir({
     autor: quien,
     sobre: registro,
     en: CIELO,
     t,
-    movimientos: [{ ...COSTE_BASE, de: quien, a: null }],
-    payload: payloadDeBase(calculada),
+    movimientos: [quemaDelCoste(quien, payload, escala ?? escalaQueAlcanza(eje, quien, payload, t), { eje })], // lo que la regla del coste exige por sus posiciones (VG 12-11, #64 b)
+    payload,
     contexto: {
       bases: true,
       n: calculada.hijos.n,

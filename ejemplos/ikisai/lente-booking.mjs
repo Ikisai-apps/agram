@@ -23,6 +23,7 @@ import { ejemploReserva, CASA } from './reserva-booking.mjs';
 import { entrarPorInvitacion } from './altas.mjs';
 import { valor, detalleValor } from '../../src/lente.js';
 import { consultar } from '../../src/bql.js';
+import { pagaElCoste, escribirPagando } from './coste.mjs';
 
 /** Las dos asociaciones (registros) y la persona que escribe cada una y emite su R. */
 export const ASOCIACIONES = Object.freeze({
@@ -36,7 +37,7 @@ export const CERCANOS_DE_LA_CASA = Object.freeze(['secretaria-norte', 'secretari
 /** La identidad nueva que se autoemite mucha R. */
 export const RECIEN = 'recien';
 
-const minutos = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minutos = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const daEuro = (de, a) => ({ token: 'E', emisor: CASA, denominacion: 'EUR', cantidad: 1, de, a });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 
@@ -56,7 +57,7 @@ export async function ejemploLente({ t = '2026-11-08T20:00:00Z' } = {}) {
   const nombres = Object.keys(ASOCIACIONES);
   const personas = [...nombres.map((n) => ASOCIACIONES[n].secretaria), RECIEN];
   for (const id of personas) await entrarPorInvitacion(eje, { por: CASA, quien: id, t });
-  const altas = await eje.escribir({
+  const altas = await escribirPagando(eje, {
     autor: CASA, sobre: eje.genesisId, t, payload: ['Altas de vecinos', personas],
     movimientos: [minutos(CASA), ...personas.map((id) => daEuro(CASA, id))],
   });
@@ -66,21 +67,21 @@ export async function ejemploLente({ t = '2026-11-08T20:00:00Z' } = {}) {
   const asociaciones = {};
   for (const n of nombres) {
     const { secretaria, emite, aLaHuesped } = ASOCIACIONES[n];
-    asociaciones[n] = await eje.escribir({ autor: secretaria, sobre: altas.id, t: luego, payload: ['Asociación', n], movimientos: [minutos(secretaria)] });
-    await eje.escribir({
+    asociaciones[n] = await escribirPagando(eje, { autor: secretaria, sobre: altas.id, t: luego, payload: ['Asociación', n], movimientos: [minutos(secretaria)] });
+    await escribirPagando(eje, {
       autor: secretaria, sobre: asociaciones[n].id, t: luego, payload: 'Reputación de ' + secretaria + ' en ' + n,
       movimientos: [minutos(secretaria), R(secretaria, emite, null, secretaria), R(secretaria, aLaHuesped, secretaria, 'huesped')],
     });
   }
 
   // «recien» se autoemite mucha R y la reparte: a la huésped y a la casa.
-  await eje.escribir({
+  await escribirPagando(eje, {
     autor: RECIEN, sobre: altas.id, t: luego, payload: 'Mucha reputación',
     movimientos: [minutos(RECIEN), R(RECIEN, 1e6, null, RECIEN), R(RECIEN, 5e5, RECIEN, 'huesped'), R(RECIEN, 1000, RECIEN, CASA)],
   });
 
   // La casa pone a las secretarias en su grupo de cercanos: en el 3.3.3 de su alta (para la casa, el génesis).
-  const lente = await eje.escribir({
+  const lente = await escribirPagando(eje, {
     autor: CASA, sobre: eje.genesisId, en: '3330000000', t: luego, payload: [...CERCANOS_DE_LA_CASA],
     movimientos: [minutos(CASA)],
   });

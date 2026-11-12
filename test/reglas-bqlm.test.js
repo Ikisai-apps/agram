@@ -43,6 +43,7 @@ import { ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/iki
 import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 /** Las reglas que el encargo 3b cambia o añade: sin condición JS que traducir (test/reglas-3b.test.js). */
 export const DEL_3B = Object.freeze([
@@ -235,7 +236,7 @@ const ALTA = '2026-10-08T10:00:00Z';
 const T0 = Date.parse('2026-11-08T10:00:00Z');
 const ANIO = 31536000 * 1000;
 const iso = (ms) => new Date(ms).toISOString().replace('.000Z', 'Z');
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const AUSENTE = 'ab'.repeat(32);
 
 /**

@@ -5,8 +5,9 @@ import { descubrir, consolidar, registrar, cerrado, siguiente, propuestas, FABRI
 import { evaluar } from '../src/bql.js';
 import { Eje } from '../src/eje.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 /** Un movimiento anunciado en el 4.1 de X por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
 const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
 
@@ -121,7 +122,7 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
 
   // Un elemento neutro: su posición 1 declara capacidad 1; su posición 2 no declara nada.
   const t = '2026-12-01T09:00:00Z';
-  const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+  const gasta = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
   // VG, 7-11 noche: lo emite una persona; encargo 3b: el génesis no mueve nada, su autor emite después (R antes que E).
   const eje = await Eje.genesis({ demostracion: true, identidad: 'g', emision: [{ token: 'R', cantidad: 5 }, { token: 'E', denominacion: 'minuto', cantidad: 300 }], foco: 'raíz', t });
   // T no cruza de persona (VG, 7-11 noche): el alta les cede minutos de g como E (E:g/minuto); cada una escribe con su propio T.

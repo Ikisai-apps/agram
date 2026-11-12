@@ -14,9 +14,10 @@ import { evaluar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import * as agram from '../src/index.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 
 let servidor;
 let reloj = Date.parse('2026-11-10T12:00:00Z'); // el reloj del servidor y el del cliente, controlados

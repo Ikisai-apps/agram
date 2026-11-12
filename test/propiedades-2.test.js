@@ -25,6 +25,7 @@ import * as TK from '../ejemplos/ikisai/tarea-tasks.mjs';
 import { ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { clavesDeMedidas } from '../src/bases.js';
 import { ALCANCES } from '../src/tiempo.js';
+import { pagaElCoste, conCoste } from './ayudas-coste.js';
 
 const SEMILLA = 20261108;
 const T0 = '2026-11-07T00:00:00Z';
@@ -46,7 +47,7 @@ function prng(semilla) {
   return { r, int: (a, b) => a + Math.floor(r() * (b - a + 1)), pick: (xs) => xs[Math.floor(r() * xs.length)], si: (p = 0.5) => r() < p };
 }
 const hex = (g, n = 64) => Array.from({ length: n }, () => '0123456789abcdef'[g.int(0, 15)]).join('');
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const ida = (eje) => JSON.parse(JSON.stringify(serializar(eje)));
 
 // ---------- series de tokens contra un modelo ----------
@@ -410,7 +411,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, P ob
         // T no cruza de persona (VG, 7-11 noche): el alta da al nuevo un euro de la serie de r.
         if (g.si(0.8)) movimientos.push({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: autor, a: nuevo });
       }
-      const datos = { autor, sobre: g.si(0.95) ? g.pick(sobres) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto };
+      // La quema del coste, calculada ya para que el modelo vea lo mismo que el eje (VG 12-11, #64 b).
+      const datos = conCoste(eje, { autor, sobre: g.si(0.95) ? g.pick(sobres) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto });
       const antes = fotoEje(eje);
       let ev = null;
       try { ev = await eje.escribir(datos); } catch (e) {

@@ -987,12 +987,13 @@ Dónde se ve la diferencia entre llegada y encaje: un registro cuya posición 2 
 ```sh
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste, escribirPagando } from './ejemplos/ikisai/coste.mjs';
 import { ocupantes } from './src/encaje.js';
 const { eje, compra } = await ejemploCompra();
-const T = { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null };
-const plan = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T16:00:00Z', movimientos: [T], payload: ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'cena'] });
-const x = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T16:00:00Z', movimientos: [T], payload: ['X', 'r', { ref: plan.id, dir: '7000000000' }] });
-await eje.escribir({ autor: 'casa', sobre: x.id, en: '2000000000', t: '2026-11-07T16:00:00Z', movimientos: [T], payload: 'criterio escrito' });
+const T = pagaElCoste('casa');
+const plan = await escribirPagando(eje, { autor: 'casa', sobre: compra.id, t: '2026-11-07T16:00:00Z', movimientos: [T], payload: ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'cena'] });
+const x = await escribirPagando(eje, { autor: 'casa', sobre: compra.id, t: '2026-11-07T16:00:00Z', movimientos: [T], payload: ['X', 'r', { ref: plan.id, dir: '7000000000' }] });
+await escribirPagando(eje, { autor: 'casa', sobre: x.id, en: '2000000000', t: '2026-11-07T16:00:00Z', movimientos: [T], payload: 'criterio escrito' });
 const f = (o) => o.origen + ':' + o.signo + ':' + o.vector[0];
 console.log(ocupantes(eje, x.id, [2], { orden: 'llegada' }).map(f).join(' '));
 console.log(ocupantes(eje, x.id, [2]).map(f).join(' '));
@@ -1218,7 +1219,7 @@ Cada fila de esta tabla sale de una condición de validez de la transacción del
 | `a key is declared at its alta: <id> already has an account, or is neither the author nor receives anything here` | una clave que se declara para quien ya tiene cuenta, o para alguien que no es el autor ni recibe nada |
 | `a declared key comes with its proof: the key of <id> comes without the signature of that key on the id of this alta (posesion)` | R9: la clave de una cosa llega sin su prueba de posesión (fuera de la demostración) |
 | `every record hangs on a record of the ledger: <sobre> is not one (…)` | `sobre` no está en el eje |
-| `writing burns today's T: <autor> burns no T, or more T than is left today (day <n>)` | no se quema T del autor, o una persona gasta más T del que le queda del día (VG, 8-11) |
+| `writing burns today's T: <autor> burns less T than writing costs (<n> seconds), or more T than is left today (day <n>)` | el autor quema menos T del que cuesta escribir (la regla «the cost of writing»: un minuto por posición; VG, 12-11, #64 b), o una persona gasta más T del que le queda del día (VG, 8-11) |
 | `only persons mint: <autor> is a thing (its alta was written by <dueño>), and only persons mint` | una emisión por una cosa (B1). En el prefijo de la versión 2: `solo las personas emiten: <autor> es grupo (lo declaró su alta, de la versión 2)` |
 | `E is minted by and to its issuer: …` / `R is minted by its issuer: …` | emisión de E o R cuyo emisor no es el autor (tampoco a nombre de un grupo: VG, 8-11) |
 | `nobody mints T: <autor> mints <n> T; everyone has today's allowance` | una emisión de T fuera del génesis |
@@ -1271,8 +1272,8 @@ evento mal formado: escribir consume T del autor: un movimiento de T con de = ra
 evento rechazado: nobody mints T: raiz mints 1 T; everyone has today's allowance
 evento rechazado: E is minted by and to its issuer: raiz mints E of bea, or to someone else; minting E needs P on its record: raiz mints E on a record where it has no P; minting E needs own R issued: raiz mints E and has never issued R of its own
 evento rechazado: minting E needs own R issued: raiz mints E and has never issued R of its own
-evento rechazado: writing burns today's T: raiz burns no T, or more T than is left today (day 20763)
-evento rechazado: writing burns today's T: raiz burns no T, or more T than is left today (day 20763)
+evento rechazado: writing burns today's T: raiz burns less T than writing costs (60 seconds), or more T than is left today (day 20763)
+evento rechazado: writing burns today's T: raiz burns less T than writing costs (60 seconds), or more T than is left today (day 20763)
 evento mal formado: en debe ser una dirección de diez dígitos
 evento mal formado: payload 1: hueco
 evento rechazado: ya hay génesis

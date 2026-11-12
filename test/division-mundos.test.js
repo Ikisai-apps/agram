@@ -19,10 +19,11 @@ import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epoc
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { ejemploCompra, ejemploJardinYParque, ejemploFabrica, ejemploFuturoYCohorte } from '../ejemplos/ikisai/compra-food.mjs';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
-const T = [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }];
+const T = [pagaElCoste('casa')];
 
 function epocaCon(cambiar) {
   const e = JSON.parse(JSON.stringify(EPOCA_0_BTML_DATOS));
@@ -493,7 +494,7 @@ test('la matriz del 4 trae sus dos ejes nombrados por la época (filas: los diez
 
 test('el 9 a pantalla completa lee el rango del 8: las posiciones disponibles (del primer peldaño al suyo) encendidas, la suya marcada, las demás apagadas; sin rango declarado', async () => {
   const { eje, compra } = await ejemploCompra();
-  const T6 = (k) => [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }, { token: 'T', escala: 'futuro', cantidad: 1, de: 'cocina', a: null, refiere: '2026-12-0' + (k + 1) + 'T10:00:00Z' }];
+  const T6 = (k) => [pagaElCoste('cocina'), { token: 'T', escala: 'futuro', cantidad: 1, de: 'cocina', a: null, refiere: '2026-12-0' + (k + 1) + 'T10:00:00Z' }];
   // sin nada de la escalera cubierto: el primer peldaño, solo él disponible
   const a0 = await arbol(completa(compra.id, 9), eje, 'huesped', GRANDE);
   assert.deepEqual(a0.centro.rejilla.bandas.map((b) => [b.disponible, b.actual]), HITOS.map((h) => [h.indice === 0, h.indice === 0]));
@@ -646,7 +647,7 @@ test('nada de la forma depende del modelo: en sobrio y en animado la rejilla de 
   // aun con el modelo sobrio nombrado, va al final de la cadena (#3) y el animado trae sus capas: sin ellas, el mismo HTML
   // (el «mismo DOM sin .capa» en detalle lo comprueba test/animado-capas.test.js)
   const p = preferencias(eje, 'huesped', { render: otra, model: 'sobrio' });
-  await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: '2026-11-07T13:30:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: p.payload });
+  await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: '2026-11-07T13:30:00Z', movimientos: [pagaElCoste('huesped')], payload: p.payload });
   // la preferencia es un escrito más: el diario (el 6) y la madurez del alta no son de la compra; lo de la compra no cambia
   for (const pv of [1, 2, 3, 4, 6, 7, 8, 9]) {
     const a = await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE);

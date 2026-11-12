@@ -20,6 +20,7 @@ import { validez } from '../src/validez.js';
 import { generarClaves } from '../src/autoridad.js';
 import { recuento } from '../src/motor.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-07T10:00:00Z';
 /**
@@ -27,7 +28,7 @@ const T0 = '2026-11-07T10:00:00Z';
  * asignación de T del día (VG, 8-11: asignación diaria).
  */
 const ALTA = '2026-10-08T10:00:00Z';
-const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gasta = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const daT = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
 /** Ceder minutos a otro (VG, 7-11 noche: T no cruza de persona): E de la serie de tiempo de `emisor`. */
 const cedeT = (de, a, cantidad, emisor = de) => ({ token: 'E', emisor, denominacion: 'minuto', cantidad, de, a });
@@ -150,9 +151,9 @@ test('el génesis no emite T (VG, 8-11: no hay T acumulable): es la época 0 y e
   const { eje, g } = await mundo({ t: T0 });
   assert.equal(eje.serie('T:minuto').emitido, 0);
   assert.deepEqual(eje.alta('raiz'), { id: g, t: T0 });
-  // Su emisión, sus dos invitaciones y las altas gastaron cuatro minutos de la asignación del día; no hay T explícito.
+  // Su emisión, sus dos invitaciones y las altas gastaron cuatro minutos y la regla del coste cobró algo más por las posiciones de sus altas de la asignación del día; no hay T explícito.
   assert.equal(eje.saldo('raiz', 'T:minuto'), 0);
-  assert.equal(eje.saldoT('raiz', 'minuto', T0), 1436);
+  assert.equal(eje.saldoT('raiz', 'minuto', T0), 1416);
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'mi minuto', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'raiz' }, gasta('raiz')] }), /nobody mints T/);
   assert.equal(eje.serie('T:minuto').emisor, 'raiz'); // en T, quien la consumió primero: la raíz, en su emisión
 });

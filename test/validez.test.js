@@ -7,9 +7,10 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { generarClaves, firmar } from '../src/autoridad.js';
 import { crearEvento } from '../src/evento.js';
 import { PV, EPOCA_0 } from '../src/epocas.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = '2026-11-07T16:00:00Z';
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const estados = (v) => v.capas.map((c) => c.estado);
 const salvo = (v, n) => v.capas.filter((c) => c.capa !== n).map((c) => c.estado);
 const TODO_OK = ['ok', 'ok', 'ok', 'ok', 'ok'];
@@ -235,7 +236,7 @@ test('fórmula pendiente: la interpretación queda pendiente y las otras capas n
 test('una referencia ausente da lo mismo escrita como { ref } o como =REF: pendiente, en la capa 2', async () => {
   const { eje, compra } = await ejemploCompra();
   // C1 (VG, 10-11): las dos, como candidatas (la de { ref } el eje local no la acepta).
-  const escribir = (payload) => crearEvento({ autor: 'cocina', sobre: compra.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload });
+  const escribir = (payload) => crearEvento({ autor: 'cocina', sobre: compra.id, en: '1000000000', t: T, movimientos: [gastaT('cocina', 2)], payload }); // dos posiciones, dos minutos (crearEvento no calcula el coste)
   const comoFormula = await validez(eje, await escribir(['Cuenta', '=REF("ffffffff", "1200000000") + 2 EUR']));
   const comoRef = await validez(eje, await escribir(['Cuenta', { ref: 'f'.repeat(64), dir: '1200000000' }]));
   const [f] = comoFormula.interpretacion.formulas;

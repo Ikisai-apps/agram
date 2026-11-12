@@ -22,6 +22,7 @@ import { Eje } from '../../src/eje.js';
 import { transaccion } from '../../src/acciones.js';
 import { firmar } from '../../src/autoridad.js';
 import { entrarPorInvitacion } from './altas.mjs';
+import { pagaElCoste, escribirPagando } from './coste.mjs';
 
 /**
  * claves (opcional): { casa: {publica, privada}, cocina: {...}, huesped: {...} }.
@@ -52,12 +53,12 @@ export async function ejemploCompra({ claves = {} } = {}) {
   // La casa da de alta a cocina, una cosa (su alta la escribe la casa, su dueña), y da euros a la huésped.
   const declaradas = {};
   if (claves.cocina?.publica) declaradas.cocina = claves.cocina.publica;
-  const alta = await eje.escribir({
+  const alta = await escribirPagando(eje, {
     autor: 'casa',
     sobre: eje.genesisId,
     t,
     movimientos: [
-      { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
+      pagaElCoste('casa'),
       // La cocina es una cosa (su máquina): la casa le da T para que escriba (VG, 7-11 noche; Core, 8-11: una
       // persona da su T a una cosa, y sale de su asignación del día). T no cruza de persona: la persona huésped
       // recibe euros y escribe con su asignación de T del día (VG, 8-11).
@@ -70,7 +71,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
   }, priv('casa'));
 
   // Cocina publica el menú del día sobre las altas.
-  const menu = await eje.escribir({
+  const menu = await escribirPagando(eje, {
     autor: 'cocina',
     sobre: alta.id,
     t,
@@ -81,7 +82,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
   }, priv('cocina'));
 
   // La persona huésped compra el menú: paga E a cocina y gasta su tiempo.
-  const compra = await eje.escribir({
+  const compra = await escribirPagando(eje, {
     autor: 'huesped',
     sobre: menu.id,
     t: '2026-11-07T13:30:00Z',
@@ -110,12 +111,12 @@ export async function ejemploCompra({ claves = {} } = {}) {
  * le suma la propina, y la posición siguiente compone euros con minutos.
  */
 export async function ejemploCuenta(eje, compra, privadaCocina) {
-  return eje.escribir({
+  return escribirPagando(eje, {
     autor: 'cocina',
     sobre: compra.id,
     en: '1000000000',
     t: '2026-11-07T14:10:00Z',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 3, de: 'cocina', a: null }],
+    movimientos: [pagaElCoste('cocina')],
     payload: [
       'Cuenta del menú',
       '=REF("' + compra.id.slice(0, 8) + '", "1200000000") + 2 EUR', // 1 recursos: precio de la compra + propina
@@ -138,11 +139,11 @@ export async function ejemploCuenta(eje, compra, privadaCocina) {
  */
 export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const priv = (id) => privadas[id];
-  const gasta = (de, minutos = 1) => ({ token: 'T', escala: 'minuto', cantidad: minutos, de, a: null });
+  const gasta = (de) => pagaElCoste(de);
   const paga = (de, eur) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: eur, de, a: 'cocina' });
   // La casa invita a la otra persona huésped, que acepta (su alta), y después le da euros.
   await entrarPorInvitacion(eje, { por: 'casa', quien: 'huesped2', t: '2026-11-07T14:20:00Z', privadaDe: priv });
-  const alta2 = await eje.escribir({
+  const alta2 = await escribirPagando(eje, {
     autor: 'casa',
     sobre: eje.genesisId,
     t: '2026-11-07T14:20:00Z',
@@ -155,7 +156,7 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const criterios = [{ ref: menu.id, dir: '2000000000' }];
   const recursos = [[{ ref: menu.id, dir: '1000000000' }], [1], ['EUR 12']]; // una décupla: cada posición entre corchetes (forma canónica)
   // La compra rápida: solo recursos, sin criterios. Es el foco natural para preguntarle al 8.
-  const rapida = await eje.escribir({
+  const rapida = await escribirPagando(eje, {
     autor: 'huesped2',
     sobre: menu.id,
     t: '2026-11-07T14:35:00Z',
@@ -176,9 +177,9 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   let minuto = 40;
   for (const payload of payloads) {
     const autor = vecinas.length % 2 ? 'huesped2' : 'huesped';
-    vecinas.push(await eje.escribir({ autor, sobre: menu.id, t: '2026-11-07T14:' + minuto++ + ':00Z', movimientos: [gasta(autor)], payload }, priv(autor)));
+    vecinas.push(await escribirPagando(eje, { autor, sobre: menu.id, t: '2026-11-07T14:' + minuto++ + ':00Z', movimientos: [gasta(autor)], payload }, priv(autor)));
   }
-  const criterioCocina = await eje.escribir({
+  const criterioCocina = await escribirPagando(eje, {
     autor: 'cocina',
     sobre: vecinas[5].id,
     en: '2000000000',
@@ -204,14 +205,14 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
  */
 export async function ejemploJardinYParque(eje, { compra }, privadas = {}) {
   const priv = (id) => privadas[id];
-  const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const gasta = (de) => pagaElCoste(de);
   const P = (ambito, cantidad, de, a, extra = {}) => ({ token: 'P', ambito, cantidad, de, a, ...extra });
   const R = (cantidad, de, a) => ({ token: 'R', emisor: 'casa', cantidad, de, a });
   const t = (minuto) => '2026-11-07T15:' + String(minuto).padStart(2, '0') + ':00Z';
   // El 2: votos y umbral.
   const dos = compra.id + '.2';
-  await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '2100000000', t: t(0), movimientos: [gasta('huesped'), P(compra.id, 10, 'huesped', null), P(dos, 11, null, 'huesped')], payload: 'mi criterio, a la mirada 2' }, priv('huesped'));
-  const decision = await eje.escribir({
+  await escribirPagando(eje, { autor: 'huesped', sobre: compra.id, en: '2100000000', t: t(0), movimientos: [gasta('huesped'), P(compra.id, 10, 'huesped', null), P(dos, 11, null, 'huesped')], payload: 'mi criterio, a la mirada 2' }, priv('huesped'));
+  const decision = await escribirPagando(eje, {
     autor: 'huesped',
     sobre: compra.id,
     en: '2000000000',
@@ -220,8 +221,8 @@ export async function ejemploJardinYParque(eje, { compra }, privadas = {}) {
     payload: ['¿Repetimos el menú el sábado?', ['sí', 'no'], [['decidir'], ['sí o no'], ['weighted sum', 'view 2', 'above 10'], ['cualquiera']]],
   }, priv('huesped'));
   const dosDeLaDecision = decision.id + '.2';
-  await eje.escribir({ autor: 'huesped', sobre: decision.id, en: '2100000000', t: t(2), movimientos: [gasta('huesped'), P(decision.id, 10, 'huesped', null), P(dosDeLaDecision, 11, null, 'huesped')], payload: 'mi criterio sobre la decisión, a su mirada 2' }, priv('huesped'));
-  const voto = await eje.escribir({
+  await escribirPagando(eje, { autor: 'huesped', sobre: decision.id, en: '2100000000', t: t(2), movimientos: [gasta('huesped'), P(decision.id, 10, 'huesped', null), P(dosDeLaDecision, 11, null, 'huesped')], payload: 'mi criterio sobre la decisión, a su mirada 2' }, priv('huesped'));
+  const voto = await escribirPagando(eje, {
     autor: 'huesped',
     sobre: decision.id,
     en: '2100000000',
@@ -234,13 +235,13 @@ export async function ejemploJardinYParque(eje, { compra }, privadas = {}) {
     payload: 'voto sí',
   }, priv('huesped'));
   // El 3: paquetes.
-  await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t(4), movimientos: [gasta('casa'), R(2, 'casa', 'huesped')], payload: 'dos R de la casa para la huésped' }, priv('casa'));
-  const conversacion = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '3000000000', t: t(5), movimientos: [gasta('huesped')], payload: ['Conversación con la casa', ['huesped', 'casa']] }, priv('huesped'));
-  const pide = (minuto, texto) => eje.escribir({ autor: 'huesped', sobre: conversacion.id, en: '3000000000', t: t(minuto), movimientos: [gasta('huesped'), R(1, 'huesped', 'casa')], payload: texto }, priv('huesped'));
+  await escribirPagando(eje, { autor: 'casa', sobre: eje.genesisId, t: t(4), movimientos: [gasta('casa'), R(2, 'casa', 'huesped')], payload: 'dos R de la casa para la huésped' }, priv('casa'));
+  const conversacion = await escribirPagando(eje, { autor: 'huesped', sobre: compra.id, en: '3000000000', t: t(5), movimientos: [gasta('huesped')], payload: ['Conversación con la casa', ['huesped', 'casa']] }, priv('huesped'));
+  const pide = (minuto, texto) => escribirPagando(eje, { autor: 'huesped', sobre: conversacion.id, en: '3000000000', t: t(minuto), movimientos: [gasta('huesped'), R(1, 'huesped', 'casa')], payload: texto }, priv('huesped'));
   const atendida = await pide(6, '¿Podéis guardarme una ración?');
-  const respuesta = await eje.escribir({ autor: 'casa', sobre: atendida.id, t: t(7), movimientos: [gasta('casa')], payload: 'Sí, te la guardamos' }, priv('casa'));
+  const respuesta = await escribirPagando(eje, { autor: 'casa', sobre: atendida.id, t: t(7), movimientos: [gasta('casa')], payload: 'Sí, te la guardamos' }, priv('casa'));
   const pendiente = await pide(8, '¿Hay postre sin azúcar?');
-  const perdonada = await eje.escribir({ autor: 'huesped', sobre: conversacion.id, en: '3000000000', t: t(9), movimientos: [gasta('huesped'), R(1, 'huesped', null)], payload: 'Esta te la perdono' }, priv('huesped'));
+  const perdonada = await escribirPagando(eje, { autor: 'huesped', sobre: conversacion.id, en: '3000000000', t: t(9), movimientos: [gasta('huesped'), R(1, 'huesped', null)], payload: 'Esta te la perdono' }, priv('huesped'));
   return { decision, voto, conversacion, atendida, respuesta, pendiente, perdonada };
 }
 
@@ -260,8 +261,8 @@ export async function ejemploJardinYParque(eje, { compra }, privadas = {}) {
 export async function ejemploFabrica(eje, { compra }, privadas = {}) {
   const priv = (id) => privadas[id];
   const t = (minuto) => '2026-11-07T16:' + String(minuto).padStart(2, '0') + ':00Z';
-  const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-  const anuncia = (minuto, movimiento, que) => eje.escribir({
+  const gasta = (de) => pagaElCoste(de);
+  const anuncia = (minuto, movimiento, que) => escribirPagando(eje, {
     autor: 'huesped', sobre: compra.id, en: '4100000000', t: t(minuto), movimientos: [gasta('huesped'), { ...movimiento, estado: 'anunciado' }], payload: que,
   }, priv('huesped'));
   const pagar = await anuncia(0, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' }, 'pagar');
@@ -274,7 +275,7 @@ export async function ejemploFabrica(eje, { compra }, privadas = {}) {
     const r = await transaccion(eje, cual, params, 'huesped', { t: t(minuto), ...(privada ? { firmar: (ev) => firmar(ev, privada) } : {}) });
     if (!r.ok) throw new Error(cual + ': ' + r.motivos.map((m) => m.mensaje).join('; '));
     const { autor, sobre, en, movimientos, payload } = r.evento;
-    return eje.escribir({ autor, sobre, en, t: t(minuto), movimientos, payload }, priv('huesped'));
+    return escribirPagando(eje, { autor, sobre, en, t: t(minuto), movimientos, payload }, priv('huesped'));
   };
   const respaldo = await accion(3, 'commit P', { X: servir.id, power: 'P:' + servir.id + '/huesped', amount: 10 });
   const capacidad = await accion(4, 'declare capacity or threshold', { X: compra.id, capacity: 2 });
@@ -302,19 +303,19 @@ export async function ejemploFuturoYCohorte(eje, { compra }, privadas = {}) {
     const r = await transaccion(eje, cual, params, 'huesped', { t: t(minuto), ...(privada ? { firmar: (ev) => firmar(ev, privada) } : {}) });
     if (!r.ok) throw new Error(cual + ': ' + r.motivos.map((m) => m.mensaje).join('; '));
     const { autor, sobre, en, movimientos, payload } = r.evento;
-    return eje.escribir({ autor, sobre, en, t: t(minuto), movimientos, payload }, priv('huesped'));
+    return escribirPagando(eje, { autor, sobre, en, t: t(minuto), movimientos, payload }, priv('huesped'));
   };
   const manana = await accion(10, 'declare future T', { X: compra.id, what: 'Repetir el menú', when: '2026-11-08T13:30:00Z', units: 1 });
   const semana = await accion(11, 'declare future T', { X: compra.id, what: 'Cena del grupo', when: '2026-11-12T20:00:00Z', units: 2 });
   const plazo = await accion(12, 'commit time', { X: compra.id, series: 'E:casa/EUR', amount: 5, until: '2026-11-30T12:00:00Z' });
   const cohorte = await accion(13, 'change cohort', { X: compra.id, cohort: 'project' });
-  const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-  const nochebuena = await eje.escribir({
+  const gasta = (de) => pagaElCoste(de);
+  const nochebuena = await escribirPagando(eje, {
     autor: 'cocina', sobre: compra.id, en: '4000000000', t: t(14),
     movimientos: [gasta('cocina'), { token: 'T', escala: 'futuro', cantidad: 3, de: 'cocina', a: null, refiere: '2026-12-24T20:00:00Z' }],
     payload: [['Cena de Nochebuena']],
   }, priv('cocina'));
-  const vales = await eje.escribir({
+  const vales = await escribirPagando(eje, {
     autor: 'casa', sobre: compra.id, en: '1000000000', t: t(15),
     movimientos: [gasta('casa'), { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 3, de: null, a: 'casa', caduca: '2026-11-08T09:00:00Z' }],
     payload: [['Vales del desayuno']],

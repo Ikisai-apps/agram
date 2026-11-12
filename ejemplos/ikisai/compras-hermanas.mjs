@@ -37,13 +37,25 @@ import { Eje } from '../../src/eje.js';
 import { generarClaves } from '../../src/autoridad.js';
 import { escribirBase, identidadDe } from '../../src/bases.js';
 import { entrarPorInvitacion } from './altas.mjs';
+import { pagaElCoste, escribirPagando } from './coste.mjs';
 
 const T = '2026-11-07T09:00:00Z';
+/** El día en que se escriben las bases del ejemplo por defecto: uno en que la casa no ha gastado su asignación (las gasta ella, la del génesis). */
+export const T_BASES = '2026-11-09T18:00:00Z';
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 // Minutos de T para una cosa (su máquina): T no cruza de persona (VG, 7-11 noche), pero una persona da su T a
 // una cosa, y una cosa al resto de sus cosas (Core, 8-11). Las personas escriben con su propio T.
 const minutos = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+const segundos = (de, a, cantidad) => ({ token: 'T', escala: 'segundo', cantidad, de, a });
+const horas = (de, a, cantidad) => ({ token: 'T', escala: 'hora', cantidad, de, a });
+/**
+ * Escribir una base cuesta un minuto por posición (VG 12-11, #64 b): las del ejemplo, entre trescientos y seiscientos
+ * minutos. Quien las escribe es una cosa, que solo tiene el T que le dan, así que su dueña le va dando por escalas
+ * (minutos, segundos, horas y el día, el ciclo o el año enteros, que le llegan cada día a una persona); una base se paga
+ * en la primera escala en que le alcanza (escribirBase). El sábado (7-11) lo que cabe en la asignación de ese día de la
+ * casa, y el domingo (8-11, con el mercado) otro tanto, que las cosas conservan.
+ */
 const eur = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de, a });
 
 /** Las cosas del ejemplo: cada registro que resume a otros es una cosa con su clave. */
@@ -73,7 +85,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     clave: claves.casa.publica,
     privada: priv('casa'),
   });
-  const escribir = (datos) => eje.escribir(datos, priv(datos.autor));
+  const escribir = (datos) => escribirPagando(eje, datos, priv(datos.autor));
 
   // Las personas entran aceptando la invitación de la casa (encargo 3b): su aceptación es su alta (VG, 10-11, B1).
   for (const id of ['huesped', 'vecina']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: T, clave: claves[id], privadaDe: priv });
@@ -88,10 +100,13 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     movimientos: [
       minuto('casa'),
       { token: 'T', escala: 'hora', cantidad: 20, de: 'casa', a: 'cocina' },
-      minutos('casa', 'cocina', 240),
+      minutos('casa', 'cocina', 700),
+      segundos('casa', 'cocina', 30000),
       eur('casa', 'huesped', 60),
       eur('casa', 'vecina', 40),
       minutos('casa', 'comedor', 10),
+      segundos('casa', 'comedor', 30000),
+      { token: 'T', escala: 'dia', cantidad: 1, de: 'casa', a: 'comedor' },
     ],
     payload: ['Comedor del fin de semana', ['cocina', 'huesped', 'vecina']],
     contexto: { claves: { comedor: claves.comedor.publica } },
@@ -102,7 +117,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     autor: 'cocina',
     sobre: comedor.id,
     t: T,
-    movimientos: [{ token: 'T', escala: 'hora', cantidad: 2, de: 'cocina', a: null }, minutos('cocina', 'menu-dia', 10)],
+    movimientos: [{ token: 'T', escala: 'hora', cantidad: 2, de: 'cocina', a: null }, minutos('cocina', 'menu-dia', 400), horas('cocina', 'menu-dia', 6)],
     payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano']],
     contexto: altaDeCosa('menu-dia', claves),
   });
@@ -152,7 +167,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     autor: 'cocina',
     sobre: comedor.id,
     t: '2026-11-07T16:00:00Z',
-    movimientos: [hora('cocina'), minutos('cocina', 'menu-cena', 10)],
+    movimientos: [hora('cocina'), segundos('cocina', 'menu-cena', 30000)],
     payload: ['Menú de la cena', ['sopa', 'tortilla'], ['vegetariano']],
     contexto: altaDeCosa('menu-cena', claves),
   });
@@ -175,30 +190,47 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
   const mercado = await escribir({
     autor: 'casa',
     sobre: eje.genesisId,
-    t: '2026-11-07T15:00:00Z',
-    movimientos: [minuto('casa'), minutos('casa', 'mercado', 10), eur('casa', 'vecina', 30)],
+    t: '2026-11-08T15:00:00Z',
+    movimientos: [
+      minuto('casa'),
+      minutos('casa', 'mercado', 450),
+      segundos('casa', 'mercado', 30000),
+      minutos('casa', 'comedor', 300),
+      segundos('casa', 'comedor', 25000),
+      minutos('casa', 'cocina', 650),
+      segundos('casa', 'cocina', 30000),
+      { token: 'T', escala: 'ciclo', cantidad: 1, de: 'casa', a: 'cocina' },
+      { token: 'T', escala: 'anio', cantidad: 1, de: 'casa', a: 'cocina' },
+      eur('casa', 'vecina', 30),
+    ],
     payload: ['Mercado del sábado', ['fruta', 'pan']],
     contexto: altaDeCosa('mercado', claves),
   });
   const puesto = await escribir({
     autor: 'cocina',
     sobre: mercado.id,
-    t: '2026-11-07T17:00:00Z',
-    movimientos: [hora('cocina'), minutos('cocina', 'puesto', 10)],
+    t: '2026-11-08T17:00:00Z',
+    movimientos: [
+      hora('cocina'),
+      segundos('cocina', 'puesto', 30000),
+      minutos('cocina', 'menu-dia', 600),
+      { token: 'T', escala: 'ciclo', cantidad: 1, de: 'cocina', a: 'menu-dia' },
+      { token: 'T', escala: 'anio', cantidad: 1, de: 'cocina', a: 'menu-dia' },
+    ],
     payload: ['Puesto de fruta', ['manzanas', 'peras']],
     contexto: altaDeCosa('puesto', claves),
   });
   const manzanas = await escribir({
     autor: 'vecina',
     sobre: puesto.id,
-    t: '2026-11-07T17:10:00Z',
+    t: '2026-11-08T17:10:00Z',
     movimientos: [hora('vecina'), eur('vecina', 'cocina', 4)],
     payload: ['Compra de manzanas', [[{ ref: puesto.id, dir: '1000000000' }], [3], ['EUR 4']]],
   });
   const peras = await escribir({
     autor: 'huesped',
     sobre: puesto.id,
-    t: '2026-11-07T17:20:00Z',
+    t: '2026-11-08T17:20:00Z',
     movimientos: [hora('huesped'), eur('huesped', 'cocina', 3)],
     payload: ['Compra de peras', [[{ ref: puesto.id, dir: '1000000000' }], [2], ['EUR 3']]],
   });
@@ -207,8 +239,9 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
 }
 
 /** Escribe la base de un registro del ejemplo: la firma su propia cosa. */
-export function escribirBaseDe(ej, registro, { t = '2026-11-07T18:00:00Z' } = {}) {
+export function escribirBaseDe(ej, registro, { t = T_BASES } = {}) {
   const cosa = identidadDe(ej.eje, registro);
+  // Paga lo que exige la regla del coste en la primera escala en la que le alcanza (escribirBase: el minuto, si no, otra).
   return escribirBase(ej.eje, { registro, privada: ej.claves[cosa]?.privada, t });
 }
 
@@ -217,7 +250,7 @@ export function escribirBaseDe(ej, registro, { t = '2026-11-07T18:00:00Z' } = {}
  * los hijos ya escritas): los dos menús y el puesto; los dos proyectos; el
  * génesis. Cada una la firma su propia cosa.
  */
-export async function escribirBasesDelEjemplo(ej, { t = '2026-11-07T18:00:00Z' } = {}) {
+export async function escribirBasesDelEjemplo(ej, { t = T_BASES } = {}) {
   const de = (registro) => escribirBaseDe(ej, registro, { t });
   const menus = { menu: await de(ej.menu.id), cena: await de(ej.cena.id), puesto: await de(ej.puesto.id) };
   const proyectos = { comedor: await de(ej.comedor.id), mercado: await de(ej.mercado.id) };

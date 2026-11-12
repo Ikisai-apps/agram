@@ -20,9 +20,10 @@ import { diaCivil } from '../src/tokens.js';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-08T10:00:00Z';
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 const LECTURAS = EPOCA_0_BTML.lecturas;
 const lectura = (nombre) => LECTURAS.find((r) => r[0][0] === nombre);

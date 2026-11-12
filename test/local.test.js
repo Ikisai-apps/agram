@@ -10,6 +10,8 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS 
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { diaCivil } from '../src/tokens.js';
 import * as agram from '../src/index.js';
+import { pagaElCoste } from './ayudas-coste.js';
+import { costeT } from '../src/escritura.js';
 
 const T = (s) => '2026-11-07T15:00:' + String(s).padStart(2, '0') + 'Z';
 
@@ -60,21 +62,21 @@ test('sin T de segundo del día, ver y tocar devuelven el motivo de la regla de 
   const { eje, menu } = await ejemploCompra();
   const epoca = epocaCon((e) => { e[1][3][1][0][1] = [2]; }); // dos segundos al día
   // El idioma de la época es el español: el motivo en inglés lo pide la configuración de la huésped.
-  await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: '2026-11-07T17:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: ['preferences', 10, 'sober', 'en', [1, 2, 3], 'preferences'] });
+  await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: '2026-11-07T17:00:00Z', movimientos: [pagaElCoste('huesped')], payload: ['preferences', 10, 'sober', 'en', [1, 2, 3], 'preferences'] });
   const local = new LibroLocal(eje, 'huesped', { epoca });
   assert.equal(local.quedaHoy(T(0)), 2);
   assert.equal(local.ver(menu.id, { t: T(0) }).ok, true);
   assert.equal(local.ver(menu.id, { t: T(1) }).ok, true);
   const r = local.ver(menu.id, { t: T(2) });
   assert.equal(r.ok, false);
-  assert.equal(r.motivo, REGLA_DEL_T + ': huesped burns no T, or more T than is left today (day ' + diaCivil(T(2)) + ')');
+  assert.equal(r.motivo, REGLA_DEL_T + ': huesped burns less T than writing costs (60 seconds), or more T than is left today (day ' + diaCivil(T(2)) + ')');
   assert.equal(local.recorrido().length, 2, 'lo que no cupo no se anota');
   assert.equal(local.ver(menu.id, { t: '2026-11-08T09:00:00Z' }).ok, true, 'a medianoche, la asignación nueva');
   // Con la configuración en español, el motivo en español.
-  await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: '2026-11-07T18:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: ['preferences', 10, 'sober', 'es', [1, 2, 3], 'preferences'] });
+  await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: '2026-11-07T18:00:00Z', movimientos: [pagaElCoste('huesped')], payload: ['preferences', 10, 'sober', 'es', [1, 2, 3], 'preferences'] });
   const otro = new LibroLocal(eje, 'huesped', { epoca: epocaCon((e) => { e[1][3][1][0][1] = [1]; }) });
   otro.ver(menu.id, { t: T(0) });
-  assert.match(otro.ver(menu.id, { t: T(1) }).motivo, /^writing burns today's T: huesped no quema T, o quema más T del que le queda hoy/);
+  assert.match(otro.ver(menu.id, { t: T(1) }).motivo, /^writing burns today's T: huesped quema menos T del que cuesta escribir \(60 segundos\), o más del que le queda hoy/);
 });
 
 test('englobar escribe UN solo registro de escala minuto en el eje: quema 1 T de minuto, su 6 ancla el recorrido, su 7 dice la escala, y queda anclado a lo anterior', async () => {
@@ -91,10 +93,13 @@ test('englobar escribe UN solo registro de escala minuto en el eje: quema 1 T de
   assert.equal(ev.autor, 'huesped');
   assert.equal(ev.sobre, eje.alta('huesped').id, 'anclado a lo anterior: la primera vez, el alta');
   assert.equal(ev.t, T(2), 'el t de la última interacción');
-  assert.deepEqual(ev.movimientos, [{ token: 'T', escala: ESCALA_REGISTRO, cantidad: 1, de: 'huesped', a: null }], 'un minuto, y nada de segundos');
-  assert.equal(eje.gastadoT('huesped', ESCALA_REGISTRO, diaCivil(T(2))), minutoAntes + 1, 'la regla del T del día lo cobra como a cualquier registro');
+  // Lo que exige la regla del coste por las posiciones del registro (VG 12-11, #64 b), en minutos y nada de segundos.
+  const pago = ev.movimientos[0];
+  assert.deepEqual(ev.movimientos, [{ token: 'T', escala: ESCALA_REGISTRO, cantidad: costeT(ev.payload, { eje }), de: 'huesped', a: null }], 'el coste del registro, en minutos, y nada de segundos');
+  assert.ok(pago.cantidad > 1);
+  assert.equal(eje.gastadoT('huesped', ESCALA_REGISTRO, diaCivil(T(2))), minutoAntes + pago.cantidad, 'la regla del T del día lo cobra como a cualquier registro');
   const asientos = eje.libro.asientos({ registro: ev.sobre }).filter((a) => a.tx.id === ev.id);
-  assert.ok(asientos.some((a) => a.primitiva === 'quemar' && a.serie === 'T:' + ESCALA_REGISTRO && a.cantidad === 1));
+  assert.ok(asientos.some((a) => a.primitiva === 'quemar' && a.serie === 'T:' + ESCALA_REGISTRO && a.cantidad === pago.cantidad));
   assert.ok(!asientos.some((a) => a.serie === 'T:' + ESCALA_INTERACCION), 'nada de los segundos se publica');
   assert.equal(eje.libro.sumas({ serie: 'T:' + ESCALA_INTERACCION }), 0);
   // El payload: 0 la nota, 1 cuántas, 2 el hash, 3 quién, 4 las acciones por llegada, 5 lo anterior, 6 el recorrido, 7 la escala.

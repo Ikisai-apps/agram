@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { consultar, evaluar } from '../src/bql.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 const T = '2026-11-07T15:00:00Z';
 
 async function escenario() {

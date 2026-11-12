@@ -12,9 +12,10 @@ import { almacenEnMemoria } from '../servidor/prueba/servidor.mjs';
 import { canonico, cuerpo, hash, normalizarEvento, crearEvento } from '../src/evento.js';
 import { generarClaves, firmar, verificar, firmarPosesion } from '../src/autoridad.js';
 import { Eje } from '../src/eje.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = '2026-11-10T09:00:00Z';
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 
 test('canónico y hash: los mismos bytes para valores con claves desordenadas, undefined, unicode, números y toJSON', async () => {
   const casos = [

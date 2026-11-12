@@ -31,6 +31,7 @@ import { validez } from '../src/validez.js';
 import { esPresente } from '../src/evento.js';
 import { leerEvento } from '../src/lectura.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 import { ASIGNACION_T, PARTES_T, ESCALAS_REALES, asignacionT, diaCivil, textoT, validarMovimiento } from '../src/tokens.js';
 
 const AYER = '2026-11-07T10:00:00Z';
@@ -48,7 +49,7 @@ function prng(semilla) {
   return { int: (x, y) => x + Math.floor(r() * (y - x + 1)), pick: (xs) => xs[Math.floor(r() * xs.length)] };
 }
 
-const gasta = (de, cantidad = 1, escala = 'minuto') => ({ token: 'T', escala, cantidad, de, a: null });
+const gasta = (de, cantidad, escala = 'minuto') => (cantidad === undefined && escala === 'minuto' ? pagaElCoste(de) : { token: 'T', escala, cantidad: cantidad ?? 1, de, a: null });
 const daT = (de, a, cantidad, escala = 'minuto') => ({ token: 'T', escala, cantidad, de, a });
 const cedeE = (de, a, cantidad) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad, de, a });
 
@@ -79,16 +80,16 @@ test('escribir consume T del autor y el consumo se anota en el registro que sopo
   await eje.escribir({ autor: 'robot', sobre: a.id, t: T0, payload: 'c', movimientos: [gasta('robot', 4)] });
   // Lo de cada registro: lo consumido por quienes escriben encima.
   // Sobre el génesis: la emisión de g, sus dos invitaciones y las altas que da (las aceptaciones cuelgan de cada invitación).
-  assert.deepEqual(eje.tiempoSobre(g), { minuto: 4 });
+  assert.deepEqual(eje.tiempoSobre(g), { minuto: 24 });
   assert.deepEqual(eje.tiempoSobre(alta.id), { minuto: 3 });
   assert.deepEqual(eje.tiempoSobre(a.id), { minuto: 6, hora: 1 });
   assert.deepEqual(eje.tiempoSobre('nadie'), {});
   // Y lo que cuelga de él.
   assert.deepEqual(eje.tiempoBajo(alta.id), { minuto: 9, hora: 1 });
-  assert.deepEqual(eje.tiempoBajo(g), { minuto: 15, hora: 1 }); // y las dos aceptaciones
+  assert.deepEqual(eje.tiempoBajo(g), { minuto: 35, hora: 1 }); // y las dos aceptaciones
   // En las series de T: lo consumido y lo que salió de la asignación diaria (g, ana y bea; el robot gastó el suyo).
   const serie = (k) => eje.series().find((s) => s.clave === k);
-  assert.deepEqual([serie('T:minuto').consumido, serie('T:minuto').deAsignacion], [15, 11 + 30]); // y los 30 que g dio al robot
+  assert.deepEqual([serie('T:minuto').consumido, serie('T:minuto').deAsignacion], [35, 31 + 30]); // y los 30 que g dio al robot
   assert.deepEqual([serie('T:hora').emitido, serie('T:hora').consumido, serie('T:hora').deAsignacion], [0, 1, 1]);
   assert.equal(eje.saldoT('robot', 'minuto'), 26);
   // Los ocupantes lo enseñan (solo se ve: nada lo lee para conceder).
@@ -243,7 +244,7 @@ test('ningún T se acumula (VG, 8-11: no hay T acumulable): el génesis no emite
   const { eje, alta } = await mundo();
   assert.equal(eje.saldo('g', 'T:minuto'), 0);
   // AYER g gastó 4 minutos (su emisión, dos invitaciones y las altas) y dio 30 al robot: de su asignación de ayer.
-  assert.equal(eje.saldoT('g', 'minuto', AYER), 1440 - 34);
+  assert.equal(eje.saldoT('g', 'minuto', AYER), 1440 - 54);
   // Hoy, los 1440 del día y nada más: lo que no gastó ayer no pasa a hoy.
   await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'mucho', movimientos: [gasta('g', 2000)] }), /writing burns today's T/);
   await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el día entero', movimientos: [gasta('g', 1440)] });
@@ -312,7 +313,7 @@ test('pasado, futuro e inventado: ilimitados, se registran con sus dos fechas y 
 async function mercado(gastos) {
   const { eje, alta } = await mundo();
   let k = 0;
-  const g = () => gastos[k++ % gastos.length];
+  const g = () => 4 + gastos[k++ % gastos.length]; // sobre lo que exige la regla del coste (hasta cuatro posiciones)
   await entrarPorInvitacion(eje, { por: 'g', quien: 'casa', t: AYER });
   await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', movimientos: [gasta('g'), cedeE('g', 'casa', 10)] });
   // Revisión de seguridad (encargo 3b): escribir sobre el alta de otra identidad (el génesis es el alta de g) tiene el
@@ -353,7 +354,7 @@ test('propiedad: cambiar el T gastado no cambia recuentos, topes de E, elegibles
   assert.deepEqual(base.elegibles, ['ana', 'casa']);
   assert.equal(base.vivo, 2);
   for (let caso = 0; caso < 12; caso++) {
-    const gastos = Array.from({ length: p.int(1, 7) }, () => p.pick([1, 2, 3, 5, 8, 13, 30]));
+    const gastos = Array.from({ length: p.int(1, 7) }, () => p.pick([1, 2, 3, 5, 8, 13, 20]));
     const otro = await mercado(gastos);
     assert.notDeepEqual(otro.tiempo, base.tiempo, 'caso ' + caso + ': el T sí cambia (se ve)');
     const { tiempo: _a, ...sinT } = otro;

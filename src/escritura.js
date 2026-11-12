@@ -451,6 +451,37 @@ export function costeT(payload, opciones) {
   return Math.ceil(exigido(payload, opciones) / SEGUNDOS.minuto - 1e-9);
 }
 
+/**
+ * La quema que exige escribir un registro (VG 12-11, #64 b): el movimiento de T de `autor` que paga lo que la regla
+ * «the cost of writing» calcula para el payload, en la escala pedida (una real; por defecto el minuto, la de A3) y
+ * redondeado hacia arriba a unidades enteras. La condición «writing burns today's T» exige al menos esto: una sola
+ * tarifa, venga el registro de una plantilla, de escribirDesde, de un ejemplo o de una prueba. Todo lo que se escribe
+ * a mano lo calcula aquí y no con un minuto fijo. → { token, escala, cantidad, de, a }; null si el payload no exige
+ * nada. Con `opciones` ({ eje, epoca }) se leen las referencias del payload y la regla de esa época.
+ */
+export function quemaDelCoste(autor, payload, escala = 'minuto', opciones) {
+  if (!ESCALAS_REALES.includes(escala)) throw new Error('la quema del coste va en una escala real (' + ESCALAS_REALES.join(', ') + '), no «' + escala + '»');
+  const segundos = exigido(payload, opciones);
+  if (!(segundos > 0)) return null;
+  return { token: 'T', escala, cantidad: Math.ceil(segundos / SEGUNDOS[escala] - 1e-9), de: autor, a: null };
+}
+
+/** El orden en que se busca la escala que alcanza: la del minuto (la de A3) primero. */
+const ESCALAS_A_PROBAR = Object.freeze(['minuto', 'segundo', 'hora', 'dia', 'semana', 'ciclo', 'anio']);
+
+/**
+ * La escala en que `autor` puede pagar el coste de escribir `payload` el día de `t` (VG 12-11, #64 b): la primera, empezando
+ * por el minuto, en la que su saldo de T cubre lo exigido (`eje.saldoT`); el minuto si en ninguna. Para quien no pide
+ * escala (las bases, las pruebas); el ajuste fino por escalas (1 h 11 min) es de la carta.
+ */
+export function escalaQueAlcanza(eje, autor, payload, t, opciones) {
+  for (const escala of ESCALAS_A_PROBAR) {
+    const quema = quemaDelCoste(autor, payload, escala, { ...opciones, eje });
+    if (quema && eje.saldoT(autor, escala, t) >= quema.cantidad) return escala;
+  }
+  return 'minuto';
+}
+
 /** Las escalas en que se propone el coste sin escala pedida (las de semana, ciclo y año van en partes diarias). */
 const ESCALAS_DEL_COSTE = Object.freeze(['dia', 'hora', 'minuto', 'segundo']);
 
@@ -554,7 +585,7 @@ async function escribirRegistro(eje, { modo, autor, sobre, en, payload, t = new 
     sobre,
     en: destino,
     t,
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT(cuerpo, { eje }), de: autor, a: null }],
+    movimientos: [quemaDelCoste(autor, cuerpo, 'minuto', { eje })],
     payload: cuerpo,
     contexto: { ...contexto, modo, ...(relleno.length ? { heredadas: [...relleno] } : {}) },
   }, privada);

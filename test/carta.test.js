@@ -19,13 +19,14 @@ import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import * as salida from '../src/escritura.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 // El idioma por defecto de la época es el español; esta batería comprueba los nombres canónicos de la época (en inglés), así que lo pide.
 const arbol = (estado, eje, yo, medidas, opciones = {}) => arbolEnIdioma(estado, eje, yo, medidas, { idioma: 'en', ...opciones });
 const T1 = '2026-11-08T10:00:00Z';
 const MOVIL = { ancho: 400, alto: 700 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 
 /** Una copia de la época 0 con un cambio, cargada como la original (misma id: los ejemplos la referencian). */
 function epocaCon(cambiar) {
@@ -228,7 +229,7 @@ test('el libro local: ver quema un T de segundo y englobar asienta un minuto en 
   const ev = await libro.englobar(undefined, { nota: 'un rato en la carta' });
   assert.equal(eje.orden.length, antes + 1);
   assert.deepEqual(ev.payload[7], [ESCALA_REGISTRO]);
-  assert.ok(ev.movimientos.some((m) => m.token === 'T' && m.escala === ESCALA_REGISTRO && m.cantidad === 1));
+  assert.ok(ev.movimientos.some((m) => m.token === 'T' && m.escala === ESCALA_REGISTRO && m.cantidad >= 1));
   assert.equal(libro.recorrido().length, 0);
   const b = await arbol({ foco: { X: X.id, pv: 0 }, local: libro }, eje, 'huesped', MOVIL, { t: T1 });
   assert.deepEqual([b.local.pendientes, b.local.anterior], [0, ev.id]);

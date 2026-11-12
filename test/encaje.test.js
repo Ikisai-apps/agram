@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ocupantes, seguir, arbol, colisiones, lista, ordenarPorEncaje } from '../src/encaje.js';
 import { Eje } from '../src/eje.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 test('ocupantes: propio, lo que alcanza la referencia y lo escrito, en ese orden', async () => {
   const { eje, compra, menu } = await ejemploCompra();

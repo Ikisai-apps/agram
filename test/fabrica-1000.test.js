@@ -18,10 +18,11 @@ import { consolidar, registrar, FABRICA } from '../src/motor.js';
 import { resolver, direccion } from '../src/btml.js';
 import { ocupantes } from '../src/encaje.js';
 import { Eje } from '../src/eje.js';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T = '2026-11-07T18:00:00Z';
 const ref = (id, dir) => ({ ref: id, dir });
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 /** Lo que hay en el payload bajo una etiqueta de heredada (3, '1.2', '1.2.3'). */
 // Por hojas (VG, 7-11 noche): bajo la raíz, la salida envuelve el 0 de una décupla solo de hojas ([[ref], ref…]); la heredada es su único ocupante.
@@ -416,7 +417,7 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
   // Si escribirSalida falla al escribir (aquí, una cosa sin T: B1, su alta la escribió la casa), el aviso sigue: el
   // payload solo aún no se puede escribir.
-  await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'maquina' }], payload: 'una máquina sin T' });
+  await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [pagaElCoste('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'maquina' }], payload: 'una máquina sin T' });
   await assert.rejects(escribirSalida(eje, { modo: 'mapped', autor: 'maquina', sobre: compra.id, salida, t: T }), /evento rechazado/);
   assert.equal(eje.sobre(compra.id).length, 0);
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
@@ -581,7 +582,7 @@ test('el motor no guarda clase; el encaje dice de dónde vino cada elección y l
   }
   // Encargo 3b (VG, 8-11, mapa §15 [D]): no hay paso de ejecutar; lo que sigue a la propuesta es un registro más, anclado
   // donde quiera quien lo escribe (aquí, en su fábrica).
-  const e = await registrar(eje, { autor: 'huesped', sobre: c.id, en: FABRICA, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: 'hecho' });
+  const e = await registrar(eje, { autor: 'huesped', sobre: c.id, en: FABRICA, t: T, movimientos: [pagaElCoste('huesped')], payload: 'hecho' });
   assert.equal(e.contexto.clase, undefined);
   assert.equal(e.en, FABRICA);
   assert.equal(claseDe(e.en, []), 0); // [X] decidir VG: lo que se registra en FABRICA, sin camino, es la celda 4.0.0

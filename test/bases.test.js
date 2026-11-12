@@ -14,13 +14,14 @@ import {
 } from '../src/bases.js';
 import * as agram from '../src/index.js';
 import { COSAS, ejemploComprasHermanas, escribirBaseDe, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const T_BASES = '2026-11-07T18:00:00Z';
+const T_BASES = '2026-11-09T18:00:00Z';
 const claves = {};
 for (const id of ['casa', ...COSAS, 'cocina']) claves[id] = await generarClaves();
 const nuevo = () => ejemploComprasHermanas({ claves });
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
-const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minuto = (de) => pagaElCoste(de);
 
 /** Estadística comparable: claves en orden. */
 const ordenar = (o) => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : 1)));
@@ -97,7 +98,7 @@ test('medir: una sola medida (bases.medir); tiempo.js ya no mide', async () => {
   assert.deepEqual([medir(eje, ej.cafe.id).terminales, medir(eje, ej.cafe.id).posiciones], [1, 0]);
   assert.equal(medir(eje, ej.menu.id).escritos, 4);
   // Y el T que consumieron quienes escribieron encima (el puesto, una hora de la cocina): R7, una cantidad más.
-  assert.deepEqual(medir(eje, ej.mercado.id).tokens, { 'T:minuto': 11, 'E:casa/EUR': 30, 'tiempo:hora': 1 });
+  assert.deepEqual(medir(eje, ej.mercado.id).tokens, { 'T:minuto': 1403, 'T:segundo': 85000, 'T:ciclo': 1, 'T:anio': 1, 'E:casa/EUR': 30, 'tiempo:hora': 1 });
   assert.equal(medir(eje, eje.genesisId).profundidadHilo, 0);
 });
 
@@ -114,7 +115,7 @@ test('fundir: cada medida con tiempo.fundir; conmutativa, asociativa, con neutro
   for (const k of Object.keys(abc.medidas)) assert.deepEqual([abc.medidas[k].recuento, abc.medidas[k].n, 'cajas' in abc.medidas[k]], [true, 3, false], k);
   // T:minuto solo lo mueve el mercado (11): los otros dos valen cero en esa serie.
   const minutos = abc.tokens['T:minuto'];
-  assert.deepEqual([minutos.cajas, minutos.suma, minutos.minimo, minutos.maximo], [[2, 0, 0, 0, 0, 0, 1, 0, 0, 0], 11, 0, 11]);
+  assert.deepEqual([minutos.cajas, minutos.suma, minutos.minimo, minutos.maximo], [[2, 0, 0, 0, 0, 0, 0, 0, 0, 1], 1403, 0, 1403]);
   assert.deepEqual(bloqueDe(a, 'T:minuto').cajas, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.deepEqual([abc.medidas.terminales.suma, abc.medidas.terminales.minimo, abc.medidas.terminales.maximo], [9 + 1 + 3, 1, 9]);
   // Por posición: cuántos la tienen desarrollada y por qué procedencia; la raíz aparte.
@@ -123,7 +124,7 @@ test('fundir: cada medida con tiempo.fundir; conmutativa, asociativa, con neutro
   // Etiquetas de caja: los diez hitos, sin asignar nada, y solo para cantidades (R7).
   const cajas = cajasEtiquetadas(abc, 'T:minuto');
   assert.equal(cajas.length, 10);
-  assert.deepEqual(cajas[6], { caja: 6, nivel: HITOS[6].nivel, nombre: HITOS[6].nombre, cuenta: 1 });
+  assert.deepEqual(cajas[6], { caja: 6, nivel: HITOS[6].nivel, nombre: HITOS[6].nombre, cuenta: 0 });
   assert.throws(() => cajasEtiquetadas(abc, 'terminales'), /es un recuento informativo: no tiene cajas/);
 });
 
@@ -151,11 +152,11 @@ test('calcularBase: los hijos y el subárbol; lo que cuelga de un hijo sin base 
 test('escribirBase: la escribe la propia cosa en el 8 del registro, firmada, y gasta su T', async () => {
   const ej = await nuevo();
   const { eje } = ej;
-  assert.equal(eje.saldoT('menu-dia', 'minuto'), 10);
+  assert.equal(eje.saldoT('menu-dia', 'minuto'), 1000); // lo que le dieron su dueña (el sábado y el domingo): una base cuesta un minuto por posición
   const ev = await escribirBase(eje, { registro: ej.menu.id, privada: claves['menu-dia'].privada, t: T_BASES });
   assert.deepEqual([ev.autor, ev.firmante, ev.sobre, ev.en], ['menu-dia', 'menu-dia', ej.menu.id, CIELO]);
   assert.deepEqual(ev.contexto, { bases: true, n: 4, nSubarbol: 5, hasta: ej.cafe.id, epoca: 'época 0', sinBase: 0 });
-  assert.equal(eje.saldoT('menu-dia', 'minuto'), 9);
+  assert.equal(eje.saldoT('menu-dia', 'minuto'), 1000 - ev.movimientos[0].cantidad); // la regla del coste: un minuto por posición de la base (VG 12-11, #64 b)
   assert.ok(validarPayload(ev.payload).ok);
   assert.ok(esBase(eje, ev));
   // La base no es hija de lo que mide, ni un escrito, ni desarrolla su posición 8.
@@ -183,16 +184,16 @@ test('en el 8 solo es base lo que firma la propia cosa bien formado; lo demás e
     // Una compra que se declara base para esconderse (sin clave ni firma).
     await en8('huesped', { movimientos: [hora('huesped')], payload: ['Compra de pan', 3], contexto: { bases: true } }),
     // Una base bien formada, firmada por otra identidad con clave.
-    await en8('cocina', { movimientos: [minuto('cocina')], payload: payloadDeBase(calculada), contexto }),
+    await en8('cocina', { movimientos: [pagaElCoste('cocina', 'auto')], payload: payloadDeBase(calculada), contexto }),
     // De la propia cosa, con un contexto que no es el de una base.
-    await en8('menu-dia', { movimientos: [minuto('menu-dia')], payload: payloadDeBase(calculada), contexto: { ...contexto, profundidad: 'x', desde: 'raro' } }),
+    await en8('menu-dia', { movimientos: [pagaElCoste('menu-dia', 'auto')], payload: payloadDeBase(calculada), contexto: { ...contexto, profundidad: 'x', desde: 'raro' } }),
     // De la propia cosa, con referencias que no son sus hijos en orden.
-    await en8('menu-dia', { movimientos: [minuto('menu-dia')], payload: payloadDeBase({ ...calculada, refsHijos: [...calculada.refsHijos].reverse() }), contexto: { ...contexto, hasta: ej.compra.id } }),
+    await en8('menu-dia', { movimientos: [pagaElCoste('menu-dia', 'auto')], payload: payloadDeBase({ ...calculada, refsHijos: [...calculada.refsHijos].reverse() }), contexto: { ...contexto, hasta: ej.compra.id } }),
   ];
   // De la propia cosa, con un bloque incoherente: la suma no cabe entre n·mínimo y n·máximo.
   const falsa = JSON.parse(JSON.stringify(payloadDeBase(calculada)));
   falsa[2][0][0][1] = 1000;
-  intentos.push(await en8('menu-dia', { movimientos: [minuto('menu-dia')], payload: falsa, contexto }));
+  intentos.push(await en8('menu-dia', { movimientos: [pagaElCoste('menu-dia', 'auto')], payload: falsa, contexto }));
   assert.equal(baseDePayload(falsa), null);
   // Fuera del 8 no es una base, se diga lo que se diga.
   intentos.push(await eje.escribir({ autor: 'huesped', sobre: ej.menu.id, en: '1000000000', t: T_BASES, movimientos: [hora('huesped')], payload: 'nota', contexto: { bases: true } }));
@@ -539,7 +540,7 @@ test('payload: más de diez hijos o series se anidan en décuplas y se leen igua
   const { eje } = ej;
   for (let i = 0; i < 12; i++) {
     // De la casa, en minutos: doce horas más no caben en su asignación del día (VG, 8-11).
-    await eje.escribir({ autor: 'casa', sobre: ej.puesto.id, t: '2026-11-07T18:' + String(10 + i) + ':00Z', movimientos: [minuto('casa')], payload: 'nota ' + i }, claves.casa.privada);
+    await eje.escribir({ autor: 'casa', sobre: ej.puesto.id, t: '2026-11-08T18:' + String(10 + i) + ':00Z', movimientos: [minuto('casa')], payload: 'nota ' + i }, claves.casa.privada);
   }
   const calculada = calcularBase(eje, ej.puesto.id);
   for (let i = 0; i < 12; i++) calculada.hijos.tokens['E:serie' + String(i).padStart(2, '0') + '/X'] = bloqueDe(calculada.hijos, 'E:nada/X');

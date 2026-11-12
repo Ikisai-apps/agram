@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { evaluar, consultar, esFormula, desescapar, analizar, formato } from '../src/bql.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-06T20:00:00Z';
-const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const gastaT = (de) => pagaElCoste(de);
 
 async function ejeCon(payload) {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: payload, t: T0 });

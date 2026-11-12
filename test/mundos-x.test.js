@@ -15,8 +15,9 @@ import { MUNDOS, datosX, svgMundo, htmlX, sobrioX } from '../antigua/mundos/x.js
 import { crearUi as crearUiX, piezasX } from '../antigua/mundos/x-ui.js';
 import { renderActual } from '../antigua/mundos/hilos-ui.js';
 import { readFileSync } from 'node:fs';
+import { pagaElCoste } from './ayudas-coste.js';
 
-const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const gastaT = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const eur = (cantidad, de, a) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de, a });
 
 /** Etiquetas de apertura de los elementos animados (los que llevan x-nuevo). */

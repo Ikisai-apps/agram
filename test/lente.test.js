@@ -18,10 +18,11 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { PRECIO_LENTE, claveR, lenteDe, peso, valor, detalleValor, devoluciones, pendientes } from '../src/lente.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { ejemploLente, valoresParaLaCasa, valorEnBql, CERCANOS_DE_LA_CASA, RECIEN } from '../ejemplos/ikisai/lente-booking.mjs';
+import { pagaElCoste } from './ayudas-coste.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 const AYER = '2026-11-07T10:00:00Z';
-const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 let cuenta = 0;
 const unico = (x) => x + ' #' + (++cuenta);

@@ -57,10 +57,10 @@
 import { Eje } from '../../src/eje.js';
 import { direccion, indicesDe, esReferencia } from '../../src/btml.js';
 import { evaluar } from '../../src/bql.js';
-import { costeT } from '../../src/escritura.js';
 import { familiaDe, partirClave } from '../../src/tokens.js';
 import { capacidadDe, tramoDe, siguiente, cerrado, ANUNCIO } from '../../src/motor.js';
 import { entrarPorInvitacion } from './altas.mjs';
+import { pagaElCoste, escribirPagando } from './coste.mjs';
 
 /** La casa: la persona que respalda las plazas y emite su serie (VG, 7-11 noche: solo emiten personas). */
 export const CASA = 'casa';
@@ -179,7 +179,7 @@ export function nochesEntre(entrada, salida) {
 }
 
 /** Movimiento de T: escribir cuesta minutos de quien escribe. */
-const minutos = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const minutos = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 
 /** EUR de la casa: la serie E:casa/EUR. */
 export const EUR = 'E:' + CASA + '/EUR';
@@ -212,7 +212,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
   // La casa invita a recepción y a la persona huésped; cada una acepta (su alta, firmada con su clave si la tiene).
   // Después la casa les da lo suyo.
   for (const id of ['recepcion', 'huesped']) await entrarPorInvitacion(eje, { por: CASA, quien: id, t, clave: claves[id], privadaDe: priv });
-  const alta = await eje.escribir({
+  const alta = await escribirPagando(eje, {
     autor: CASA,
     sobre: eje.genesisId,
     t,
@@ -228,7 +228,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
 
   // El dominio (VG, 7-11): el «Alojamiento» de la casa, raíz de todo lo de Booking. Declara su capacidad (R2), 4
   // plazas por noche. Escribirlo le da a la casa diez P sobre él (mapa §15 [D] N1).
-  const alojamiento = await eje.escribir({
+  const alojamiento = await escribirPagando(eje, {
     autor: CASA,
     sobre: eje.genesisId,
     t,
@@ -238,7 +238,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
 
   // Recepción escribe sobre el Alojamiento que atiende las reservas: su P (diez, sobre su propio registro) cuelga
   // del dominio, y con él respalda plazas. Ya no hay P delegado por la casa: nadie emite P a mano (mapa §15).
-  const atiende = await eje.escribir({
+  const atiende = await escribirPagando(eje, {
     autor: 'recepcion',
     sobre: alojamiento.id,
     t,
@@ -247,17 +247,17 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
   }, priv('recepcion'));
 
   // La casa publica la disponibilidad (la habitación con sus plazas) sobre el dominio.
-  const habitacion = await eje.escribir({
+  const habitacion = await escribirPagando(eje, {
     autor: CASA,
     sobre: alojamiento.id,
     t,
-    movimientos: [minutos(CASA, 10)],
+    movimientos: [minutos(CASA)],
     payload: structuredClone(HABITACION), // copia: el payload de un evento no comparte arrays con nadie
   }, priv('casa'));
 
   // Oferta pública (R8, src/elegibles.js): la casa ancla en el 2.3 de la habitación (criterio · con quién) que
   // `cualquiera` puede reservar. Así las reservas de quien sea son elegibles en sus plazas; elegible no es elegido.
-  const abierta = await eje.escribir({
+  const abierta = await escribirPagando(eje, {
     autor: CASA,
     sobre: habitacion.id,
     en: '2300000000',
@@ -294,7 +294,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
  */
 export async function respaldarPlazas(eje, habitacion, { identidad, plazas, ambito, t, privada }) {
   const bloqueos = Object.entries(plazas).map(([k, cantidad]) => ({ token: 'P', ambito, cantidad, de: identidad, a: identidad, estado: 'bloqueo', salida: familiaPlaza(habitacion.id, Number(k)) }));
-  return eje.escribir({
+  return escribirPagando(eje, {
     autor: identidad,
     sobre: habitacion.sobre,
     t,
@@ -331,7 +331,7 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
       movimientos.push({ ...tokenPlaza(habitacion.id, k, noche, plazas, null, CASA), caduca: caducaNoche(noche), ...conjunta });
     }
   });
-  return eje.escribir({
+  return escribirPagando(eje, {
     autor: CASA,
     sobre: habitacion.id,
     t,
@@ -370,21 +370,21 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
     [['pagar'], ['ocupar']], // 4 fábrica: lo que prepara, una décupla (4.0 pagar, 4.1 ocupar)
     ['booking'], // 5 estructura: dónde encaja, su tipo: la plantilla «booking» de la época (epoch.9.2; encargo 3c-1)
   ];
-  const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
+  const reserva = await escribirPagando(eje, { autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor)], payload }, privada);
   const tramo = [[entrada], [salida]]; // una décupla (cada posición entre corchetes): [entrada, salida] sería una lista de dos ocupantes
-  await eje.escribir({
+  await escribirPagando(eje, {
     autor,
     sobre: reserva.id,
     en: direccion([7]),
     t,
-    movimientos: [minutos(autor, costeT(tramo))],
+    movimientos: [minutos(autor)],
     payload: tramo,
   }, privada);
   // Lo que se va a mover (encargo 3b): la casa entrega un token de la plaza por noche; quien reserva paga el total.
   const total = evaluar(eje, reserva.id, [1, 3]);
   const anuncios = [['ocupar', lista.map((noche) => anunciado(seriePlaza(habitacion.id, k, noche), 1, CASA, autor))], ...(total.valor?.tipo === 'magnitud' ? [['pagar', [anunciado(EUR, total.valor.cantidad, autor, CASA)]]] : [])];
   for (const [que, movimientos] of anuncios) {
-    await eje.escribir({ autor, sobre: reserva.id, en: ANUNCIO, t, movimientos: [minutos(autor, costeT(que)), ...movimientos], payload: que }, privada);
+    await escribirPagando(eje, { autor, sobre: reserva.id, en: ANUNCIO, t, movimientos: [minutos(autor), ...movimientos], payload: que }, privada);
   }
   return reserva;
 }
@@ -431,7 +431,7 @@ async function cumplir(eje, reserva, quien, { t, titulo, privada }) {
   const { faltaDeMi } = siguiente(eje, reserva.id, quien);
   let ultimo = null;
   for (const x of faltaDeMi.filter((f) => f.plantilla === 'move what was announced')) {
-    ultimo = await eje.escribir({ autor: quien, sobre: x.anuncio, en: x.transaccion.en, t, movimientos: [minutos(quien), ...x.transaccion.movimientos.slice(1)], payload: titulo }, privada);
+    ultimo = await escribirPagando(eje, { autor: quien, sobre: x.anuncio, en: x.transaccion.en, t, movimientos: [minutos(quien), ...x.transaccion.movimientos.slice(1)], payload: titulo }, privada);
   }
   return ultimo;
 }
