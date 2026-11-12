@@ -78,7 +78,7 @@ El sobre 7700 lo firma una clave de transporte del servicio, no el autor (la car
 
 ## El sello de tiempo (simulación de StateArk)
 
-El tercer reloj de cada registro (`X.6.8.2`, el bloque de Bitcoin que lo sella; `docs/CONTRATO.md` §4.4) lo pone `src/sello.js`. Hoy **no hay Bitcoin ni StateArk**: `servidor/sim/stateark/` es una **simulación** (copia del commit d6bc6bd de `InTheState/stateark/sim`, ver su `LEEME.md`: además del §3 trae §5 pagos, §6 custodia y §8 candado, que solo están copiados y probados, la carta no los usa), JavaScript puro, sin dependencias, con las pruebas en `test/sim-stateark*.test.js`. Cuando exista StateArk real se sustituye con la misma forma (`sellar`, `prueba`, `verificar`).
+El tercer reloj de cada registro (`X.6.8.2`, el bloque de Bitcoin que lo sella; `docs/CONTRATO.md` §4.4) lo pone `src/sello.js`, que no importa ninguna simulación (TOK-74): la recibe inyectada (`selloCon`), y `servidor/sim/sello-agram.js` (`selloSimulado`) se la da. Hoy **no hay Bitcoin ni StateArk**: `servidor/sim/stateark/` es una **simulación** (copia del commit d6bc6bd de `InTheState/stateark/sim`, ver su `LEEME.md`: además del §3 trae §5 pagos, §6 custodia y §8 candado, que solo están copiados y probados, la carta no los usa), JavaScript puro, sin dependencias, con las pruebas en `test/sim-stateark*.test.js`. Cuando exista StateArk real se sustituye con la misma forma (`sellar`, `prueba`, `verificar`).
 
 ```sh
 node servidor/sim/stateark/servidor.js 8787 600000      # un servicio de sello local; un bloque cada 10 min (sin el segundo número, solo POST /minar)

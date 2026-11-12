@@ -8,7 +8,8 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { arrancar } from '../servidor/prueba/servidor.mjs';
 import { crearServidor } from '../servidor/sim/stateark/servidor.js';
-import { selloSimulado, selloHttp, crearSello, destino, deConfiguracion, ErrorDeSello } from '../src/sello.js';
+import { selloHttp, selloCon, crearSello, destino, deConfiguracion, ErrorDeSello } from '../src/sello.js';
+import { selloSimulado } from '../servidor/sim/sello-agram.js';
 import { Sincronia } from '../src/sincronia.js';
 import { Eje } from '../src/eje.js';
 import { verificarId, canonico } from '../src/evento.js';
@@ -151,13 +152,18 @@ test('el adaptador HTTP habla con el servicio de la simulación: sellar, 202 pen
   await assert.rejects(selloHttp({ url: base }).sellar(['0'.repeat(64)]), ErrorDeSello, 'sin red');
 });
 
-test('destino y crearSello: la url sale de la configuración «seal url» de «exterior settings» (opcional); sin url, la simulación en Node; la sincronía y el índice la exponen', async () => {
+test('destino y crearSello: la url sale de la configuración «seal url» de «exterior settings» (opcional); sin url, el sellador inyectado (la simulación entra así, desde servidor/sim/); la sincronía y el índice la exponen', async () => {
   const { eje } = await ejeConUnEvento();
   assert.equal(destino(eje, 'vg'), null, 'sin «seal url» en la configuración, ninguno');
   assert.equal(deConfiguracion(eje, 'vg'), null);
   assert.equal(crearSello({ url: 'http://127.0.0.1:1/' }).via, 'http');
-  assert.equal(crearSello({ url: '' }).via, 'simulado', 'en Node, sin url, la simulación');
-  assert.equal(crearSello({ simulado: false }), null);
+  assert.equal(crearSello({ url: '' }), null, 'sin url ni sellador, nada se sella: src/ no conoce la simulación (TOK-74)');
+  const simulado = selloSimulado();
+  assert.equal(crearSello({ url: '', sellador: simulado }).via, 'simulado', 'sin url, el sellador inyectado');
+  assert.equal(deConfiguracion(eje, 'vg', { sellador: simulado }).via, 'simulado', 'la configuración sin «seal url», con el sellador inyectado');
+  assert.equal(typeof crearSello({ sellador: simulado }).minar, 'function', 'minar pasa si el sellador lo tiene');
+  assert.equal(selloCon({ sellar() {}, prueba() {}, verificar() {} }).via, 'inyectado');
+  assert.throws(() => selloCon({ sellar() {} }), TypeError);
   assert.equal(agram.sello.crearSello, crearSello);
 });
 

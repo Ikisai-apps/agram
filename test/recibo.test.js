@@ -13,7 +13,7 @@ import { arrancar as arrancarTransporte } from '../servidor/sim/aarpia/servidor.
 import { Rele } from '../servidor/sim/aarpia/src/rele.js';
 import { arrancar as arrancarPrueba, almacenEnMemoria } from '../servidor/prueba/servidor.mjs';
 import { crearApi } from '../servidor/supabase/funciones/eventos/api.js';
-import { selloSimulado } from '../src/sello.js';
+import { selloSimulado } from '../servidor/sim/sello-agram.js';
 import { Sincronia, RECIBOS_POR_PASADA } from '../src/sincronia.js';
 import { Eje } from '../src/eje.js';
 import { verificarId, canonico } from '../src/evento.js';

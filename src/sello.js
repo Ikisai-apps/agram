@@ -7,9 +7,11 @@
 // todo asíncrono. Lo que se sella son SOLO ids (SHA-256 del cuerpo canónico): el evento no sale de aquí. El bloque
 // dice que el lote existía como muy tarde en su instante (una cota superior: no la hora del evento).
 //
-// Hay dos vías, con la misma forma:
-//   · simulada: la SIMULACIÓN de StateArk (servidor/sim/stateark/, ver su LEEME.md), en memoria y solo en Node. Lo
-//     pendiente entra en un bloque cuando alguien llama a `minar()` (solo existe aquí). Se sustituirá por StateArk real.
+// Hay dos vías, con la misma forma, y este módulo no conoce ninguna simulación (TOK-74: fuera quedan AARPIA, Nostr y
+// Bitcoin; ningún import de src/ las nombra):
+//   · inyectada: `selloCon(sellador)` envuelve un objeto con sellar/prueba/verificar (y, si lo tiene, minar) que da
+//     quien llama. La SIMULACIÓN de StateArk (servidor/sim/stateark/) entra así, desde servidor/sim/sello-agram.js
+//     (`selloSimulado`, solo en Node), que es quien la importa; se sustituirá por StateArk real.
 //   · HTTP: un servicio con POST /sellar, GET /prueba/:id (202 si pendiente, 404 si nunca se selló), POST /verificar
 //     (la forma de servidor/sim/stateark/servidor.js, que sirve también de servicio de prueba). Es la del navegador: su
 //     dirección es el ajuste «seal url» de «exterior settings» (ver `destino`); sin ella, en el navegador, nada se sella.
@@ -27,32 +29,19 @@ export function destino(eje, yo, opciones = {}) {
   return exterior(eje, yo, opciones).sello;
 }
 
-const enNode = () => typeof process !== 'undefined' && !!process.versions?.node;
-
 /**
- * El sello por la simulación de StateArk (solo Node). Cada llamada crea un sellador propio, con su cadena: `opciones` son
- * las de `crearSellador` ({ inicio, intervalo, reloj }). Además de la interfaz, `minar()` mete lo pendiente en un
- * bloque (solo en la simulación) y `sellador` da el sellador de dentro (para guardar y restaurar la cadena).
+ * El sello por un sellador que se inyecta (la simulación, una prueba, otro servicio): un objeto con `sellar(ids)`,
+ * `prueba(id)` y `verificar(evento, prueba)`, síncronos o asíncronos, y, si lo tiene, `minar()` (solo una simulación).
+ * El adaptador lo da todo asíncrono; `via` es la del sellador o «inyectado».
  */
-export function selloSimulado(opciones) {
-  if (!enNode()) throw new Error('sello: la simulación de StateArk solo corre en Node; en el navegador, hace falta «seal url»');
-  let dentro = null;
-  const sim = async () => {
-    dentro ??= (async () => {
-      const m = await import('../servidor/sim/stateark/index.js');
-      return m.crearSellador(opciones);
-    })();
-    return dentro;
-  };
+export function selloCon(sellador) {
+  if (!sellador || ['sellar', 'prueba', 'verificar'].some((k) => typeof sellador[k] !== 'function')) throw new TypeError('sello: el sellador ha de tener sellar, prueba y verificar');
   return {
-    via: 'simulado',
-    sellar: async (ids) => (await sim()).sellar(ids),
-    prueba: async (id) => (await sim()).prueba(id),
-    verificar: async (evento, prueba) => (await sim()).verificar(evento, prueba),
-    minar: async () => (await sim()).minar(),
-    get sellador() {
-      return sim();
-    },
+    via: typeof sellador.via === 'string' ? sellador.via : 'inyectado',
+    sellar: async (ids) => sellador.sellar(ids),
+    prueba: async (id) => sellador.prueba(id),
+    verificar: async (evento, prueba) => sellador.verificar(evento, prueba),
+    ...(typeof sellador.minar === 'function' ? { minar: async () => sellador.minar() } : {}),
   };
 }
 
@@ -106,19 +95,20 @@ export function selloHttp({ url, fetch = globalThis.fetch?.bind(globalThis) } = 
 }
 
 /**
- * El adaptador que toca: con `url`, el servicio HTTP; sin ella, la simulación si se corre en Node (`simulado: false` la
- * apaga); en el navegador sin url, null: nada se sella.
+ * El adaptador que toca: con `url`, el servicio HTTP; sin ella, el sellador inyectado (`sellador`, ver selloCon); sin
+ * ninguno de los dos, null: nada se sella.
  */
-export function crearSello({ url, fetch, simulado = true, ...opciones } = {}) {
+export function crearSello({ url, fetch, sellador } = {}) {
   if (typeof url === 'string' && url.trim()) return selloHttp({ url: url.trim(), fetch });
-  return simulado && enNode() ? selloSimulado(opciones) : null;
+  return sellador ? selloCon(sellador) : null;
 }
 
 /**
- * El adaptador de la configuración de `yo` (su «seal url» de «exterior settings»): el servicio HTTP si lo ha dicho; si no,
- * null (la carta, en el navegador, no sella sin dirección; en Node, `crearSello()` da la simulación).
+ * El adaptador de la configuración de `yo`: el servicio HTTP de su «seal url» («exterior settings») si lo ha dicho; si
+ * no, el sellador inyectado (`opciones.sellador`); si no, null (la carta, en el navegador, no sella sin dirección).
  */
-export function deConfiguracion(eje, yo, { fetch, ...opciones } = {}) {
+export function deConfiguracion(eje, yo, { fetch, sellador, ...opciones } = {}) {
   const url = destino(eje, yo, opciones);
-  return url ? selloHttp({ url, fetch }) : null;
+  if (url) return selloHttp({ url, fetch });
+  return sellador ? selloCon(sellador) : null;
 }
