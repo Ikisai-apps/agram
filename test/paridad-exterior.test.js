@@ -188,9 +188,10 @@ test('la misma secuencia da los mismos registros, el mismo reloj 6.8.0 y el mism
 
   // 3. «Verificado» como lectura: solo en la simulación (sello verificado + recibo del relé + relojes en orden).
   for (const id of [supa.e1.id, supa.e2.id]) {
-    assert.deepEqual(contrato.verificado(supa.eje, id), { ok: false, sello: false, recibo: null, relojes: true }, 'Supabase: sin sello no hay verificado, y sin transporte de recibos no se exige');
-    assert.deepEqual(contrato.verificado(sim.eje, id), { ok: true, sello: true, recibo: true, relojes: true });
-    assert.deepEqual(contrato.verificado(sim.ejeB, id), { ok: true, sello: true, recibo: true, relojes: true });
+    assert.deepEqual(contrato.verificado(supa.eje, id), { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'Supabase: sin sello no hay verificado, y sin transporte de recibos no se exige');
+    // La simulación de StateArk da la altura del bloque del sello: hay profundidad (un solo bloque: 1 confirmación, aún no «en firme»).
+    assert.deepEqual(contrato.verificado(sim.eje, id), { ok: true, sello: true, recibo: true, relojes: true, altura: 1, profundidad: 1, enFirme: false });
+    assert.deepEqual(contrato.verificado(sim.ejeB, id), { ok: true, sello: true, recibo: true, relojes: true, altura: 1, profundidad: 1, enFirme: false });
     assert.equal(contrato.leer(sim.eje, id, 5).verificado.ok, true);
     assert.equal(contrato.leer(supa.eje, id, 5).verificado.ok, false);
   }

@@ -78,12 +78,13 @@ export function ajustesEditablesDe(nombre, eje, yo, valores = {}, opciones = {})
   const idioma = opciones.idioma ?? contrato.configuracion(eje, yo, opciones).language;
   const leido = contrato.configuracionDe(eje, yo, nombre, opciones);
   // «-» es lo que se escribe en una posición sin valor que queda delante del tipo (BTML no tiene huecos): se lee como vacío.
-  const actual = Object.fromEntries(Object.entries(leido).map(([k, x]) => [k, x === '-' ? undefined : x]));
+  // Una lista (las claves de los observadores, varias hojas) se enseña y se compara como un texto separado por espacios.
+  const actual = Object.fromEntries(Object.entries(leido).map(([k, x]) => [k, x === '-' ? undefined : Array.isArray(x) ? x.join(' ') : x]));
   const claves = contrato.clavesDeConfiguracionDe(nombre, opciones);
   const payload = [[plantilla.nombre]];
   const campos = [];
   let cambiado = false;
-  for (const { pv, clave, defecto } of claves) {
+  for (const { pv, clave, defecto, ayuda: canonica } of claves) {
     const numero = typeof defecto === 'number';
     const dado = valores[clave] !== undefined ? String(valores[clave]).trim() : undefined;
     // Un ajuste sin defecto (el ancla de las opiniones) se quita escribiendo «-»; vacío conserva el actual.
@@ -95,12 +96,14 @@ export function ajustesEditablesDe(nombre, eje, yo, valores = {}, opciones = {})
     campos.push({
       pv, clave, numero, valor: v ?? '', marcador: defecto ?? '',
       etiqueta: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'label'), idioma, { original: clave, ...opciones }),
-      ayuda: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'help'), idioma, { original: '', ...opciones }),
+      ayuda: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'help'), idioma, { original: canonica ?? '', ...opciones }),
     });
   }
-  // Las posiciones sin valor y sin defecto (una url sin decir) que quedan delante del tipo se escriben «-»: BTML no tiene huecos.
-  for (const { pv } of claves) if (pv < 5 && payload[pv] === undefined) payload[pv] = ['-'];
+  // Las posiciones sin valor y sin defecto (una url sin decir) que quedan delante de otra con valor se escriben «-»: BTML no tiene huecos
+  // (delante del tipo, el 5, siempre; detrás, solo hasta la última que lleva algo).
   payload[5] = [plantilla.nombre]; // el tipo (B4)
+  const ultima = payload.length - 1;
+  for (const { pv } of claves) if (pv < ultima && payload[pv] === undefined) payload[pv] = ['-'];
   return { payload, campos, sobre: alta.id, en: direccion([9]), cambiado };
 }
 

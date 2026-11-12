@@ -75,14 +75,14 @@ const urlHttp = (x) => {
  * TRANSPORTE (eventos y recibo): la «relay url» de «exterior settings» (docs/CONTRATO.md §16.2 bis) si la ha dicho; si
  * no, «sync url» de las preferencias. El eje y la clave de lectura son los mismos en los dos casos: elegir Supabase o la
  * simulación es solo configuración. Con `opciones.como`: 'archivos' da la de los archivos («blossom url», si no
- * «sync url») y 'libro' solo «sync url» (donde vive la guía, ruta /guia).
+ * «sync url») y 'libro' da la de la guía (la «guide url» por la pasarela de AARPIA, ruta /guia; si no, «sync url», la función de Supabase).
  */
 export function destino(eje, yo, { como = 'eventos', ...opciones } = {}) {
   const c = configuracion(eje, yo, opciones);
   const sync = urlHttp(c[CONFIGURACION.url]);
   const nombre = primeraHoja(c[CONFIGURACION.eje]);
-  const fuera = como === 'libro' ? null : exterior(eje, yo, opciones);
-  const url = (como === 'archivos' ? fuera?.archivos : fuera?.relevo) ?? sync;
+  const fuera = exterior(eje, yo, opciones);
+  const url = (como === 'archivos' ? fuera.archivos : como === 'libro' ? fuera.guia : fuera.relevo) ?? sync;
   if (!url || typeof nombre !== 'string' || !nombre.trim()) return null;
   return { url, eje: nombre.trim() };
 }
@@ -90,7 +90,7 @@ export function destino(eje, yo, { como = 'eventos', ...opciones } = {}) {
 /** Dónde están los archivos de `yo` (`destino` con la «blossom url»): { url, eje } o null. */
 export const destinoDeArchivos = (eje, yo, opciones = {}) => destino(eje, yo, { ...opciones, como: 'archivos' });
 
-/** Dónde está el servidor del libro de `yo` por «sync url» sola (la guía llama a {url}/guia): { url, eje } o null. */
+/** Dónde se pide la guía de `yo` (llama a {url}/guia): la «guide url» de «exterior settings» si la ha dicho; si no, «sync url». { url, eje } o null. */
 export const destinoDelLibro = (eje, yo, opciones = {}) => destino(eje, yo, { ...opciones, como: 'libro' });
 
 /** La espera antes de reintentar tras `intentos` fallos, en milisegundos: 1 s, 2 s, 4 s… hasta cinco minutos. */

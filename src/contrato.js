@@ -29,7 +29,7 @@
 //   franjaDeEntrada(eje, id, pv)           la franja de una entrada en el 6 o el 7 (el primer paso de la fila que da valor) y si sus tres
 //                                          relojes van fuera de orden (`rara`, X.6.9)
 //   relojesFueraDeOrden(eje, id)           si los tres relojes de un registro (X.6.8) van fuera de orden: la lectura «clocks out of order»
-//   verificado(eje, id)                    { ok, sello, recibo, relojes }: sello verificado, recibo (si el transporte los da) y relojes en orden (§4.4)
+//   verificado(eje, id)                    { ok, sello, recibo, relojes, altura, profundidad, enFirme }: sello verificado, recibo (si el transporte los da), relojes en orden, y cuántas confirmaciones tiene (§4.4)
 //   cohorteDe(eje, X, { cohorte })         la cohorte del 8: contra quién se compara X, sus comparables por caja y quién escribió la base
 //   yo(eje, identidad)                     mi alta y sus posiciones: cartera, criterio, atención, tiempo
 //   configuracion(eje, yo)                 mis preferencias (el registro en el 9 de mi alta) o los defectos de la plantilla
@@ -53,6 +53,7 @@ import { ESCALAS_T, ESCALAS_INFORMATIVAS, partirClave, franjaDe, capacidadDe, cl
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { HITOS, cajaDeCuota, confluir, situar, SIN_BASE_ESCRITA } from './bases.js';
 import { pasoDe } from './pasos.js';
+import { ajustesDelEje } from './exterior.js';
 import { recuento, miradasDe } from './motor.js';
 import { estadoDePaquete } from './lente.js';
 import { cajasDelTres, conversacionDelTres as conversacionTres } from './tres.js';
@@ -1629,13 +1630,18 @@ export function relojesFueraDeOrden(eje, id, opciones = {}) {
 
 /**
  * ¿Está verificado un registro? (VG 12-11, #49.8 y #60; docs/CONTRATO.md §4.4): una LECTURA de los tres relojes, no un dato.
- * → { ok, sello, recibo, relojes } o null si el registro no está en el eje:
+ * → { ok, sello, recibo, relojes, altura, profundidad, enFirme } o null si el registro no está en el eje:
  *   sello    true si su sello de tiempo (X.6.8.2) está en un bloque y `verificar` de src/sello.js lo dio por bueno
  *            (`eje.sello(id).verificado`: el gancho de la estación «verificado»);
  *   recibo   true si el transporte dio su recibo de llegada (X.6.8.1); false si el transporte los da (el eje tiene alguno)
  *            pero no el de este; null si en este eje el transporte no da ninguno (no se exige);
  *   relojes  true si los tres relojes van en orden («clocks out of order», X.6.9, es falso);
- *   ok       sello && recibo !== false && relojes.
+ *   ok       sello && recibo !== false && relojes;
+ *   altura   la del bloque que lo sella (8.3 del sello) o null si no tiene sello;
+ *   profundidad  las confirmaciones: (altura del último sello conocido en el eje − altura de su bloque + 1), como en Bitcoin
+ *            (un bloque recién minado ya tiene 1); null si no hay alturas;
+ *   enFirme  sello verificado y profundidad >= las «confirmations» de los ajustes del exterior de la cuenta RAÍZ del eje
+ *            (src/exterior.js ajustesDelEje: todos los lectores cuentan con las mismas; 6 por defecto).
  * Sin sello verificado nunca es ok: sin Bitcoin no hay «verificado».
  */
 export function verificado(eje, id, opciones = {}) {
@@ -1643,7 +1649,11 @@ export function verificado(eje, id, opciones = {}) {
   const sello = eje.sello?.(id)?.verificado === true;
   const recibo = eje.recibo?.(id) ? true : (eje.totalRecibos ?? 0) > 0 ? false : null;
   const relojes = !relojesFueraDeOrden(eje, id, opciones);
-  return { ok: sello && recibo !== false && relojes, sello, recibo, relojes };
+  const altura = Number.isSafeInteger(eje.sello?.(id)?.altura) ? eje.sello(id).altura : null;
+  const conocida = Number.isSafeInteger(eje.alturaConocida) ? eje.alturaConocida : null;
+  const profundidad = altura === null || conocida === null ? null : Math.max(1, conocida - altura + 1);
+  const enFirme = sello && profundidad !== null && profundidad >= ajustesDelEje(eje, opciones).confirmaciones;
+  return { ok: sello && recibo !== false && relojes, sello, recibo, relojes, altura, profundidad, enFirme };
 }
 
 /** La plantilla de transacción que cambia la cohorte (epoch.9.6) y su parámetro: se leen de la época. */
@@ -1924,7 +1934,8 @@ function clavesDe(p) {
     if (!clave) continue;
     const defecto = hojas(desc[9]).slice(0, -1);
     const valores = valoresDeValidacion(texto(ultima(desc[2])));
-    claves.push({ pv: d, clave, defecto: defecto.length ? (defecto.length === 1 ? defecto[0] : defecto) : undefined, ...(valores ? { valores } : {}) });
+    const ayuda = hojas(desc[9]).at(-1);
+    claves.push({ pv: d, clave, defecto: defecto.length ? (defecto.length === 1 ? defecto[0] : defecto) : undefined, ...(typeof ayuda === 'string' ? { ayuda } : {}), ...(valores ? { valores } : {}) });
   }
   return claves;
 }

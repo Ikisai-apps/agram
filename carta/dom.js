@@ -456,7 +456,11 @@ const EJECUCIONES_EN_CELDA = 3;
 /** El nombre de una estación de la fábrica (propuesta, autorizada, ejecutada), en el idioma de la interfaz. */
 const textoEstacion = (estado) => t({ ejecutada: 'estadoEjecutada', autorizada: 'estadoAutorizada' }[estado] ?? 'estadoPropuesta');
 
-const marcaVerificado = (o) => (o?.verificado ? `<small class="verificado" title="${attr(t('verificadoTitulo'))}">◆ ${escapar(t('verificado'))}</small>` : '');
+/** El texto de la marca de verificado: «verificado», «verificado · N confirmaciones» si se conoce la profundidad, «en firme» si ya las tiene todas. */
+const textoVerificado = (o) => (o.enFirme ? t('enFirme') : o.confirmaciones === 1 ? t('verificadoUnaConfirmacion') : o.confirmaciones > 1 ? t('verificadoConfirmaciones', { n: o.confirmaciones }) : t('verificado'));
+const tituloVerificado = (o) => (o.enFirme ? t('enFirmeTitulo', { n: o.confirmaciones, minimas: o.minimas }) : t('verificadoTitulo'));
+const htmlVerificado = (o) => `<small class="verificado"${o.enFirme ? ' data-en-firme' : ''}${o.confirmaciones ? ` data-confirmaciones="${attr(o.confirmaciones)}"` : ''} title="${attr(tituloVerificado(o))}">◆ ${escapar(textoVerificado(o))}</small>`;
+const marcaVerificado = (o) => (o?.verificado ? htmlVerificado(o) : '');
 
 /**
  * Lo de dentro de una celda de la matriz (encargo «datos2», issue #11: la celda es la lista de ejecuciones): cada una
@@ -867,7 +871,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
       ${puntos}
       <p class="tipo">${c.plantilla ? `${t('plantilla')} <b>${escapar(c.plantilla)}</b>` : t('sinPlantilla')}${c.t ? ` · <time>${escapar(c.t)}</time>` : ''}</p>
-      ${ancla}${c.verificado ? `<p class="verificado-linea"><small class="verificado" title="${attr(t('verificadoTitulo'))}">◆ ${escapar(t('verificado'))}</small></p>` : ''}
+      ${ancla}${c.verificado ? `<p class="verificado-linea">${htmlVerificado(c)}</p>` : ''}
       ${htmlOcupantes(c.ocupantes, { pv: c.pv })}
       <label class="campo campo-5"${nodo('campo', { d: 5 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.plantilla ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
       ${pasos}${validacion}${efectos}${marco}
