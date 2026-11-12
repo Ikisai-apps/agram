@@ -5500,10 +5500,10 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d"
         },
         {
-          "ref": "36b8b42bc42c82a5bdc1ed2754542188eaa92bdeb0164586087d90740fad757b"
+          "ref": "dbc9ac7479a38d1fa379424a263b4d6bebc98e6f8fdeedbf29a1a127e78939b6"
         },
         {
-          "ref": "fdedc2c972037569df3be3f53889d536bd302d4b318cb93dbe0c74bf2a41f73a"
+          "ref": "06675863d8226bb67e6d266d34f0e0c56595ee5ab161f8a40fe184e9e4fb4111"
         },
         {
           "ref": "e30ab690bcd81adfcfe9ad99ea47683accf3a8c03aa206cb5b8dde795faa7b61"
@@ -13699,7 +13699,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "deliver.json",
-    "id": "36b8b42bc42c82a5bdc1ed2754542188eaa92bdeb0164586087d90740fad757b",
+    "id": "dbc9ac7479a38d1fa379424a263b4d6bebc98e6f8fdeedbf29a1a127e78939b6",
     "registro": [
       [
         "deliver"
@@ -13734,7 +13734,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             1
           ],
           [
-            "=first (it.4.8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0) or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and not (E in it3.0.0.0)) > 0)",
+            "=first ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0) or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and not (E in it3.0.0.0)) > 0)",
             "the announced movement of mine that is not E (T to work, P to decide, R to attend; in the 4.1 of X) that I deliver"
           ]
         ],
@@ -13839,7 +13839,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "=count (it.4.8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0) or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and not (E in it3.0.0.0)) > 0) > 0"
+        "=count ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0) or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and not (E in it3.0.0.0)) > 0) > 0"
       ],
       [
         "me"
@@ -13856,7 +13856,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
         "Las estaciones de trabajar (T), decidir (P) y atender (R): mueve lo anunciado que me toca y no es E (la lectura «stage», X.4.8, con before.4 para la familia); lo de E lo mueve «pay»",
         "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición",
-        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js)"
+        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js). Lee lo anunciado en la lectura «stage» ((first it.4).8: solo los anuncios; lo demás que haya en el 4.8 de X no es un registro que moves sepa leer)"
       ],
       [
         "epoch 0"
@@ -13872,7 +13872,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "pay.json",
-    "id": "fdedc2c972037569df3be3f53889d536bd302d4b318cb93dbe0c74bf2a41f73a",
+    "id": "06675863d8226bb67e6d266d34f0e0c56595ee5ab161f8a40fe184e9e4fb4111",
     "registro": [
       [
         "pay"
@@ -13907,7 +13907,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             1
           ],
           [
-            "=first (it.4.8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and E in (before.4.(first it2.0)).0.0 or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and E in it3.0.0.0) > 0)",
+            "=first ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and E in (before.4.(first it2.0)).0.0 or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and E in it3.0.0.0) > 0)",
             "the announced movement of E (in the 4.1 of X) that I pay"
           ]
         ],
@@ -14012,7 +14012,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "=count (it.4.8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and E in (before.4.(first it2.0)).0.0 or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and E in it3.0.0.0) > 0) > 0"
+        "=count ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and E in (before.4.(first it2.0)).0.0 or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and E in it3.0.0.0) > 0) > 0"
       ],
       [
         "me"
@@ -14029,7 +14029,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
         "La estación de pagar (E): mueve lo anunciado de la familia E que me toca («move what was announced», epoch.9.0.3)",
         "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición",
-        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js)"
+        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js). Lee lo anunciado en la lectura «stage» ((first it.4).8: solo los anuncios; lo demás que haya en el 4.8 de X no es un registro que moves sepa leer)"
       ],
       [
         "epoch 0"
@@ -16270,7 +16270,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "4d77e55433a1f4ea6325de52288461bfc46974597faccae5f8b5638bb462f1b7";
+export const EPOCA_0_BTML_ID = "e8fbb53ec88c45eee6c22b2ab1510f951010f9543845d2ee064cabef15b7799a";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
