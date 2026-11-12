@@ -78,6 +78,35 @@ test('paridad: sellar, minar y escribir el resultado en 6.8.2 no toca el evento 
   assert.equal(eje.sello(ev.id).altura, p.altura);
 });
 
+test('profundidad: la simulación da la altura de cada bloque; con los bloques que pasan, las confirmaciones suben hasta «en firme» (6 por defecto) y el eje conoce la altura del último sello', async () => {
+  const { eje, ev, cuenta } = await ejeConUnEvento();
+  const ev2 = await eje.escribir({ autor: 'vg', sobre: ev.id, t: T(2), movimientos: [minuto('vg')], payload: ['dos'] }, cuenta.privada);
+  const sello = selloEn('2026-11-10T10:30:00Z');
+  const sellar = async (e) => {
+    await sello.sellar([e.id]);
+    await sello.minar();
+    const p = await sello.prueba(e.id);
+    assert.equal((await sello.verificar(e, p)).ok, true);
+    eje.marcarSello(e.id, { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true });
+    return p.altura;
+  };
+  assert.equal(eje.alturaConocida, null);
+  assert.equal(agram.contrato.verificado(eje, ev.id).profundidad, null, 'sin sello, sin profundidad');
+  const alturaDeEv = await sellar(ev);
+  assert.equal(eje.alturaConocida, alturaDeEv);
+  assert.deepEqual([agram.contrato.verificado(eje, ev.id).altura, agram.contrato.verificado(eje, ev.id).profundidad], [alturaDeEv, 1]);
+  for (let k = 0; k < 4; k++) await sello.minar(); // bloques vacíos, que AGRAM no ve hasta que otro sello los lleve
+  const alturaDeEv2 = await sellar(ev2);
+  assert.equal(alturaDeEv2, alturaDeEv + 5);
+  assert.equal(agram.contrato.verificado(eje, ev.id).profundidad, 6);
+  assert.equal(agram.contrato.verificado(eje, ev.id).enFirme, true, '6 confirmaciones: en firme');
+  assert.equal(agram.contrato.verificado(eje, ev2.id).enFirme, false, 'el último sello tiene 1');
+  // El sello de la simulación trae altura; la cabecera y la firma del observador (8.0, 8.2) no: la lectura queda preparada para cuando las traiga.
+  const p = await sello.prueba(ev2.id);
+  assert.equal(Number.isSafeInteger(p.altura), true);
+  assert.equal(p.cabecera, undefined);
+});
+
 test('«clocks out of order» (X.6.9): falso con los instantes en orden y dentro del margen; verdadero con un bloque anterior al t del libro más allá de epoch.7.3', async () => {
   const { eje, ev } = await ejeConUnEvento();
   const sinSello = (await conSujeto('=first (first it.6).9', ctxDe(eje), ev.id)).valor[0];

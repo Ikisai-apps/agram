@@ -28,6 +28,7 @@ import * as contrato from '../src/contrato.js';
 import * as acciones from '../src/acciones.js';
 import * as pasosDe from '../src/pasos.js';
 import * as modelos from '../src/modelos.js';
+import * as exterior from '../src/exterior.js';
 import { partirClave } from '../src/tokens.js';
 import { esReferencia, esLista, esDecupla, indicesDe, direccion } from '../src/btml.js';
 import { t } from './textos.js';
@@ -114,6 +115,17 @@ const dirCorta = (dir) => {
  * pasa. El mínimo en píxeles de cada tamaño lo pone la carta por su orden: el primero el hueco, el segundo la tarjeta,
  * los siguientes, múltiplos de la tarjeta (el bloque es al menos dos tarjetas).
  */
+/**
+ * La marca «◆ verificado» de un registro (contrato.verificado: los tres relojes), solo si lo está; una marca discreta,
+ * nunca un dato de la carta: { verificado: true, confirmaciones?, minimas, enFirme? } o {}. `confirmaciones` es la
+ * profundidad de su bloque (si el eje conoce alturas) y `enFirme` que alcanza las que pide el eje.
+ */
+function marcaDeVerificado(eje, X, opciones) {
+  const v = contrato.verificado(eje, X, opciones);
+  if (!v?.ok) return {};
+  return { verificado: true, ...(v.profundidad !== null ? { confirmaciones: v.profundidad } : {}), ...(v.enFirme ? { enFirme: true, minimas: exterior.ajustesDelEje(eje, opciones).confirmaciones } : {}) };
+}
+
 function tamanoQueCabe(px, medidas, opciones) {
   const lista = contrato.tamanos(opciones);
   let elegido = lista[0] ?? null;
@@ -546,7 +558,7 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
       ancla: ev ? { sobre: ev.sobre ?? null, en: ev.en ? dirCorta(ev.en) : '', sobreTexto: ev.sobre ? legibleDe(eje, { ref: ev.sobre }, null, ctx.opciones).texto : null } : null,
       validacion: contrato.validar(eje, X, ctx.opciones),
       // «verificado» (los tres relojes, contrato.verificado): solo si lo está; una marca discreta, nunca un dato de la carta.
-      ...(contrato.verificado(eje, X, ctx.opciones)?.ok ? { verificado: true } : {}),
+      ...marcaDeVerificado(eje, X, ctx.opciones),
     };
   }
   // Un PV lateral abierto como foco: su lista entera (paginada), con la disposición que dice la época para este hueco.
@@ -1400,7 +1412,7 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
       const n = nodos[i];
       n.estado = x.estacion;
       n.accion = x.accion;
-      if (n.X && contrato.verificado(eje, n.X, ctx.opciones)?.ok) n.verificado = true;
+      if (n.X) Object.assign(n, marcaDeVerificado(eje, n.X, ctx.opciones));
       const [fila, columna] = conEjes ? [x.oficio, x.ejecucion] : [x.posicion, x.pv];
       const celda = fila === null || fila === undefined || columna === null || columna === undefined ? null : celdas.find((c) => c.fila === fila && c.columna === columna);
       if (celda) celda.ocupantes.push(n);

@@ -4451,6 +4451,103 @@ export const EPOCA_0_BTML_DATOS = [
             "exterior settings",
             "its type: this template, named in the 5 of the record (B4: the 5 is the type)"
           ]
+        ],
+        [
+          [
+            "observer keys"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "6"
+          ],
+          [
+            "«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "the x-only keys (hex, separated by spaces) of the StateArk header observers: a seal counts only if one of them signed its header (SIP 0); read from the root account of the ledger, the identity of the genesis; empty, none is declared"
+          ]
+        ],
+        [
+          [
+            "confirmations"
+          ],
+          [
+            "number"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "7"
+          ],
+          [
+            "«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            6,
+            "how many confirmations make a seal final («in firm»): the depth of its block, the height of the last known seal minus the height of its block plus one; read from the root account of the ledger"
+          ]
+        ],
+        [
+          [
+            "guide url"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "8"
+          ],
+          [
+            "«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "the base url of the guide (the AARPIA gateway: POST {url}/guia); empty, the guide is asked at the sync url of the preferences (the Supabase function)"
+          ]
         ]
       ]
     ],
@@ -5478,6 +5575,15 @@ export const EPOCA_0_BTML_DATOS = [
           "template exterior settings param seal url placeholder: http://127.0.0.1:8787",
           "template exterior settings param pay url label: pagos",
           "template exterior settings param pay url help: reservado para el servicio de pagos (StateArk, §5 del contrato con el exterior); nada lo lee todavía",
+          "template exterior settings param observer keys label: claves del observador",
+          "template exterior settings param observer keys help: las claves x-only (hex, separadas por espacios) de los observadores de cabeceras de StateArk: un sello solo cuenta si una de ellas firmó su cabecera (SIP 0); se leen de la cuenta raíz del eje, la identidad del génesis; vacío, ninguna declarada",
+          "template exterior settings param observer keys placeholder: 4f1a… 9c2e…",
+          "template exterior settings param confirmations label: confirmaciones",
+          "template exterior settings param confirmations help: cuántas confirmaciones hacen «en firme» un sello: la profundidad de su bloque, la altura del último sello conocido menos la de su bloque más uno; se lee de la cuenta raíz del eje",
+          "template exterior settings param confirmations placeholder: 6",
+          "template exterior settings param guide url label: guía",
+          "template exterior settings param guide url help: la dirección base de la guía (la pasarela de AARPIA: POST {dirección}/guia); vacío, la guía se pide al servidor de las preferencias (la función de Supabase)",
+          "template exterior settings param guide url placeholder: http://127.0.0.1:8788",
           "template opinion: opinión",
           "template opinion param opinion label: opinión",
           "template opinion param opinion help: lo que la persona dice sobre lo que estaba mirando",
@@ -16828,7 +16934,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "ae3745fe8eb7f10f46326f7b48ecd3b4f01dbbbed43989d51b3b3c85ad03b5c4";
+export const EPOCA_0_BTML_ID = "a0fb512deacf5ad643795f4001f02ee4130494e0a7b21d409d93310366c8ae31";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

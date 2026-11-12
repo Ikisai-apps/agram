@@ -336,6 +336,10 @@ export const TEXTOS = Object.freeze({
     // el exterior: los ajustes de relé, archivos y sello, y la marca de verificado (los tres relojes)
     exteriorAjustes: 'ajustes del exterior',
     verificado: 'verificado',
+    verificadoConfirmaciones: 'verificado · {n} confirmaciones',
+    verificadoUnaConfirmacion: 'verificado · 1 confirmación',
+    enFirme: 'en firme',
+    enFirmeTitulo: 'en firme: está verificado y su bloque ya tiene las confirmaciones que pide el eje ({n} de {minimas}; los ajustes del exterior de la cuenta raíz)',
     verificadoTitulo: 'verificado: su sello de tiempo está en un bloque comprobado, el transporte dio su recibo de llegada y los tres relojes van en orden',
     // el contexto que se manda con cada pregunta
     ctxModo: 'pantalla: {ancho}×{alto} px · modo {modo} ({forma}) · render {render} · idioma {idioma}',

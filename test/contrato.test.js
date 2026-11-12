@@ -829,3 +829,20 @@ test('el 9 lee el rango del 8: las posiciones para situarse son las que deja (de
   assert.equal(C.rango(c.eje, c.compra.id, { epoca: sinEscalera }), null);
   assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 9, { epoca: sinEscalera }), []);
 });
+
+test('verificado: además del sello, trae la altura de su bloque, la profundidad (altura del último sello conocido − la suya + 1) y enFirme (contra las «confirmations» de la cuenta raíz del eje: 6 por defecto); sin alturas, null', async () => {
+  const { eje, compra } = await ejemploCompra();
+  assert.equal(C.verificado(eje, 'no existe'), null);
+  const sinSello = C.verificado(eje, compra.id);
+  assert.deepEqual([sinSello.altura, sinSello.profundidad, sinSello.enFirme], [null, null, false]);
+  // Un sello sintético (la simulación aún no trae la cabecera ni la firma del observador, 8.0 y 8.2): la altura es la del sello.
+  const sello = (altura, h) => ({ altura, hash: h.repeat(64), instante: '2099-01-01T00:00:00.000Z', verificado: true });
+  eje.marcarSello(compra.id, sello(840000, 'a'));
+  assert.deepEqual(['altura', 'profundidad', 'enFirme'].map((k) => C.verificado(eje, compra.id)[k]), [840000, 1, false]);
+  const otro = eje.orden.map((id) => id).find((id) => id !== compra.id && id !== eje.genesisId);
+  eje.marcarSello(otro, sello(840005, 'b'));
+  assert.deepEqual(['altura', 'profundidad', 'enFirme'].map((k) => C.verificado(eje, compra.id)[k]), [840000, 6, true], '840005 − 840000 + 1');
+  assert.deepEqual(['altura', 'profundidad', 'enFirme'].map((k) => C.verificado(eje, otro)[k]), [840005, 1, false]);
+  // leer del 5 lo trae igual.
+  assert.equal(C.leer(eje, compra.id, 5).verificado.profundidad, 6);
+});

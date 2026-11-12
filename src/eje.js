@@ -91,6 +91,7 @@ export class Eje {
   #tPorAutor = new Map(); // autor → el mayor t aceptado de sus eventos, en milisegundos UTC (el reloj de los demás, SEG-05)
   #relojExterno = -Infinity; // la hora que dan los demás desde fuera del eje (el `recibido` del libro compartido, src/sincronia.js), en milisegundos UTC
   #recibos = new Map(); // id → el recibo de llegada del transporte (src/sincronia.js): { instante, rele, firma, recibo? }; vista del libro, fuera del cuerpo y del id (X.6.8.1)
+  #cota = { altura: null }; // la mayor altura de bloque de los sellos anotados (compartida con las copias, como #sellos): el «último sello conocido» con el que se cuenta la profundidad (contrato.verificado)
   #sellos = new Map(); // id → el sello de tiempo que lo ancla (src/sello.js): { altura, hash, instante, verificado }; vista del libro, fuera del cuerpo y del id (X.6.8.2)
 
   /**
@@ -309,6 +310,8 @@ export class Eje {
     if (!this.eventos.has(id) || !sello || typeof sello !== 'object') return false;
     const { altura, hash, instante, verificado } = sello;
     if (!Number.isSafeInteger(altura) || altura < 0 || typeof hash !== 'string' || !/^[0-9a-f]{64}$/.test(hash) || !esInstante(instante)) return false;
+    // La altura del último sello conocido sube aunque este sello no sea el más antiguo del registro, pero solo con sellos que `verificar` dio por buenos: una altura sin comprobar no alarga la profundidad de nadie.
+    if (verificado === true && (this.#cota.altura === null || altura > this.#cota.altura)) this.#cota.altura = altura;
     const antes = this.#sellos.get(id);
     if (antes && msUTC(antes.instante) <= msUTC(instante)) {
       if (verificado !== undefined && antes.altura === altura && antes.hash === hash) this.#sellos.set(id, Object.freeze({ ...antes, verificado: verificado === true }));
@@ -316,6 +319,11 @@ export class Eje {
     }
     this.#sellos.set(id, Object.freeze({ altura, hash, instante, verificado: verificado === true }));
     return true;
+  }
+
+  /** La mayor altura de bloque de todos los sellos verificados anotados en el eje, o null si no hay ninguno: la altura «actual» que AGRAM conoce (el último sello). */
+  get alturaConocida() {
+    return this.#cota.altura;
   }
 
   /** El sello de tiempo de un registro { altura, hash, instante, verificado } o null si aún no lo tiene (X.6.8.2). */
@@ -461,6 +469,7 @@ export class Eje {
     nuevo.#relojExterno = this.#relojExterno;
     nuevo.#recibos = this.#recibos;
     nuevo.#sellos = this.#sellos;
+    nuevo.#cota = this.#cota;
     const motivos = await nuevo.#libro.evaluar(nuevo.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: this.eventosV2 > 0, reglas: this.eventosV2 > 0 ? 2 : 3, contextoBqlm: (epoch) => new ContextoEje(nuevo, { ev: g, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     nuevo.#aplicar(g);
@@ -499,6 +508,7 @@ export class Eje {
     this.#relojExterno = otro.#relojExterno;
     this.#recibos = otro.#recibos;
     this.#sellos = otro.#sellos;
+    this.#cota = otro.#cota;
   }
 
   get genesisId() {

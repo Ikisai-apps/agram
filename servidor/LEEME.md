@@ -91,7 +91,7 @@ node servidor/sim/stateark/servidor.js 8787 600000      # un servicio de sello l
 Es solo configuración de la cuenta (`docs/CONTRATO.md` §16.2 bis, decisión #58 de VG): ni la carta ni el núcleo cambian. En «configuración» hay dos sitios:
 
 - **Servidor y eje compartido** («preferences»): `sync url` y `sync ledger` (y la clave de lectura, aparte). Es **Supabase** (o el servidor de prueba, que habla lo mismo): los eventos, los archivos y la guía van ahí. Con solo esto la carta es la de siempre: solo el reloj 6.8.0.
-- **Ajustes del exterior** («exterior settings», desplegable debajo de los de la guía): `relay url` (transporte: eventos y recibo, 6.8.1), `blossom url` (archivos) y `seal url` (sello, 6.8.2). Cada una que esté **manda sobre `sync url` para lo suyo**; el nombre del eje y la clave de lectura son los mismos. Sin url, nada va por ese camino (sin `seal url`, nada se sella). La guía sigue en `sync url`.
+- **Ajustes del exterior** («exterior settings», desplegable debajo de los de la guía): `relay url` (transporte: eventos y recibo, 6.8.1), `blossom url` (archivos) y `seal url` (sello, 6.8.2). Cada una que esté **manda sobre `sync url` para lo suyo**; el nombre del eje y la clave de lectura son los mismos. Sin url, nada va por ese camino (sin `seal url`, nada se sella). Además `guide url` (la guía por la pasarela de AARPIA, en vez de la función de Supabase), `observer keys` y `confirmations` (las claves del observador y cuántas confirmaciones hacen «en firme»; se leen de la cuenta raíz del eje, `docs/CONTRATO.md` §4.4 y §16.2 bis). Sin `guide url`, la guía sigue en `sync url`.
 
 Para probar con la simulación:
 
