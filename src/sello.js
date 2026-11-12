@@ -12,28 +12,19 @@
 //     pendiente entra en un bloque cuando alguien llama a `minar()` (solo existe aquí). Se sustituirá por StateArk real.
 //   · HTTP: un servicio con POST /sellar, GET /prueba/:id (202 si pendiente, 404 si nunca se selló), POST /verificar
 //     (la forma de servidor/sim/stateark/servidor.js, que sirve también de servicio de prueba). Es la del navegador: su
-//     dirección es el ajuste «sello url» de la configuración (ver `destino`); sin ella, en el navegador, nada se sella.
+//     dirección es el ajuste «seal url» de «exterior settings» (ver `destino`); sin ella, en el navegador, nada se sella.
 //
 // El resultado se escribe en el eje con `eje.marcarSello(id, prueba)` (src/eje.js): una vista del libro, fuera del
 // cuerpo firmado y del id (src/sincronia.js lo hace tras asentar eventos nuevos). Este módulo no toca ningún evento.
 
-import { configuracion } from './contrato.js';
+import { AJUSTES, exterior } from './exterior.js';
 
-/** La clave de la configuración (junto a `sync url`) que dice dónde está el servicio de sello. */
-export const CONFIGURACION = Object.freeze({ url: 'sello url' });
+/** La clave de la configuración («exterior settings», docs/CONTRATO.md §16.2 bis) que dice dónde está el servicio de sello. */
+export const CONFIGURACION = Object.freeze({ url: AJUSTES.sello });
 
-const primeraHoja = (x) => (Array.isArray(x) ? x.find((h) => typeof h === 'string') : x);
-
-/** La dirección del servicio de sello de `yo` (http o https, sin la barra final), o null si no la ha dicho o no es una url. */
+/** La dirección del servicio de sello de `yo` («seal url» de «exterior settings»; http o https, sin la barra final), o null si no la ha dicho o no es una url. */
 export function destino(eje, yo, opciones = {}) {
-  const url = primeraHoja(configuracion(eje, yo, opciones)[CONFIGURACION.url]);
-  if (typeof url !== 'string' || !url.trim()) return null;
-  try {
-    if (!/^https?:$/.test(new URL(url.trim()).protocol)) return null;
-  } catch {
-    return null;
-  }
-  return url.trim().replace(/\/+$/, '');
+  return exterior(eje, yo, opciones).sello;
 }
 
 const enNode = () => typeof process !== 'undefined' && !!process.versions?.node;
@@ -44,7 +35,7 @@ const enNode = () => typeof process !== 'undefined' && !!process.versions?.node;
  * bloque (solo en la simulación) y `sellador` da el sellador de dentro (para guardar y restaurar la cadena).
  */
 export function selloSimulado(opciones) {
-  if (!enNode()) throw new Error('sello: la simulación de StateArk solo corre en Node; en el navegador, hace falta «sello url»');
+  if (!enNode()) throw new Error('sello: la simulación de StateArk solo corre en Node; en el navegador, hace falta «seal url»');
   let dentro = null;
   const sim = async () => {
     dentro ??= (async () => {
@@ -124,7 +115,7 @@ export function crearSello({ url, fetch, simulado = true, ...opciones } = {}) {
 }
 
 /**
- * El adaptador de la configuración de `yo` (su «sello url» junto a `sync url`): el servicio HTTP si lo ha dicho; si no,
+ * El adaptador de la configuración de `yo` (su «seal url» de «exterior settings»): el servicio HTTP si lo ha dicho; si no,
  * null (la carta, en el navegador, no sella sin dirección; en Node, `crearSello()` da la simulación).
  */
 export function deConfiguracion(eje, yo, { fetch, ...opciones } = {}) {

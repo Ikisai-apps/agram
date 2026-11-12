@@ -55,10 +55,13 @@ export class Sellador {
     return { lote: raiz, pendiente: lote.altura === null, ids: lista };
   }
 
-  /** Mina un bloque con todos los lotes pendientes (en la simulación, lo que haría el calendario OTS). */
-  async minar() {
+  /**
+   * Mina un bloque con todos los lotes pendientes (en la simulación, lo que haría el calendario OTS).
+   * `extra`: otros compromisos que entran en el mismo bloque (los txid de los pagos del §5).
+   */
+  async minar(extra = []) {
     const raices = this.pendientes.splice(0);
-    const bloque = await this.cadena.minar(raices);
+    const bloque = await this.cadena.minar([...raices, ...extra]);
     for (const r of raices) this.lotes.get(r).altura = bloque.altura;
     return { altura: bloque.altura, hash: bloque.hash, instante: bloque.instante, lotes: raices.length };
   }

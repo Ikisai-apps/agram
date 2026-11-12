@@ -456,13 +456,15 @@ const EJECUCIONES_EN_CELDA = 3;
 /** El nombre de una estación de la fábrica (propuesta, autorizada, ejecutada), en el idioma de la interfaz. */
 const textoEstacion = (estado) => t({ ejecutada: 'estadoEjecutada', autorizada: 'estadoAutorizada' }[estado] ?? 'estadoPropuesta');
 
+const marcaVerificado = (o) => (o?.verificado ? `<small class="verificado" title="${attr(t('verificadoTitulo'))}">◆ ${escapar(t('verificado'))}</small>` : '');
+
 /**
  * Lo de dentro de una celda de la matriz (encargo «datos2», issue #11: la celda es la lista de ejecuciones): cada una
  * con su estación si la tiene (su color y, si está ejecutada, su sello), las primeras y las demás contadas.
  */
 function htmlEjecuciones(lista) {
   if (!lista.length) return '';
-  const items = lista.slice(0, EJECUCIONES_EN_CELDA).map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}" title="${attr(textoEstacion(o.estado))}"` : ''}>${htmlOcupanteDeCelda(o)}${o.estado ? `<small class="estacion-nombre">${escapar(textoEstacion(o.estado))}</small>` : ''}</li>`).join('');
+  const items = lista.slice(0, EJECUCIONES_EN_CELDA).map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}" title="${attr(textoEstacion(o.estado))}"` : ''}>${htmlOcupanteDeCelda(o)}${o.estado ? `<small class="estacion-nombre">${escapar(textoEstacion(o.estado))}</small>` : ''}${marcaVerificado(o)}</li>`).join('');
   const mas = lista.length > EJECUCIONES_EN_CELDA ? `<li class="ejecucion-mas">${escapar(t('matrizMas', { n: lista.length - EJECUCIONES_EN_CELDA }))}</li>` : '';
   return `<ul class="ejecuciones">${items}${mas}</ul>`;
 }
@@ -488,7 +490,7 @@ const htmlEscalon = (e) => (e ? `<small class="matriz-escalon" title="${attr(t('
 function htmlCeldaAbierta(a) {
   if (!a) return '';
   const titulo = t('matrizCelda', { oficio: a.oficio ?? a.fila, ejecucion: a.ejecucion ?? a.columna });
-  const items = a.lista.map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}" title="${attr(textoEstacion(o.estado))}"` : ''}>${htmlOcupanteSolo(o)}${o.estado ? `<small class="estacion-nombre">${escapar(textoEstacion(o.estado))}</small>` : ''}</li>`).join('');
+  const items = a.lista.map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}" title="${attr(textoEstacion(o.estado))}"` : ''}>${htmlOcupanteSolo(o)}${o.estado ? `<small class="estacion-nombre">${escapar(textoEstacion(o.estado))}</small>` : ''}${marcaVerificado(o)}</li>`).join('');
   const mas = a.mas ? `<li class="ejecucion-mas">${escapar(t('matrizMas', { n: a.mas }))}</li>` : '';
   return `<section class="matriz-abierta" data-color="${a.columna}" data-fila="${a.fila}" data-columna="${a.columna}" role="dialog" aria-label="${attr(titulo)}"><header class="matriz-abierta-cabeza"><b>${escapar(titulo)}</b>${htmlEscalon(a.escalon)}<button type="button" class="cerrar"${nodo('control')} data-celda-matriz-cerrar title="${attr(t('cerrar'))}" aria-label="${attr(t('cerrar'))}">✕</button></header><ol class="ejecuciones abiertas">${items}${mas}</ol></section>`;
 }
@@ -865,7 +867,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
       ${puntos}
       <p class="tipo">${c.plantilla ? `${t('plantilla')} <b>${escapar(c.plantilla)}</b>` : t('sinPlantilla')}${c.t ? ` · <time>${escapar(c.t)}</time>` : ''}</p>
-      ${ancla}
+      ${ancla}${c.verificado ? `<p class="verificado-linea"><small class="verificado" title="${attr(t('verificadoTitulo'))}">◆ ${escapar(t('verificado'))}</small></p>` : ''}
       ${htmlOcupantes(c.ocupantes, { pv: c.pv })}
       <label class="campo campo-5"${nodo('campo', { d: 5 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.plantilla ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
       ${pasos}${validacion}${efectos}${marco}
@@ -1011,12 +1013,24 @@ function htmlAjustesGuia(g) {
 }
 
 /**
+ * Los ajustes del exterior dentro del formulario de la configuración (docs/CONTRATO.md §16.2 bis, decisión #58): los campos de
+ * la plantilla «exterior settings» de la época (relé, archivos, sello; sin `name`: la app los lee por data-exterior-campo y los
+ * escribe como su propio registro en el 9 del alta), en un desplegable como el de la guía. Una dirección vacía deja ese camino
+ * sin usar; `-` quita la que había.
+ */
+function htmlAjustesExterior(g) {
+  if (!g) return '';
+  const campos = g.campos.map((c) => `<div class="campo"${nodo('control')}><label for="exterior-${c.pv}">${escapar(c.etiqueta)}</label><input id="exterior-${c.pv}" data-exterior-campo="${attr(c.clave)}" type="text" value="${attr(c.valor)}" placeholder="${attr(c.marcador)}" title="${attr(c.ayuda)}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('');
+  return `<details class="exterior-ajustes"${nodo('control')}${g.campos.some((c) => c.valor) ? ' open' : ''}><summary>${t('exteriorAjustes')}</summary><fieldset class="guia-ajustes">${campos}</fieldset></details>`;
+}
+
+/**
  * El formulario de la configuración, generado desde la plantilla «preferences»: cada campo por su clave, con su
  * etiqueta en el idioma. En una cuenta (`claveLectura` es una cadena, quizá vacía), además el campo aparte de la clave
  * de lectura del libro compartido: sin `name` (no entra en el registro de preferencias: la app lo lee por
  * data-clave-lectura y lo guarda en el almacén local de la cuenta, nunca en el eje).
  */
-export function htmlConfiguracion(p, { motivos = [], claveLectura, guia } = {}) {
+export function htmlConfiguracion(p, { motivos = [], claveLectura, guia, exterior } = {}) {
   if (!p) return '';
   // Un campo con opciones (el modelo, #4) es un desplegable con ellas; los demás, texto.
   const control = (c) => (c.opciones
@@ -1024,7 +1038,8 @@ export function htmlConfiguracion(p, { motivos = [], claveLectura, guia } = {}) 
     : `<input id="pref-${c.pv}" name="${attr(c.clave)}" type="text" value="${attr(valorInput(Array.isArray(c.valor) ? c.valor.join(' ') : c.valor))}" placeholder="${attr(c.marcador.join(' '))}" title="${attr(c.ayuda)}" autocomplete="off">`);
   const campos = p.campos.map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label>${control(c)}<small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('')
     + (typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '')
-    + htmlAjustesGuia(guia);
+    + htmlAjustesGuia(guia)
+    + htmlAjustesExterior(exterior);
   return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion"${nodo('configuracion')} data-configuracion aria-label="${attr(t('configuracion'))}">
     <header><h2>${t('miConfiguracion')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     <p class="ayuda">${escapar(t('configuracionAyuda', { plantilla: p.nombre }))}</p>
@@ -1203,7 +1218,7 @@ export function html(arbol, extra = {}) {
     ${htmlAro(a.aro)}
     ${htmlSitio(a.sitio)}
     ${htmlFormulario(a.formulario)}
-    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes }) : ''}
+    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes, exterior: extra.exteriorAjustes }) : ''}
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}
     ${htmlCopia(extra.copia)}
   </div>`;

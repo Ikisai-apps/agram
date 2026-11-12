@@ -17,7 +17,7 @@
 // local), tras cada escritura, al volver la red y cada 30 s con la pestaña visible; de una en una. Los ejemplos no
 // sincronizan nunca. Nada de esto bloquea: se escribe en local y la cola sube lo pendiente.
 
-import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
+import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia, exterior } from '../src/index.js';
 import { arbol, enviar, previsualizar, formulario, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor, resolverArchivos } from './dom.js';
 import { instalar } from './gestos.js';
@@ -27,7 +27,7 @@ import * as cuentas from './cuentas.js';
 import * as sinc from './sincronia.js';
 import * as guia from './guia.js';
 import * as externa from './externa.js';
-import { Archivos, TIPOS as TIPOS_DE_ARCHIVO, tipoDeArchivo, formatoDeTipo } from './archivos.js';
+import { Archivos, TIPOS as TIPOS_DE_ARCHIVO, tipoDeArchivo, formatoDeTipo, destinoDe as destinoDeLosArchivos } from './archivos.js';
 import { EJEMPLOS, crearEjemplo, restaurarEjemplo, elegirEjemplo, ejemploElegido } from '../antigua/ui/ejemplos.js';
 import { alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { leerLocal, guardarLocal } from '../antigua/ui/comun.js';
@@ -73,9 +73,7 @@ let ultimo = null; // el último árbol pintado: si es Mapped (no apilada), los 
  */
 function destinoDeArchivos() {
   if (!estado.cuenta || !estado.eje) return null;
-  const d = sincronia.destino(estado.eje, estado.identidad);
-  const claveLectura = cuentas.claveLectura(estado.cuenta.alta);
-  return d && claveLectura ? { url: d.url, eje: d.eje, claveLectura } : null;
+  return destinoDeLosArchivos(estado.eje, estado.identidad, cuentas.claveLectura(estado.cuenta.alta));
 }
 const archivos = new Archivos({ destino: destinoDeArchivos, alCambiar: () => pintar() });
 // Las piezas del arte propio (#25) que son adjuntos: su URL local, la de lo bajado de la función `archivos` (con la clave
@@ -232,6 +230,7 @@ function extraDe() {
     claveLectura: estado.cuenta && estado.config ? cuentas.claveLectura(estado.cuenta.alta) ?? '' : undefined, sincronia: estado.lineaSincronia,
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
     guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
+    exteriorAjustes: estado.config && estado.eje ? guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad) ?? undefined : undefined,
     arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage), menu: estado.menu,
     archivo: (id) => archivos.contenido(id), // los archivos adjuntos (el HTML del PV0 en su iframe aislado, las imágenes)
   };
@@ -932,11 +931,15 @@ const manejadores = {
     const campoIa = form.querySelector('[data-clave-ia]');
     if (campoIa && altaDeGuia()) guia.guardarClaveIa(almacenLocal(), altaDeGuia(), campoIa.value);
     const valoresGuia = Object.fromEntries([...form.querySelectorAll('[data-guia-campo]')].map((i) => [i.dataset.guiaCampo, i.value]));
+    const valoresExterior = Object.fromEntries([...form.querySelectorAll('[data-exterior-campo]')].map((i) => [i.dataset.exteriorCampo, i.value]));
     if (!preferencias(estado.eje, estado.identidad, valores)) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }
     try {
       await escribirPreferencias(valores);
       const ajustesGuia = guia.ajustesEditables(estado.eje, estado.identidad, valoresGuia);
       if (ajustesGuia?.cambiado) await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: ajustesGuia.sobre, en: ajustesGuia.en, payload: ajustesGuia.payload }, privadaDe(estado.identidad));
+      // Los ajustes del exterior (relé, archivos, sello): otro registro más en el 9 del alta, con la misma forma que el de la guía.
+      const ajustesExterior = guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad, valoresExterior);
+      if (ajustesExterior?.cambiado) await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: ajustesExterior.sobre, en: ajustesExterior.en, payload: ajustesExterior.payload }, privadaDe(estado.identidad));
       guardar();
       estado.config = false;
       estado.motivosPreferencias = [];

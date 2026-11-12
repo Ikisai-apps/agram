@@ -333,6 +333,10 @@ export const TEXTOS = Object.freeze({
     guiaClaveIa: 'clave de Anthropic (vía directa)',
     guiaClaveIaAyuda: 'solo para la vía directa: se guarda únicamente en este navegador, para esta cuenta; no entra en el eje ni en la copia de seguridad, y cualquiera con acceso a este navegador puede leerla',
     guiaAjustes: 'ajustes de la guía',
+    // el exterior: los ajustes de relé, archivos y sello, y la marca de verificado (los tres relojes)
+    exteriorAjustes: 'ajustes del exterior',
+    verificado: 'verificado',
+    verificadoTitulo: 'verificado: su sello de tiempo está en un bloque comprobado, el transporte dio su recibo de llegada y los tres relojes van en orden',
     // el contexto que se manda con cada pregunta
     ctxModo: 'pantalla: {ancho}×{alto} px · modo {modo} ({forma}) · render {render} · idioma {idioma}',
     ctxApilada: 'franjas apiladas',

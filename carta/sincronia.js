@@ -38,7 +38,8 @@ export function abrir({ alta, eje, yo, fetch = fetchDeLaPlataforma(), ahora } = 
   if (!d) return null;
   const claveLectura = cuentas.claveLectura(alta);
   if (!claveLectura) return null;
-  // El sello de tiempo (X.6.8.2, src/sello.js): solo si la configuración dice «sello url»; sin ella, nada se sella.
+  // El sello de tiempo (X.6.8.2, src/sello.js): solo si la configuración dice «seal url» (exterior settings); sin ella, nada se sella.
+  // (`sincronia.destino` ya trae el transporte por «relay url» si lo hay, y si no por «sync url»; docs/CONTRATO.md §16.2 bis.)
   const opciones = { claveLectura, fetch, sello: selloDeTiempo.deConfiguracion(eje, yo, { fetch }), ...(ahora ? { ahora } : {}) };
   let S = null;
   const datos = cuentas.estadoSincronia(alta);

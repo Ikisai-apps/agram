@@ -151,9 +151,9 @@ test('el adaptador HTTP habla con el servicio de la simulación: sellar, 202 pen
   await assert.rejects(selloHttp({ url: base }).sellar(['0'.repeat(64)]), ErrorDeSello, 'sin red');
 });
 
-test('destino y crearSello: la url sale de la configuración «sello url» (opcional); sin url, la simulación en Node; la sincronía y el índice la exponen', async () => {
+test('destino y crearSello: la url sale de la configuración «seal url» de «exterior settings» (opcional); sin url, la simulación en Node; la sincronía y el índice la exponen', async () => {
   const { eje } = await ejeConUnEvento();
-  assert.equal(destino(eje, 'vg'), null, 'sin «sello url» en la configuración, ninguno');
+  assert.equal(destino(eje, 'vg'), null, 'sin «seal url» en la configuración, ninguno');
   assert.equal(deConfiguracion(eje, 'vg'), null);
   assert.equal(crearSello({ url: 'http://127.0.0.1:1/' }).via, 'http');
   assert.equal(crearSello({ url: '' }).via, 'simulado', 'en Node, sin url, la simulación');

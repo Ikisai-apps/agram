@@ -1524,6 +1524,86 @@
           ["arrival"],
           ["the types of the ancestors of the thing they touched, from the farthest to the nearest (it needs the 6, 7 and 8 written: a position is never empty)"]
         ]
+      ],
+      [
+        [
+          ["exterior settings"],
+          ["text"],
+          ["any"],
+          ["owner"],
+          ["write"],
+          ["0"],
+          ["«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"],
+          ["required"],
+          ["arrival"],
+          [
+            "exterior settings",
+            "where the ledger travels, is stored and is sealed: the urls of the outside services; an empty url leaves that way unused"
+          ]
+        ],
+        [
+          ["relay url"],
+          ["text"],
+          ["any"],
+          ["owner"],
+          ["write"],
+          ["1"],
+          ["«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"],
+          ["optional"],
+          ["arrival"],
+          ["the base url of the relay (transport: events and the arrival receipt, X.6.8.1); empty, the sync url of the preferences carries them (the ledger name and the read key are the same)"]
+        ],
+        [
+          ["blossom url"],
+          ["text"],
+          ["any"],
+          ["owner"],
+          ["write"],
+          ["2"],
+          ["«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"],
+          ["optional"],
+          ["arrival"],
+          ["the base url of the files (Blossom: attached files); empty, the sync url of the preferences carries them"]
+        ],
+        [
+          ["seal url"],
+          ["text"],
+          ["any"],
+          ["owner"],
+          ["write"],
+          ["3"],
+          ["«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"],
+          ["optional"],
+          ["arrival"],
+          ["the base url of the seal service (time seal, X.6.8.2: only ids go out); empty, nothing is sealed"]
+        ],
+        [
+          ["pay url"],
+          ["text"],
+          ["any"],
+          ["owner"],
+          ["template", "write"],
+          ["4"],
+          ["«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"],
+          ["optional"],
+          ["arrival"],
+          ["reserved for the payments service (StateArk, §5 of the outside contract); nothing reads it yet"]
+        ],
+        [
+          ["exterior settings"],
+          ["text"],
+          ["any"],
+          ["owner"],
+          ["write"],
+          ["5"],
+          ["«exterior settings»: dónde viaja, se guarda y se sella el libro (docs/CONTRATO.md §16.2 bis); sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias y al de la guía. Sin url, nada va por ese camino"],
+          ["optional"],
+          ["arrival"],
+          [
+            "exterior settings",
+            "its type: this template, named in the 5 of the record (B4: the 5 is the type)"
+          ]
+        ]
       ]
     ],
     [
@@ -2331,6 +2411,21 @@
           "template guide settings param guide context help: cuántos caracteres de la pantalla se mandan como contexto",
           "template guide settings param opinions anchor label: ancla de las opiniones",
           "template guide settings param opinions anchor help: dónde se anclan mis opiniones como registros: el id (o el 0) de un registro, el proyecto de AGRAM, hecho con «anclar aquí» sobre mi alta; vacío: se quedan solo en este navegador (escribe - para quitarla)",
+          "template exterior settings: ajustes del exterior",
+          "template exterior settings param exterior settings label: ajustes del exterior",
+          "template exterior settings param exterior settings help: dónde viaja, se guarda y se sella el libro: las direcciones de los servicios de fuera; una dirección vacía deja ese camino sin usar",
+          "template exterior settings param exterior settings placeholder: ajustes del exterior",
+          "template exterior settings param relay url label: relé",
+          "template exterior settings param relay url help: la dirección base del relé (el transporte: eventos y recibo de llegada, X.6.8.1); vacío, lo lleva el servidor de las preferencias (el nombre del eje y la clave de lectura son los mismos)",
+          "template exterior settings param relay url placeholder: http://127.0.0.1:8788",
+          "template exterior settings param blossom url label: archivos",
+          "template exterior settings param blossom url help: la dirección base de los archivos (Blossom: los adjuntos); vacío, los lleva el servidor de las preferencias",
+          "template exterior settings param blossom url placeholder: http://127.0.0.1:8788",
+          "template exterior settings param seal url label: sello",
+          "template exterior settings param seal url help: la dirección base del servicio de sello (el sello de tiempo, X.6.8.2: solo salen ids); vacío, no se sella nada",
+          "template exterior settings param seal url placeholder: http://127.0.0.1:8787",
+          "template exterior settings param pay url label: pagos",
+          "template exterior settings param pay url help: reservado para el servicio de pagos (StateArk, §5 del contrato con el exterior); nada lo lee todavía",
           "template opinion: opinión",
           "template opinion param opinion label: opinión",
           "template opinion param opinion help: lo que la persona dice sobre lo que estaba mirando",
