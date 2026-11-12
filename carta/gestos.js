@@ -42,7 +42,8 @@ const UMBRAL_ARRASTRE = 24;
  *   aroEntrar(X)             un clic en el centro del aro: cerrarlo y entrar en el elemento
  *   editarAro()              mantener el centro del aro: editarlo (el input con la lista del 0 debajo y la del 5 encima)
  *   opcion(X, pv, valor)     un valor de una lista del aro: escribirlo en la posición pv de X (como campo)
- *   lanzar(X, accion, paso)  abrir el formulario de una acción (o del paso del camino)
+ *   lanzar(X, accion, paso, { ejecutar })  abrir el formulario de una acción (o del paso del camino; ejecutar: desde una celda del 4)
+ *   denominacion(escala, form)  ejecutar: la escala de la que parte la T que se quema (el formulario sigue con lo escrito)
  *   cerrar()                 cerrar el aro, el formulario o la configuración
  *   enviar(form)             enviar el formulario de una acción
  *   configurar(form | null)  abrir la configuración (null) o guardarla (el formulario)
@@ -196,7 +197,8 @@ export function instalar(raiz, m) {
       return;
     }
     if ((el = b('[data-sitio]'))) { e.preventDefault(); m.sitio?.(el.dataset.sitioX ?? xDe(el), el.dataset.sitio); return; }
-    if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null); return; }
+    // data-ejecutar (VG 12-11, decisión 7): lanzado desde una celda abierta del 4, el formulario en modo ejecutar.
+    if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null, ...(el.dataset.ejecutar !== undefined ? [{ ejecutar: true }] : [])); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
     if ((el = b('[data-seguir]'))) { e.preventDefault(); m.seguir?.(); return; }
     if ((el = b('[data-previsualizar]'))) { e.preventDefault(); m.previsualizar?.(el.dataset.x ?? xDe(el), el.dataset.accion, Number(el.dataset.previsualizar)); return; }
@@ -449,6 +451,8 @@ export function instalar(raiz, m) {
       if (otro) input.focus?.();
       return;
     }
+    // La escala de la que parte la T que se quema al ejecutar (VG 12-11, decisión 7): la denominación se recalcula.
+    if (t.matches('[data-denominacion]')) { m.denominacion?.(t.value, t.form ?? t.closest?.('form') ?? null); return; }
     if (t.matches('[data-quien]')) m.quien?.(t.value);
     else if (t.matches('[data-ejemplo]')) m.ejemplo?.(t.value);
     else if (t.matches('[data-campo]')) {

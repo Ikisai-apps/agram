@@ -595,6 +595,30 @@ async function adjuntarArchivo(X, accion, campos, elegido) {
   pintar();
 }
 
+/**
+ * Lo escrito en el formulario de una acción: si no se tocó el valor legible, el crudo que trae (data-crudo); un tipo
+ * simple se lee con el núcleo (contrato.desdeLegible, en el idioma de quien mira); lo demás, BTML en JSON o el texto tal
+ * cual. → { valores, motivos }.
+ */
+function valoresDelFormulario(form) {
+  const valores = {};
+  const motivos = [];
+  for (const input of form.querySelectorAll('input[name]')) {
+    const v = input.value.trim();
+    if (v === '') continue;
+    const { tipo, crudo, legible, simple, etiqueta } = input.dataset;
+    if (crudo && v === legible) {
+      try { valores[input.name] = JSON.parse(crudo); continue; } catch { /* se lee como lo escrito */ }
+    }
+    if (simple === '1') {
+      const r = contrato.desdeLegible(v, tipo, { eje: estado.eje, idioma: idioma() });
+      if (r.motivo) motivos.push({ regla: input.name, mensaje: (etiqueta || input.name) + ': ' + r.motivo, parametro: input.name });
+      else if (r.valor !== undefined) valores[input.name] = r.valor;
+    } else if (/^[[{]/.test(v)) { try { valores[input.name] = JSON.parse(v); } catch { valores[input.name] = v; } } else valores[input.name] = v;
+  }
+  return { valores, motivos };
+}
+
 /** Lo escrito en los inputs de un formulario, por nombre. */
 const valoresDe = (form) => Object.fromEntries([...form.querySelectorAll('input[name],select[name]')].filter((i) => i.type !== 'file').map((i) => [i.name, i.value]));
 
@@ -796,7 +820,7 @@ const manejadores = {
     const hueco = ultimo?.aro?.huecos?.find((h) => h.pv === pv);
     if (estado.aro && hueco?.accion) manejadores.lanzar(estado.aro.X, hueco.accion.id);
   },
-  lanzar(X, accion, paso) {
+  lanzar(X, accion, paso, { ejecutar = false } = {}) {
     const sobre = X ?? estado.aro?.X ?? estado.foco.X;
     // Una acción que pide un archivo (un parámetro cuyo 4 es «file»: «adjuntar un archivo»): el selector de archivos, ya
     // (en el mismo gesto: el navegador solo lo abre así); al elegir, se sube y se escribe la transacción con su referencia.
@@ -810,7 +834,9 @@ const manejadores = {
       pintar();
       return;
     }
-    estado.formulario = { X: sobre, accion, valores: {}, motivos: [], resultado: null, paso };
+    // Ejecutar desde el 4 (VG 12-11, decisión 7): desde una celda abierta del 4 o un paso del camino del 9, el formulario
+    // enseña lo exigido en T, la denominación y el botón de ejecutar por el rango.
+    estado.formulario = { X: sobre, accion, valores: {}, motivos: [], resultado: null, paso, ejecutar: Boolean(ejecutar) || (paso !== null && paso !== undefined) };
     estado.previa = null;
     estado.aro = null;
     limpiarMensajes();
@@ -878,29 +904,28 @@ const manejadores = {
     else return;
     pintar();
   },
+  /**
+   * Ejecutar (VG 12-11, decisión 7): la escala de la que parte la T que se quema; la denominación la recalcula el núcleo.
+   * Lo ya escrito en el formulario se guarda antes de repintar.
+   */
+  denominacion(escala, form) {
+    const f = estado.formulario;
+    if (!f?.ejecutar || typeof escala !== 'string') return;
+    if (form) f.valores = { ...f.valores, ...valoresDelFormulario(form).valores };
+    f.escala = escala;
+    tocar(f.X, 'denominación ' + escala);
+    pintar();
+  },
   async enviar(form) {
     const f = estado.formulario;
     if (!f) return;
-    // Lo escrito en cada input: si no se tocó el valor legible, el crudo que trae (data-crudo); un tipo simple se lee
-    // con el núcleo (contrato.desdeLegible, en el idioma de quien mira); lo demás, BTML en JSON o el texto tal cual.
-    const valores = {};
-    const motivos = [];
-    for (const input of form.querySelectorAll('input[name]')) {
-      const v = input.value.trim();
-      if (v === '') continue;
-      const { tipo, crudo, legible, simple, etiqueta } = input.dataset;
-      if (crudo && v === legible) {
-        try { valores[input.name] = JSON.parse(crudo); continue; } catch { /* se lee como lo escrito */ }
-      }
-      if (simple === '1') {
-        const r = contrato.desdeLegible(v, tipo, { eje: estado.eje, idioma: idioma() });
-        if (r.motivo) motivos.push({ regla: input.name, mensaje: (etiqueta || input.name) + ': ' + r.motivo, parametro: input.name });
-        else if (r.valor !== undefined) valores[input.name] = r.valor;
-      } else if (/^[[{]/.test(v)) { try { valores[input.name] = JSON.parse(v); } catch { valores[input.name] = v; } } else valores[input.name] = v;
-    }
+    const { valores, motivos } = valoresDelFormulario(form);
     f.valores = valores;
     if (motivos.length) { f.motivos = motivos; f.resultado = null; pintar(); return; }
-    const r = await enviar(estado.eje, f.X, f.accion, valores, estado.identidad, firmarCon(estado.identidad));
+    // Ejecutar desde el 4 (VG 12-11, decisión 7): la T se quema en la denominación que enseña el formulario (la propuesta o
+    // la que sale de la escala elegida); el botón no se bloquea por el rango: apagado también se pulsa.
+    const denominacion = f.ejecutar ? (f.escala ?? acciones.ejecucion(estado.eje, f.accion, { X: f.X, ...valores }, estado.identidad, { idioma: idioma() }).denominacion ?? undefined) : undefined;
+    const r = await enviar(estado.eje, f.X, f.accion, valores, estado.identidad, firmarCon(estado.identidad), denominacion ? { denominacion } : {});
     if (r.ok && r.asentado) {
       trasEscribir();
       if (f.propuesta) externa.quitarPropuesta(almacenLocal(), dondePropuestas(), f.propuesta);

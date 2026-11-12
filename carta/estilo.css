@@ -306,6 +306,21 @@ small{color:var(--muted)}
 .formulario details.btml summary{cursor:pointer}
 .formulario details.btml code{font-size:11px;overflow-wrap:anywhere}
 .formulario footer button{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);width:100%;min-height:44px}
+/* Ejecutar desde el 4 (VG 12-11, decisión 7 de #49): lo exigido en T, la denominación y el botón que cambia con el rango */
+.ejecucion-t{display:flex;flex-direction:column;gap:4px;margin:8px 0;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--panel)}
+.ejecucion-t h3{margin:0;font-size:13px}
+.ejecucion-t .exigido{list-style:none;margin:0;padding:0;font-size:12px;display:flex;flex-direction:column;gap:2px}
+.ejecucion-t .denominacion{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}
+.ejecucion-t .denominacion select{min-height:32px}
+.ejecucion-t .piezas{font-variant-numeric:tabular-nums}
+.ejecucion-t .aviso{flex-basis:100%;color:var(--muted)}
+button.ejecutar{position:relative;cursor:pointer}
+button.ejecutar.boton-apagado,.formulario footer button.ejecutar.boton-apagado{background:var(--panel2);color:var(--muted);border:1px dashed var(--muted)}
+button.ejecutar.boton-marcado,.formulario footer button.ejecutar.boton-marcado{background:var(--accent);color:var(--accent-fg);border:2px solid var(--fg)}
+button.ejecutar.boton-efectos,.formulario footer button.ejecutar.boton-efectos{background:var(--accent);color:var(--accent-fg);border:2px solid var(--fg);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
+button.ejecutar .capa-ejecutar{position:absolute;inset:-4px;border-radius:inherit;border:2px solid var(--accent);animation:ejecutar-pulso 1.6s ease-out infinite}
+@keyframes ejecutar-pulso{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(1.06)}}
+@media (prefers-reduced-motion: reduce){button.ejecutar .capa-ejecutar{animation:none;opacity:.6}}
 
 /* mi cuenta: la pantalla de arranque (sola, sin eje) y los diálogos de crear, restaurar y la copia de seguridad */
 .arranque-pantalla{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px 0}
@@ -594,6 +609,10 @@ html.mapped body{padding:0}
 .ejecuciones.abiertas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .ejecuciones.abiertas>.ejecucion{display:flex;align-items:center;gap:8px;padding:3px 22px 3px 6px;border:1px solid color-mix(in oklab,var(--estado,var(--rule)) 70%,var(--fg));border-radius:4px;background:color-mix(in oklab,var(--estado,var(--rule)) 22%,var(--bg))}
 .ejecuciones.abiertas .estacion-nombre{margin-left:auto;font-size:11px;color:var(--muted)}
+.matriz-abierta .celda-valor{margin:0;font-size:12px;font-variant-numeric:tabular-nums}
+.matriz-abierta .celda-ejecutar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-top:4px;border-top:1px solid var(--rule)}
+.matriz-abierta .celda-ejecutar small{color:var(--muted)}
+.matriz-abierta .celda-ejecutar button{min-height:32px;padding:2px 10px;border-radius:4px}
 /* El rango (encargo «el4»): en el cielo del 8, el del foco; en el camino del 9, las posiciones que deja disponibles */
 .cielo-rango{font-weight:700}
 .posicion.disponible{border-style:solid;opacity:1}

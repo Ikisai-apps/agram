@@ -515,7 +515,7 @@ VG, 12-11 (estudio BQL-transacciones, `docs/notas/DECISIONES_2026-11-12.md` #49,
 | `transfer q S from A to B` | `from`, `to` | `exit`, `when` | de A a B; con `exit`, la transferencia con salida (de lo bloqueado con ella) |
 | `lock q S from A exit E` | `from`, `exit` | | bloquea con la salida E (de y a son A) |
 | `release q S from A exit E` | `from`, `exit` | | libera lo bloqueado con la salida E |
-| `burn q S from A` | `from` | `when` | de A a nadie; `when F` en un T informativo es la fecha a la que se refiere (`burn 1 T.8 from me when F`: declarar T futuro) |
+| `burn q S from A` | `from` | `when` | de A a nadie; `when F` en un T informativo es la fecha a la que se refiere (`burn 1 T.8 from me when F`, el T futuro de antes); en T real lo anuncia para esa fecha (`burn 60 T.1 from me when F`: declarar T futuro desde el 12-11, #64 c) |
 
 - **La serie** es un nodo cuyo valor es su clave: una serie de su familia (`R.(me)`, `T.1`) o una que ya se lee (`before.4.(first memo.1.0)`, `first (me.1 where … ) each 0`, `(first (moves X)).0`). Un texto o un número no son una serie (SEG-09): `transfer 1 "R:ana" …` es ERROR. Una serie vacía (una parte que falta) mueve con serie nula, y quien construye dice «no series».
 - **`when`** en lo que no es un T informativo **anuncia** (decisión 8): el movimiento sale con estado «anunciado» y la fecha en `refiere` (su D-MOV 7.1); no toca saldos (§4, D-MOV; `docs/MOTOR.md`).
@@ -529,7 +529,7 @@ VG, 12-11 (estudio BQL-transacciones, `docs/notas/DECISIONES_2026-11-12.md` #49,
 =put memo.1 at me.1.(R.(me)).1                        give own R: acuño la R propia que me falte…
 =transfer memo.1 R.(me) from me to first it.3         …y se la doy al dueño de X
 =lock first memo.1.1 before.4.(first memo.1.0) from me exit it          commit P
-=burn first memo.1.1 T.8 from me when first memo.1.0                    declare future T
+=burn first memo.1.1 T.1 from me when first memo.1.0                    declare future T (un anuncio de T con fecha)
 =first ev.6.2.0 = "their R" and put first ev.6.2.1 at me.1.(R.(me)).1 and transfer first ev.6.2.1 R.(me) from me to first it.3
  or first ev.6.2.0 = "my R" and transfer first ev.6.2.1 R.(first it.3) from me to first it.3 or …                write to X
 ```

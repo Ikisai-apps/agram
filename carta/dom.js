@@ -496,7 +496,60 @@ function htmlCeldaAbierta(a) {
   const titulo = t('matrizCelda', { oficio: a.oficio ?? a.fila, ejecucion: a.ejecucion ?? a.columna });
   const items = a.lista.map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}" title="${attr(textoEstacion(o.estado))}"` : ''}>${htmlOcupanteSolo(o)}${o.estado ? `<small class="estacion-nombre">${escapar(textoEstacion(o.estado))}</small>` : ''}${marcaVerificado(o)}</li>`).join('');
   const mas = a.mas ? `<li class="ejecucion-mas">${escapar(t('matrizMas', { n: a.mas }))}</li>` : '';
-  return `<section class="matriz-abierta" data-color="${a.columna}" data-fila="${a.fila}" data-columna="${a.columna}" role="dialog" aria-label="${attr(titulo)}"><header class="matriz-abierta-cabeza"><b>${escapar(titulo)}</b>${htmlEscalon(a.escalon)}<button type="button" class="cerrar"${nodo('control')} data-celda-matriz-cerrar title="${attr(t('cerrar'))}" aria-label="${attr(t('cerrar'))}">✕</button></header><ol class="ejecuciones abiertas">${items}${mas}</ol></section>`;
+  return `<section class="matriz-abierta" data-color="${a.columna}" data-fila="${a.fila}" data-columna="${a.columna}" role="dialog" aria-label="${attr(titulo)}"><header class="matriz-abierta-cabeza"><b>${escapar(titulo)}</b>${htmlEscalon(a.escalon)}<button type="button" class="cerrar"${nodo('control')} data-celda-matriz-cerrar title="${attr(t('cerrar'))}" aria-label="${attr(t('cerrar'))}">✕</button></header>${htmlValorDeCelda(a.valor)}<ol class="ejecuciones abiertas">${items}${mas}</ol>${htmlEjecutarEnCelda(a)}</section>`;
+}
+
+// ---------- ejecutar desde el 4 (VG 12-11, decisión 7 de #49) ----------
+
+/** Una cantidad de T en segundos, por escalas, como se lee («1 h 11 min»; «0 min» si nada). */
+function textoDeSegundos(segundos) {
+  const escalas = [['dia', 86400], ['hora', 3600], ['minuto', 60], ['segundo', 1]];
+  let resto = Math.max(0, Math.round(Number(segundos) || 0));
+  const partes = [];
+  for (const [escala, s] of escalas) {
+    const n = Math.floor(resto / s);
+    if (n > 0) { partes.push(t('tPieza_' + escala, { n })); resto -= n * s; }
+  }
+  return partes.length ? partes.join(' ') : t('tPieza_minuto', { n: 0 });
+}
+/** Las piezas de una denominación ([{ escala, cantidad }]) como se leen: «1 h 11 min». */
+const textoDePiezas = (piezas) => (piezas?.length ? piezas.map((p) => t('tPieza_' + p.escala, { n: p.cantidad })).join(' ') : t('tPieza_minuto', { n: 0 }));
+
+/** La suma de una celda abierta del 4 (contrato.valorDeCelda): el valor de sus registros crece con sus transacciones. */
+function htmlValorDeCelda(v) {
+  if (!v) return '';
+  return `<p class="celda-valor" data-segundos="${Number(v.segundos) || 0}" title="${attr(t('celdaValorTitulo'))}">${escapar(t('celdaValor', { t: textoDeSegundos(v.segundos), n: v.transacciones }))}</p>`;
+}
+
+/** Los estados del botón de ejecutar por el rango (contrato.botonDeEjecutar): la clase, el data-boton y su título. */
+function atributosDelBoton(b) {
+  const estado = b?.estado ?? 'apagado';
+  const rango = b && b.nivel !== null && b.nivel !== undefined ? `${b.nivel}.${b.grado}` : '-';
+  return ` class="ejecutar boton-${attr(estado)}" data-boton="${attr(estado)}"${b?.peldano !== null && b?.peldano !== undefined ? ` data-peldano="${b.peldano}"` : ''}${b?.subida ? ` data-subida="${b.subida}"` : ''} title="${attr(t('botonEjecutar_' + estado, { rango }))}"`;
+}
+
+/** Lo que se ejecuta desde una celda abierta: las plantillas de su oficio, cada una abre el formulario en modo ejecutar. */
+function htmlEjecutarEnCelda(a) {
+  if (!a.ejecutar?.length) return '';
+  const botones = a.ejecutar.map((x) => `<button type="button"${nodo('control')}${atributosDelBoton(a.boton)} data-lanzar="${attr(x.id)}" data-ejecutar>${escapar(x.nombre)}</button>`).join('');
+  return `<div class="celda-ejecutar"><small>${escapar(t('celdaEjecutar'))}</small>${botones}</div>`;
+}
+
+/**
+ * Ejecutar en el formulario (VG 12-11, decisión 7): lo que cada parte exige en T (el coste por posición, lo que mueve la
+ * plantilla) y la suma; la denominación propuesta o la que sale de la escala elegida (el desplegable: las escalas del
+ * calendario, menores o mayores), si cubre lo exigido y si el saldo de hoy la alcanza.
+ */
+function htmlEjecucion(e) {
+  if (!e) return '';
+  const [coste, plantilla] = e.partes;
+  const partes = [`<li data-parte="coste">${escapar(t('exigidoCoste', { n: coste.posiciones, t: textoDeSegundos(coste.segundos) }))}</li>`]
+    .concat(plantilla?.segundos > 0 ? [`<li data-parte="plantilla">${escapar(t('exigidoPlantilla', { t: textoDeSegundos(plantilla.segundos) }))}</li>`] : [])
+    .concat([`<li data-parte="total"><b>${escapar(t('exigidoTotal', { t: textoDeSegundos(e.exigido) }))}</b></li>`]);
+  const opciones = e.escalas.map((x) => `<option value="${attr(x)}"${x === e.escala ? ' selected' : ''}>${escapar(t('escala_' + x))}${x === e.propuesta.desde ? ' ' + escapar(t('escalaPropuesta')) : ''}</option>`).join('');
+  const avisos = (e.cubre ? '' : `<small class="aviso">${escapar(t('denominacionNoCubre'))}</small>`) + (e.alcanza ? '' : `<small class="aviso">${escapar(t('denominacionNoAlcanza'))}</small>`);
+  return `<section class="ejecucion-t" aria-label="${attr(t('ejecucionTitulo'))}"><h3>${escapar(t('ejecucionTitulo'))}</h3><ul class="exigido">${partes.join('')}</ul>
+      <p class="denominacion"><label>${escapar(t(e.elegida ? 'denominacionElegida' : 'denominacionPropuesta'))} <select data-denominacion aria-label="${attr(t('denominacionEscala'))}">${opciones}</select></label> <b class="piezas" data-piezas="${attr(JSON.stringify(e.denominacion))}">${escapar(textoDePiezas(e.denominacion))}</b>${avisos}</p></section>`;
 }
 
 /** La matriz del 4: la esquina, la ejecución arriba (o los diez tipos de interacción), y cada fila con su oficio (o su posición) delante; la diagonal (la escalera) marcada con su peldaño; cada celda con ocupante, una estación con su estado (y su sello si está ejecutada, solo CSS), que se abre al pulsarla; encima, la abierta; debajo, lo que no tiene celda. */
@@ -999,8 +1052,8 @@ function htmlFormulario(f) {
   return `<div class="formulario-fondo" data-cerrar><form class="formulario" data-formulario${nodo('formulario')} data-x="${f.X}" data-accion="${attr(f.accion)}" aria-label="${attr(f.nombre)}">
     <header><h2>${escapar(f.nombre)}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     ${f.ofrecida ? '' : `<p class="aviso">${t('noSeOfrece')}</p>`}
-    ${campos}${motivos}${resultado}
-    <footer><button type="submit">${t(f.lectura ? 'leer' : f.camino ? 'darElPaso' : 'lanzar')}</button></footer>
+    ${campos}${htmlEjecucion(f.ejecucion)}${motivos}${resultado}
+    <footer>${f.ejecucion ? `<button type="submit"${atributosDelBoton(f.ejecucion.boton)}>${f.animado && f.ejecucion.boton?.estado === 'efectos' ? '<span class="capa capa-efectos capa-ejecutar" aria-hidden="true"></span>' : ''}${t('ejecutar')}</button>` : `<button type="submit">${t(f.lectura ? 'leer' : f.camino ? 'darElPaso' : 'lanzar')}</button>`}</footer>
   </form></div>`;
 }
 

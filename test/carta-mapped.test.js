@@ -972,6 +972,73 @@ test('la matriz del 4 a pantalla completa: pulsar una celda la abre y enseña su
   assert.match(app, /else if \(estado\.celdaMatriz\) estado\.celdaMatriz = null;/);
 });
 
+// ---------- ejecutar desde el 4 (VG 12-11, decisión 7 de #49): la celda, el formulario y el botón por rango ----------
+
+/** Una cadena de n registros anidados desde X (cada uno anclado en el anterior) con los movimientos de `mov(k)`. */
+async function cadenaDeEjecuciones(eje, X, n, { autor, en, mov, desde = 0 }) {
+  let sobre = X;
+  for (let k = 0; k < n; k++) sobre = (await eje.escribir({ autor, sobre, en, t: '2026-11-08T10:' + String(desde + k).padStart(2, '0') + ':00Z', movimientos: mov(k), payload: [['Paso ' + (k + 1)]] })).id;
+}
+
+test('ejecutar desde el 4 (VG 12-11, decisión 7): la celda abierta enseña la suma de sus transacciones y lo que se ejecuta desde ella; el formulario en modo ejecutar enseña lo exigido, la denominación propuesta (ajustable por escalas) y el botón, que cambia con el rango', async () => {
+  const { ejemploFabrica } = await import('../ejemplos/ikisai/compra-food.mjs');
+  const { eje, compra, ...c } = await ejemploCompra();
+  await ejemploFabrica(eje, { compra, ...c });
+  const foco = { X: compra.id, pv: 4 };
+  // la celda abierta: su suma (contrato.valorDeCelda) y las plantillas de su oficio que escriben
+  const a = await arbol({ foco, celdaMatriz: { X: compra.id, celda: '4.4' } }, eje, 'huesped', GRANDE);
+  const ab = a.centro.rejilla.abierta;
+  assert.deepEqual(ab.valor, C.valorDeCelda(eje, ab.lista.map((o) => o.X).filter(Boolean)));
+  assert.ok(ab.valor.segundos > 0 && ab.valor.transacciones > 0, 'todas suman');
+  assert.deepEqual(ab.ejecutar.map((x) => x.id), A.acciones(eje, compra.id, 4, 'huesped').filter((x) => !x.lectura && !x.camino).map((x) => x.id));
+  assert.deepEqual([ab.boton.estado, ab.boton.peldano], ['apagado', 0]);
+  const h = html(a);
+  assert.match(h, new RegExp(`<p class="celda-valor" data-segundos="${ab.valor.segundos}"`));
+  assert.match(h, /<div class="celda-ejecutar"><small>[^<]+<\/small><button type="button" data-nodo="control" class="ejecutar boton-apagado" data-boton="apagado" data-peldano="0" title="[^"]+" data-lanzar="[^"]+" data-ejecutar>/);
+  // el formulario en modo ejecutar: lo exigido por partes, la denominación propuesta y el botón por rango
+  const valores = { what: 'servir', when: '2026-12-01T10:00:00Z' };
+  const conForm = (extra) => arbol({ foco, formulario: { X: compra.id, accion: 'declare future T', valores, ...extra } }, eje, 'huesped', GRANDE);
+  const f = (await conForm({ ejecutar: true })).formulario;
+  const e = A.ejecucion(eje, 'declare future T', { X: compra.id, ...valores }, 'huesped');
+  assert.deepEqual([f.ejecucion.exigido, f.ejecucion.denominacion, f.ejecucion.escala, f.ejecucion.elegida, f.ejecucion.boton.estado], [e.exigido, e.propuesta.piezas, e.propuesta.desde, false, 'apagado']);
+  const hf = html(await conForm({ ejecutar: true }));
+  assert.match(hf, /<section class="ejecucion-t" aria-label="[^"]+"><h3>/);
+  assert.match(hf, new RegExp(`<li data-parte="coste">[^<]*${e.posiciones} posiciones`));
+  assert.match(hf, new RegExp(`<option value="${e.propuesta.desde}" selected>[^<]+ \\(propuesta\\)</option>`));
+  assert.match(hf, /<select data-denominacion aria-label="[^"]+">/);
+  assert.match(hf, /<footer><button type="submit" class="ejecutar boton-apagado" data-boton="apagado" data-peldano="0" title="[^"]+">ejecutar<\/button><\/footer>/);
+  // ajustada a una escala mayor: una hora
+  const fh = (await conForm({ ejecutar: true, escala: 'hora' })).formulario;
+  assert.deepEqual([fh.ejecucion.denominacion, fh.ejecucion.elegida, fh.ejecucion.cubre], [[{ escala: 'hora', cantidad: 1 }], true, true]);
+  assert.match(html(await conForm({ ejecutar: true, escala: 'hora' })), /<b class="piezas" data-piezas="[^"]+">1 h<\/b>/);
+  // sin modo ejecutar (el aro: interactuar), el formulario de siempre
+  const sin = html(await conForm({}));
+  assert.ok(!sin.includes('ejecucion-t') && sin.includes('<footer><button type="submit">lanzar</button></footer>'));
+  // el botón en tres rangos: marcado al llegar al 3 (3.1), efectos al subir (4.2), y en animado la capa de efectos
+  await cadenaDeEjecuciones(eje, compra.id, 4, { autor: 'huesped', en: '2000000000', mov: () => [minuto('huesped'), { token: 'R', emisor: 'huesped', cantidad: 1, de: null, a: 'huesped' }] });
+  const marcado = await conForm({ ejecutar: true });
+  assert.equal(marcado.formulario.ejecucion.boton.estado, 'marcado');
+  assert.match(html(marcado), /class="ejecutar boton-marcado" data-boton="marcado" data-peldano="3"/);
+  await cadenaDeEjecuciones(eje, compra.id, 1, { autor: 'cocina', en: '6000000000', desde: 30, mov: () => [minuto('cocina'), { token: 'T', escala: 'futuro', cantidad: 1, de: 'cocina', a: null, refiere: '2026-12-02T10:00:00Z' }] });
+  const efectos = await conForm({ ejecutar: true });
+  assert.equal(efectos.formulario.ejecucion.boton.estado, 'efectos');
+  assert.match(html(efectos), /class="ejecutar boton-efectos" data-boton="efectos" data-peldano="6" data-subida="3"/);
+  assert.ok(!html(efectos).includes('capa-ejecutar'), 'en sobrio, solo la clase');
+  assert.match(html({ ...efectos, formulario: { ...efectos.formulario, animado: true } }), /<button type="submit" class="ejecutar boton-efectos"[^>]*><span class="capa capa-efectos capa-ejecutar" aria-hidden="true"><\/span>ejecutar<\/button>/);
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  for (const sel of ['button.ejecutar.boton-apagado,', 'button.ejecutar.boton-marcado,', 'button.ejecutar.boton-efectos,', 'button.ejecutar .capa-ejecutar{', '.ejecucion-t{', '.matriz-abierta .celda-valor{']) assert.ok(css.includes(sel), sel);
+  // los gestos: lanzar desde la celda abre en modo ejecutar; el desplegable de la escala recalcula
+  const g = gestosDeMentira();
+  g.disparar('click', { target: objetivo({ '[data-lanzar]': { dataset: { x: compra.id, lanzar: 'deliver', ejecutar: '' } } }), preventDefault() {} });
+  const form = {};
+  g.disparar('change', { target: { matches: (sel) => sel === '[data-denominacion]', value: 'hora', form } });
+  assert.deepEqual(g.llamadas, [['lanzar', compra.id, 'deliver', null, { ejecutar: true }], ['denominacion', 'hora', form]]);
+  // la app: el modo ejecutar desde la celda o desde un paso del camino, y la denominación al enviar
+  const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
+  assert.match(app, /ejecutar: Boolean\(ejecutar\) \|\| \(paso !== null && paso !== undefined\)/);
+  assert.match(app, /denominacion \? \{ denominacion \} : \{\}/);
+});
+
 test('gestos: arrastrar un elemento y soltarlo sobre el centro lo pone como foco (#23), solo en Mapped; en Sequenced, sobre el propio foco o sin llegar al centro, nada; el clic que sigue no cuenta', () => {
   mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 30_000_000 });
   try {

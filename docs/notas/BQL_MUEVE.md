@@ -26,8 +26,8 @@ Las de solo leer (ask for a recommendation, compare with another record, view th
 - **Retirar las listas** cuando «admit someone» esté migrada: entonces `recetasDe`, `movimientosDe` y `serieDe` de `src/acciones.js` se van, y con ellos el «extra» de la posición 2 y el texto `"nobody"`.
 - **`motor.siguiente`** sigue armando en JavaScript «move what was announced» y «commit P» (ahora anclado sobre el anuncio); el estudio pide que pase por las plantillas.
 - **El coste en la validación** (DECIDIDO VG 12-11, #64 b, rama `beta-costeexigido`): «writing burns today's T» exige lo que calcula la regla del coste (la T quemada por el autor en escalas del calendario, en segundos, ≥ lo exigido por el payload); lo escrito a mano calcula su quema con `escritura.quemaDelCoste`. Queda abierto el coste de las bases (ver DECISIONES_2026-11-12, #64 b).
-- **El ajuste fino por escalas y el botón de ejecutar con el rango** (decisión 7) son de la carta.
-- **«Declarar T futuro» como anuncio de T**: hoy es el T informativo con su fecha (sin cambiar el evento, por la doble ejecución); que lo cumpla el T real que se trabaja anclado sobre él queda por decidir.
+- ~~**El ajuste fino por escalas y el botón de ejecutar con el rango** (decisión 7) son de la carta.~~ Hecho (encargo «boton4», 13-11): `acciones.ejecucion`, `opciones.denominacion`, `contrato.botonDeEjecutar`, `valorDeRegistro`/`valorDeCelda` (docs/CONTRATO.md §4.2 bis, «Ejecutar desde el 4»).
+- ~~**«Declarar T futuro» como anuncio de T**~~ Hecho (VG 12-11, #64 c; encargo «boton4»): la plantilla anuncia minutos de T con su `when` en el 4.1 de X (`burn … T.1 from me when …`) y lo cumple el T trabajado que se ancla sobre él («deliver» quema lo anunciado como quema). Los T informativos ya escritos se leen igual.
 - **Los ejemplos de antes**: compra (`ejemploFabrica`), Booking y Tasks escriben ya el anuncio como movimientos anunciados; las pruebas y los ejemplos que lo escriben como payload siguen leyéndose con la misma fórmula. Retirar esa forma es otro paso.
 - **«Sin verificar no se ejecuta»** (#50): la estación «verificada» existe como dato, pero nada exige verificar antes de mover.
 

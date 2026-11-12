@@ -722,7 +722,28 @@ export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
     };
   });
   const { id, nombre } = accionDe(canonico, o);
-  return { X, accion: id, nombre, pv, campos, lectura: acciones.esLectura(plantilla), camino: acciones.esCamino(plantilla), ofrecida: Boolean(ofrecida) };
+  const lectura = acciones.esLectura(plantilla);
+  const camino = acciones.esCamino(plantilla);
+  return { X, accion: id, nombre, pv, campos, lectura, camino, ofrecida: Boolean(ofrecida), ...(opciones.ejecutar && !lectura && !camino ? { ejecucion: ejecucionDe(eje, X, canonico, yo, valores, o) } : {}) };
+}
+
+/**
+ * El formulario en modo ejecutar (VG 12-11, decisión 7 de #49): abierto desde una celda del 4 o desde un paso del camino
+ * del 9, lleva lo que la transacción exige en T por partes (el coste por posición y lo que la plantilla mueve de T), la
+ * denominación que lo cubre (la propuesta del núcleo, o la que parte de la escala elegida en el desplegable de las escalas
+ * del calendario: `opciones.ejecutar.escala`) y el estado del botón por el rango de X (contrato.botonDeEjecutar).
+ * → { partes, coste, exigido, posiciones, propuesta, denominacion, escala, cubre, alcanza, escalas, boton, motivos } o
+ * null si el núcleo no puede calcularlo (los motivos los dará el envío).
+ */
+function ejecucionDe(eje, X, accion, yo, valores, o) {
+  const escala = o.ejecutar?.escala ?? null;
+  const e = acciones.ejecucion(eje, accion, { X, ...valores }, yo, { ...o, ...(escala ? { denominacion: escala } : {}) });
+  if (!e.ok) return null;
+  return {
+    partes: e.partes, coste: e.coste, exigido: e.exigido, posiciones: e.posiciones, propuesta: e.propuesta, denominacion: e.denominacion,
+    escala: escala ?? e.propuesta.desde, elegida: Boolean(escala), cubre: e.cubre, alcanza: e.alcanza, escalas: e.escalas,
+    boton: contrato.botonDeEjecutar(eje, X, o),
+  };
 }
 
 /**
@@ -1428,7 +1449,7 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
     // La celda abierta (VG 12-11, #49.8): su lista de movimientos, hasta diez, cada uno con el color de su estación.
     const pedida = conEjes && entrar && ctx.estado?.celdaMatriz?.X === R ? celdas.find((c) => c.abrir && c.abrir === ctx.estado.celdaMatriz.celda) : null;
     const abierta = pedida
-      ? { fila: pedida.fila, columna: pedida.columna, oficio: ejes.filas.find((f) => f.digito === pedida.fila)?.nombre ?? null, ejecucion: ejes.columnas.find((k) => k.pv === pedida.columna)?.etiqueta ?? null, lista: pedida.ocupantes.slice(0, EJECUCIONES_EN_CELDA_ABIERTA), mas: Math.max(0, pedida.total - EJECUCIONES_EN_CELDA_ABIERTA), escalon: pedida.escalon ?? null }
+      ? { fila: pedida.fila, columna: pedida.columna, oficio: ejes.filas.find((f) => f.digito === pedida.fila)?.nombre ?? null, ejecucion: ejes.columnas.find((k) => k.pv === pedida.columna)?.etiqueta ?? null, lista: pedida.ocupantes.slice(0, EJECUCIONES_EN_CELDA_ABIERTA), mas: Math.max(0, pedida.total - EJECUCIONES_EN_CELDA_ABIERTA), escalon: pedida.escalon ?? null, ...ejecutarEnCelda(eje, R, pedida, ctx) }
       : null;
     return { celdas, ejes, sinPosicion, pagina: { actual: 1, de: 1 }, ...(abierta ? { abierta } : {}) };
   }
@@ -1580,6 +1601,18 @@ function caminoDeRejilla(eje, R, pv, d, g, ctx) {
     madurez: m && m.nivel !== null ? { nombre: m.nombre, nivel: m.nivel, de: m.de } : null,
     ...(r ? { rango: r } : {}),
   };
+}
+
+/**
+ * Ejecutar desde una celda abierta del 4 (VG 12-11, decisión 7 de #49): la suma de sus transacciones (el valor de cada
+ * ejecución crece con lo anclado debajo, contrato.valorDeCelda; todas suman), las plantillas que escriben del oficio de la
+ * celda (la fila: el PV de la plantilla) que se ofrecen a quien mira sobre R (cada una abre el formulario en modo
+ * ejecutar: lo exigido, la denominación y el botón) y el estado del botón por el rango de R (contrato.botonDeEjecutar).
+ */
+function ejecutarEnCelda(eje, R, celda, ctx) {
+  const valor = contrato.valorDeCelda(eje, celda.ocupantes.map((n) => n.X).filter(Boolean), ctx.opciones);
+  const ejecutar = ctx.yo ? acciones.acciones(eje, R, celda.fila, ctx.yo, ctx.opciones).filter((a) => !a.lectura && !a.camino).map((a) => ({ id: a.id, nombre: a.etiqueta ?? a.nombre })) : [];
+  return { valor, ejecutar, boton: contrato.botonDeEjecutar(eje, R, ctx.opciones) };
 }
 
 /** El rango de R para la carta (contrato.rango): el peldaño, su nivel.grado y su nombre, la dirección medida y las disponibles. */
@@ -1894,7 +1927,9 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   }
   const aro = !estado.aro?.X || !eje.obtener(estado.aro.X) ? null
     : Number.isInteger(estado.aro.nuevo) ? nodoAroNuevo(eje, estado.aro.X, estado.aro.nuevo, ctx) : nodoAro(eje, estado.aro.X, yo, ctx);
-  const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, ctx.opciones) : null;
+  // El formulario en modo ejecutar (VG 12-11, decisión 7): abierto desde una celda del 4 o un paso del camino del 9.
+  const conEjecutar = estado.formulario?.ejecutar ? { ejecutar: { escala: estado.formulario.escala ?? null } } : {};
+  const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, { ...ctx.opciones, ...conEjecutar }) : null;
   // El personaje de un sitio abierto (encargo pv3): la cruceta del nodo, si no hay formulario encima.
   const sitio = !form && estado.sitio?.X && eje.obtener(estado.sitio.X) ? nodoSitio(eje, estado.sitio, yo, ctx) : null;
   return {
@@ -1925,7 +1960,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     ...(secuencia ? { secuencia: { filas: secuencia.filas, pasado: secuencia.pasado, futuro: secuencia.futuro, digitos: secuencia.digitos } } : {}),
     aro,
     sitio,
-    formulario: form ? { ...form, motivos: estado.formulario.motivos ?? [], resultado: estado.formulario.resultado ?? null } : null,
+    formulario: form ? { ...form, motivos: estado.formulario.motivos ?? [], resultado: estado.formulario.resultado ?? null, animado } : null,
     camino,
     local: localDe(estado.local, opciones.t),
     tiempo: yoDatos?.tiempo ?? null,
