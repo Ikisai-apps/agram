@@ -19,7 +19,7 @@
 //   D-VALOR  un terminal «12 EUR» o «EUR 12»: 1 cuánto, 2 unidad (solo lectura)
 //   relojes  X.6.8, los tres relojes de un registro (VG 12-11, decisión 4): 6.8.0 su t del libro, 6.8.1 la marca de
 //            Nostr al transportarlo: su instante y la clave del relé (eje.recibo, de
-//            src/sincronia.js), 6.8.2 el bloque de Bitcoin que lo sella: su instante, su altura y su hash (eje.sello, de src/sello.js; vacíos hasta que el transporte dé el recibo y el sello esté en un bloque)
+//            src/sincronia.js), 6.8.2 el bloque de Bitcoin que lo sella: su instante, su altura y su hash (eje.sello, de src/sello.js; vacíos hasta que el transporte dé el recibo y el sello esté en un bloque), 6.8.3 el recibo de pago copiado (eje.pago)
 //   vistas   de una identidad A: A.1 la cartera (un ocupante por serie: 0 serie, 1 disponible,
 //            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.2.1 su P posicionado (por registro,
 //            con sus orígenes en el 6), A.2.6 el P de su origen en todas las manos (encargo 3b-bis;
@@ -1037,7 +1037,16 @@ export class ContextoEje {
           if (!sello) return [];
           return [sello.instante, sello.altura, sello.hash, ...(Array.isArray(sello.decupla) ? [{ k: 'dec', id: null, camino: [], v: sello.decupla }] : [])];
         }
-        // 3-9: las lecturas de la época que se materializan aquí (X.6.8.4 «received», X.6.8.5 «sealed»).
+        // 3, el recibo de pago copiado (encargo «taproot», Core AGRAM 13-11): el recibo único de StateArk de clase «pago» del
+        // pago que el registro hizo fuera (eje.pago, una vista del libro como el sello), una décupla: 0-4 la del recibo
+        // (["recibo", "pago"], el txid, las claves, los valores y la evidencia: la transacción cruda, la cabecera y el camino
+        // «bitcoin»), 5 el emisor, 6 su t, 7 el id del sobre (lo recalcula el núcleo), 8 su firma (src/sello.js
+        // POSICIONES_DEL_PAGO). La lee la regla «paid» (X.6.8.6). Vacío sin recibo de pago.
+        if (d === 3) {
+          const pago = nodo.e.id ? this.#eje.pago?.(nodo.e.id) : null;
+          return pago ? [{ k: 'dec', id: null, camino: [], v: pago.decupla }] : [];
+        }
+        // 4-9: las lecturas de la época que se materializan aquí (X.6.8.4 «received», X.6.8.5 «sealed», X.6.8.6 «paid»).
         return this.#lecturaEn('X.6.8.' + d, this.#sujetoDe(nodo.e));
       case 'par':
         return d === 0 ? [nodo.de ?? NADIE] : d === 1 ? [nodo.a ?? NADIE] : [];

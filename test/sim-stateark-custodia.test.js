@@ -1,4 +1,4 @@
-// Pruebas de la simulación de StateArk (§6 custodia), copiadas del commit d6bc6bd de InTheState/stateark/sim; el repo de AGRAM es este.
+// Pruebas de la simulación de StateArk (§6 custodia), copiadas del commit 0ddd6e7 de InTheState/stateark/sim; el repo de AGRAM es este.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';

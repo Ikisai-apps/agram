@@ -48,7 +48,8 @@ import { acotarAltaV2, gastaAsignacion, esInformativoT, validosDe } from './cicl
 import { evaluarEscritura, nombreDeRegla } from './bqlm.js';
 import { EPOCA_0_BTML } from './epocas.js';
 import { msUTC, msDeGuardado, segundosUTC, esInstante } from './instante.js';
-import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } from './evento.js';
+import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente, canonico } from './evento.js';
+import { sha256, aHex } from './cripto.js';
 import { firmar, firmarPosesion } from './autoridad.js';
 import { Libro, EMISION, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
 import { CONDICIONES, CONDICIONES_GENESIS, CONDICIONES_GENESIS_GUARDADO, SIN_CAPACIDAD, contratoE } from './condiciones/index.js';
@@ -75,6 +76,34 @@ function decuplaDeSelloValida(d, id, altura, hash) {
   if (!cero.includes('sello de tiempo') || !d.includes(id) || !d.includes(altura) || !d.includes(hash)) return null;
   const congelar = (x) => (Array.isArray(x) ? Object.freeze(x.map(congelar)) : x);
   return congelar(JSON.parse(JSON.stringify(d)));
+}
+
+/** El esquema del recibo único de StateArk (SIP 0, B19): el sobre del recibo de pago que se copia en X.6.8.3. */
+const ESQUEMA_RECIBO = 'stateark.recibo@1';
+
+/**
+ * El recibo de pago que se guarda con un registro (marcarPago), copiado y congelado, o null si no vale: un sobre del
+ * recibo único de StateArk (`stateark.recibo@1`, SIP 0 B19; la sim, `Custodia.firmarRecibo` sobre `Carril.reciboPago`)
+ * { schema, emisor, t, recibo, id, firma } de clase «pago», con su décupla BTML válida (validarPayload) de cinco
+ * posiciones (0 ["recibo", "pago"], 1 el sujeto, el txid, 2 las claves, 3 los valores, 4 la evidencia), y cuyo id es el
+ * de su cuerpo: el NÚCLEO lo recalcula, SHA-256 de canonico({ schema, emisor, t, recibo }) (el canonico de los eventos;
+ * el BQL mínimo no serializa décuplas, así que la regla no puede). Lo copiado es esa décupla y, detrás, lo del sobre que
+ * la regla «paid» necesita para la firma: 5 el emisor, 6 su t, 7 el id, 8 la firma (src/sello.js POSICIONES_DEL_PAGO).
+ * No comprueba la firma ni la evidencia: eso es de la regla «paid» (X.6.8.6).
+ */
+function decuplaDePagoValida(sobre) {
+  if (!sobre || typeof sobre !== 'object' || sobre.schema !== ESQUEMA_RECIBO) return null;
+  const { emisor, t, recibo, id, firma } = sobre;
+  if (typeof emisor !== 'string' || !/^[0-9a-f]{64}$/.test(emisor) || !esInstante(t) || typeof id !== 'string' || !/^[0-9a-f]{64}$/.test(id) || typeof firma !== 'string' || !/^[0-9a-f]{128}$/.test(firma)) return null;
+  if (!Array.isArray(recibo) || recibo.length !== 5 || !Array.isArray(recibo[0]) || recibo[0][0] !== 'recibo' || recibo[0][1] !== 'pago') return null;
+  try {
+    if (!validarPayload(recibo).ok) return null;
+  } catch {
+    return null;
+  }
+  if (aHex(sha256(new TextEncoder().encode(canonico({ schema: ESQUEMA_RECIBO, emisor, t, recibo })))) !== id) return null;
+  const congelar = (x) => (Array.isArray(x) ? Object.freeze(x.map(congelar)) : x);
+  return congelar([...JSON.parse(JSON.stringify(recibo)), emisor, t, id, firma]);
 }
 
 /** Caracteres del id por los que conPrefijo agrupa los ids (16⁴ grupos: con 20.000 registros, casi uno por grupo). */
@@ -113,6 +142,7 @@ export class Eje {
   #recibos = new Map(); // id → el recibo de llegada del transporte (src/sincronia.js): { instante, rele, firma, recibo? }; vista del libro, fuera del cuerpo y del id (X.6.8.1)
   #cota = { altura: null }; // la mayor altura de bloque de los sellos anotados (compartida con las copias, como #sellos): el «último sello conocido» con el que se cuenta la profundidad (contrato.verificado)
   #sellos = new Map(); // id → el sello de tiempo que lo ancla (src/sello.js): { altura, hash, instante, verificado }; vista del libro, fuera del cuerpo y del id (X.6.8.2)
+  #pagos = new Map(); // id → el recibo de pago de StateArk copiado (marcarPago): { t, decupla }; vista del libro, fuera del cuerpo y del id (X.6.8.3)
 
   /**
    * exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave.
@@ -351,6 +381,32 @@ export class Eje {
     return true;
   }
 
+  /**
+   * El recibo de pago de un registro (encargo «taproot», Core AGRAM 13-11; `X.6.8.3`): el recibo único de StateArk de
+   * clase «pago» (`stateark.recibo@1`, SIP 0 B19; en la simulación, `Custodia.firmarRecibo` sobre `Carril.reciboPago`)
+   * del pago que el registro hizo fuera, con su evidencia (la transacción cruda, la cabecera de su bloque y el camino de
+   * Merkle «bitcoin»). Como el sello y el recibo de llegada, es una VISTA del libro que llega de fuera: NO es parte del
+   * cuerpo firmado, no cambia ningún id ni ninguna firma y no entra en ninguna regla de escritura. `sobre` = { schema,
+   * emisor, t, recibo, id, firma } (ver decuplaDePagoValida: el id lo recalcula el núcleo). Lo comprueba la regla «paid»
+   * de la época (X.6.8.6). Se queda con el recibo más antiguo (el de menor t). Devuelve si lo anotó; un registro que el
+   * eje no tiene, o un recibo que no es de pago, no es BTML o no da su id, se ignoran. Un pago sin bloque no tiene recibo
+   * de pago (la sim lanza «unconfirmed»): la regla queda PENDIENTE.
+   */
+  marcarPago(id, sobre) {
+    if (!this.eventos.has(id)) return false;
+    const decupla = decuplaDePagoValida(sobre);
+    if (!decupla) return false;
+    const antes = this.#pagos.get(id);
+    if (antes && msUTC(antes.t) <= msUTC(sobre.t)) return false;
+    this.#pagos.set(id, Object.freeze({ t: sobre.t, decupla }));
+    return true;
+  }
+
+  /** El recibo de pago copiado de un registro { t, decupla } o null si no lo tiene (X.6.8.3). */
+  pago(id) {
+    return this.#pagos.get(id) ?? null;
+  }
+
   /** La mayor altura de bloque de todos los sellos verificados anotados en el eje, o null si no hay ninguno: la altura «actual» que AGRAM conoce (el último sello). */
   get alturaConocida() {
     return this.#cota.altura;
@@ -499,6 +555,7 @@ export class Eje {
     nuevo.#relojExterno = this.#relojExterno;
     nuevo.#recibos = this.#recibos;
     nuevo.#sellos = this.#sellos;
+    nuevo.#pagos = this.#pagos;
     nuevo.#cota = this.#cota;
     const motivos = await nuevo.#libro.evaluar(nuevo.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: this.eventosV2 > 0, reglas: this.eventosV2 > 0 ? 2 : 3, contextoBqlm: (epoch) => new ContextoEje(nuevo, { ev: g, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
@@ -538,6 +595,7 @@ export class Eje {
     this.#relojExterno = otro.#relojExterno;
     this.#recibos = otro.#recibos;
     this.#sellos = otro.#sellos;
+    this.#pagos = otro.#pagos;
     this.#cota = otro.#cota;
   }
 

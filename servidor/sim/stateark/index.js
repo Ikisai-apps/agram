@@ -13,6 +13,7 @@ import { Sellador } from './sello.js';
 import { Carril } from './pagos.js';
 
 export { Sellador, VIA, selloComoDecupla, caminoDePasos } from './sello.js';
+export { VIA_TAPROOT, scriptDeCompromiso, arbolTaproot, raizDesdeHermanos, claveDeSalida, anclar, transaccionDeAnclaje, scriptDeSalida } from './taproot.js';
 export { Cadena, RED, leerCabecera, aplicarOts, raizMerkleBitcoin, alturaLe } from './cadena.js';
 export { esId } from './hash.js';
 export { Carril, RechazoPago, firmaSimulada, mensajeAutorizacion, nuevoSecreto, hashDePreimagen, USO, UNIVERSO } from './pagos.js';

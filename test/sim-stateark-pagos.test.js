@@ -1,4 +1,4 @@
-// Pruebas de la simulación de StateArk (§5 pagos), copiadas tal cual del commit d6bc6bd de InTheState/stateark/sim con las rutas adaptadas.
+// Pruebas de la simulación de StateArk (§5 pagos), copiadas tal cual del commit 0ddd6e7 de InTheState/stateark/sim con las rutas adaptadas.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulacion, firmaSimulada, mensajeAutorizacion, RechazoPago } from '../servidor/sim/stateark/index.js';

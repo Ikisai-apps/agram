@@ -182,9 +182,9 @@ test('verificado(eje, id): { ok, sello, recibo, relojes, altura, profundidad, en
   const rele = await releDePrueba();
   await ajustarExterior({ cuenta, eje }, { 'observer keys': obs.publica }, 3);
   assert.equal(contrato.verificado(eje, 'no existe'), null);
-  assert.deepEqual(sinPendiente(contrato.verificado(eje, e1.id)), { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'sin transporte ni sello: el recibo no se exige, pero sin sello no hay verificado');
+  assert.deepEqual(sinPendiente(contrato.verificado(eje, e1.id)), { ok: false, sello: false, recibo: null, relojes: true, pago: null, altura: null, profundidad: null, enFirme: false }, 'sin transporte ni sello: el recibo no se exige, pero sin sello no hay verificado');
   assert.deepEqual(faltan(contrato.verificado(eje, e1.id)), ['sello'], 'sin sello, la regla «sealed» queda pendiente: falta el dato');
-  assert.deepEqual(sinPendiente(contrato.leer(eje, e1.id, 5).verificado), { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'en leer del 5');
+  assert.deepEqual(sinPendiente(contrato.leer(eje, e1.id, 5).verificado), { ok: false, sello: false, recibo: null, relojes: true, pago: null, altura: null, profundidad: null, enFirme: false }, 'en leer del 5');
   assert.equal(contrato.leer(eje, e1.id, 1).verificado, undefined, 'solo en el 5');
   assert.equal(contrato.leerRuta(eje, e1.id, [5]).verificado.ok, false);
 
@@ -196,21 +196,21 @@ test('verificado(eje, id): { ok, sello, recibo, relojes, altura, profundidad, en
   // La misma altura y el mismo hash, ahora con la prueba: la décupla se añade al sello que ya estaba.
   assert.ok(decupla);
   eje.marcarSello(e1.id, completo);
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: null, relojes: true, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false }, 'sello con su prueba y ningún recibo en el eje: el transporte no los da, no se exigen');
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: null, relojes: true, pago: null, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false }, 'sello con su prueba y ningún recibo en el eje: el transporte no los da, no se exigen');
 
   // El transporte da recibos (a e2, no a e1): ahora se exige el de cada uno.
   eje.marcarRecibo(e2.id, reciboFirmado(rele, { instante: '2026-11-10T10:03:00.000Z' }));
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: false, sello: true, recibo: false, relojes: true, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false }, 'el transporte los da y a este no');
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: false, sello: true, recibo: false, relojes: true, pago: null, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false }, 'el transporte los da y a este no');
   assert.equal(contrato.verificado(eje, e2.id).recibo, true);
   assert.equal(contrato.verificado(eje, e2.id).ok, false, 'e2 tiene recibo pero no sello');
   eje.marcarRecibo(e1.id, reciboFirmado(rele, { instante: '2026-11-10T10:02:00.000Z' }));
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: true, relojes: true, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: true, relojes: true, pago: null, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
   assert.equal(contrato.leer(eje, e1.id, 5).verificado.ok, true);
 
   // Relojes fuera de orden («clocks out of order»): el bloque va antes que el t del libro más del margen (epoch.7.3.1).
   eje.marcarSello(e2.id, await selloCompleto(e2.id, { altura: 1, instante: '2026-11-10T07:00:00.000Z', observador: obs }));
   assert.equal(contrato.relojesFueraDeOrden(eje, e2.id), true);
-  assert.deepEqual(contrato.verificado(eje, e2.id), { ok: false, sello: true, recibo: true, relojes: false, altura: 1, profundidad: 3, enFirme: false, pendiente: [], pendienteDeSello: false }, 'la altura conocida es la del último sello (3): e2, sellado en 1, tiene 3 confirmaciones');
+  assert.deepEqual(contrato.verificado(eje, e2.id), { ok: false, sello: true, recibo: true, relojes: false, pago: null, altura: 1, profundidad: 3, enFirme: false, pendiente: [], pendienteDeSello: false }, 'la altura conocida es la del último sello (3): e2, sellado en 1, tiene 3 confirmaciones');
 });
 
 test('profundidad y «en firme»: (altura del último sello verificado conocido − la de su bloque + 1) contra las «confirmations» de la cuenta RAÍZ del eje, no de quien escribe', async () => {

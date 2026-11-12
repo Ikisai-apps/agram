@@ -21,8 +21,9 @@
 //      (siempre) y, solo si existen, «cuánto», «causa» (una vez por causa), «núcleo» y «época»; y al final
 //      «no afirma», una vez por cada cosa que el recibo NO afirma (al menos una)
 //   3  los VALORES, en el mismo orden (todos texto; «cuánto» como «61000 sat», que AGRAM despliega como D-VALOR)
-//   4  la evidencia, si la clase la lleva (en un pago: [transacción cruda, cabecera, lados, hermanos del
-//      camino de Merkle «bitcoin» si lo hay]). Si no hay, el recibo acaba en el 3.
+//   4  la evidencia, si la clase la lleva, SIEMPRE como décupla (en un pago: [[transacción cruda], [cabecera],
+//      lados, hermanos del camino de Merkle «bitcoin» si lo hay]; cada hoja suelta entre corchetes, o sería una
+//      lista sin posiciones). Si no hay, el recibo acaba en el 3.
 
 import { esId, sha256Texto } from './hash.js';
 import { canonico } from './canon.js';

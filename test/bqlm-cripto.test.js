@@ -2,7 +2,9 @@
 // SHA-256 (FIPS 180-2), BIP-340 (test/bip340-vectores.csv), el bloque génesis de Bitcoin (cabecera y coinbase), el
 // Merkle «bitcoin» (una tx y tres con duplicado), el Merkle «sip» contra el sellador de servidor/sim/stateark (SIP-0.md,
 // normativo), OpenTimestamps con un camino sintético, una transacción con testigo hecha a mano, la firma de un evento
-// real y las seis reglas del SIP 0 (InTheState/stateark/sip/reglas, solo lectura).
+// real, las reglas del SIP 0 (InTheState/stateark/sip/reglas, solo lectura) y Taproot (H20, VG 13-11): tapleaf y taptweak
+// con los vectores de rust-miniscript (test/vectores-miniscript.js), cruzadas con la secp256k1 mínima y el árbol Taproot
+// de la simulación de StateArk (servidor/sim/stateark/secp.js y taproot.js, 0ddd6e7), y la cadena entera de un sello.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +16,14 @@ import { schnorr } from '../src/vendor/noble-secp256k1.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { crearEvento } from '../src/evento.js';
 import { generarClaves, firmar } from '../src/autoridad.js';
-import { Sellador } from '../servidor/sim/stateark/sello.js';
+import { Sellador, selloComoDecupla } from '../servidor/sim/stateark/sello.js';
+import { claveDeSalida, arbolTaproot, scriptDeCompromiso, scriptDeSalida } from '../servidor/sim/stateark/taproot.js';
+import { ajustar } from '../servidor/sim/stateark/secp.js';
+import { hoja as hojaTapscript } from '../servidor/sim/stateark/miniscript.js';
+import { sha256Texto } from '../servidor/sim/stateark/hash.js';
+import { tapleaf as tapleafPropio, taptweak as taptweakPropio } from '../src/cripto.js';
+import { COSTE_TAPTWEAK } from '../src/bqlm.js';
+import { VECTORES_MINISCRIPT as VEC, NUMS } from './vectores-miniscript.js';
 
 const sha = (b) => createHash('sha256').update(b).digest();
 const shad = (b) => sha(sha(b));
@@ -281,7 +290,8 @@ test('signed sobre bytes(id) de un evento real firmado: el mensaje de un registr
 // ---------- forma ----------
 
 test('forma: las primitivas son llamadas con su número de argumentos; no son verbos (una regla que las usa solo lee)', () => {
-  assert.deepEqual(Object.keys(VERIFICACION).sort(), ['below', 'bytes', 'cabecera', 'cat', 'hash', 'hex', 'le', 'lookup', 'merkle', 'ots', 'payload', 'reverse', 'sha256', 'sha256d', 'signed', 'slice', 'tx', 'utf8']);
+  assert.deepEqual(Object.keys(VERIFICACION).sort(), ['below', 'bytes', 'cabecera', 'cat', 'hash', 'hex', 'le', 'lookup', 'merkle', 'ots', 'payload', 'reverse', 'sha256', 'sha256d', 'signed', 'slice', 'tapleaf', 'taptweak', 'tx', 'utf8']);
+  assert.match(estado('taptweak(bytes("00"), bytes("00"))').motivo, /lleva 3 argumentos, no 2/);
   assert.match(estado('hash').motivo, /se escribe con sus argumentos entre paréntesis/);
   assert.match(estado('slice(bytes("00"), 1)').motivo, /lleva 3 argumentos, no 2/);
   assert.match(estado('hash(1, "a", "b")').motivo, /lleva 1 o 2 argumentos, no 3/);
@@ -296,35 +306,16 @@ const SIP = 'C:/Users/acer/Documents/InTheState/stateark/sip/reglas';
 
 // El SIP está vivo (Core StateArk lo reescribe con las formas de §12): la prueba lee las reglas que haya, sin fijar
 // cuántas, y todas han de analizarse sin sustituciones (desde H17-H19: lookup, merkle con lados y hermanos, payload;
-// encargo «verificado-regla», SIP b052690). La única excepción admitida son las primitivas de Taproot del SIP e489708
-// (H20: tapleaf y taptweak, «fuera OpenTimestamps, entra Taproot», VG 13-11), que llegan en un encargo siguiente: una
-// regla que las usa se señala, y se comprueba que es eso lo único que le falta.
-const H20 = /no es BQL mínimo: «(tapleaf|taptweak)»/;
-test('SIP 0: analizar acepta las reglas con las primitivas, sin sustituciones (salvo las de Taproot, H20, que se señalan)', { skip: !existsSync(SIP) && 'sin InTheState/stateark/sip en esta máquina' }, () => {
+// encargo «verificado-regla», SIP b052690; y desde el encargo «taproot», H20: tapleaf y taptweak, SIP 0a445b2).
+test('SIP 0: analizar acepta todas las reglas con las primitivas, sin sustituciones (también «sealed», con las de Taproot, H20)', { skip: !existsSync(SIP) && 'sin InTheState/stateark/sip en esta máquina' }, () => {
   const reglas = readdirSync(SIP).filter((f) => f.endsWith('.json')).map((f) => ({ f, r: JSON.parse(readFileSync(SIP + '/' + f, 'utf8')) }));
   assert.ok(reglas.length >= 7);
-  const resultado = {};
   for (const { f, r } of reglas) {
     const formula = r[2][r[2].length - 1];
-    const sujeto = r[4].includes('read');
-    try {
-      analizar(formula, { sujeto });
-      resultado[f] = 'ok';
-    } catch (e) {
-      assert.match(e.message, H20, f + ': ' + e.message);
-      resultado[f] = 'H20';
-      // Sin las llamadas de Taproot (cambiadas por un literal), el resto se analiza.
-      let sin = formula;
-      for (let m = /tap(leaf|tweak)\(/.exec(sin); m; m = /tap(leaf|tweak)\(/.exec(sin)) {
-        let k = m.index + m[0].length;
-        for (let nivel = 1; nivel > 0 && k < sin.length; k++) nivel += sin[k] === '(' ? 1 : sin[k] === ')' ? -1 : 0;
-        sin = sin.slice(0, m.index) + 'bytes("00")' + sin.slice(k);
-      }
-      assert.doesNotThrow(() => analizar(sin, { sujeto }), f + ': solo le faltan las primitivas de Taproot');
-    }
+    assert.doesNotThrow(() => analizar(formula, { sujeto: r[4].includes('read') }), f);
   }
-  for (const f of ['authorized-by-the-holder.json', 'in-firm.json', 'linked.json', 'paid.json', 'second-factor.json', 'the-lock-ends-before-the-e.json']) assert.equal(resultado[f], 'ok', f);
-  assert.ok(['ok', 'H20'].includes(resultado['sealed.json']), JSON.stringify(resultado));
+  const sealed = reglas.find(({ f }) => f === 'sealed.json');
+  assert.match(sealed.r[2].at(-1), /taptweak\(/, 'la «sealed» del SIP ancla por Taproot');
 });
 
 // ---------- el candado §8 en Taproot (vector de rust-miniscript) ----------
@@ -358,4 +349,104 @@ test('el candado §8 en Taproot: tx(b) saca la salida que paga a su scriptPubKey
   const [a, b] = CANDADO.hojas.map((h) => 'bytes("' + h.hoja + '")');
   assert.equal(vale('below(' + b + ', ' + a + ')', c), true);
   assert.equal(vale('hex(hash(cat(' + b + ', ' + a + '), "TapBranch")) = first epoch.2', c), true);
+});
+
+// ---------- Taproot (H20, VG 13-11: el sello ancla por Taproot, no por OpenTimestamps) ----------
+
+test('tapleaf: el hash TapLeaf de BIP-341 (0xc0 ‖ compact_size ‖ script), con las dos hojas del candado de rust-miniscript', () => {
+  for (const { script, hoja } of VEC.candado.hojas) {
+    assert.equal(vale('hex(tapleaf(bytes("' + script + '")))'), hoja);
+    assert.equal(hx(tapleafPropio(bx(script))), hoja);
+  }
+  // Los demás scripts de los vectores, contra la hoja de la simulación (miniscript.js).
+  return Promise.all([VEC.multi_a.script, VEC.older.script, VEC.hash160_frag.script].map(async (script) => assert.equal(vale('hex(tapleaf(bytes("' + script + '")))'), await hojaTapscript(script))));
+});
+
+test('tapleaf: el compact size de la longitud, también a partir de 253 bytes (0xfd y dos bytes)', async () => {
+  for (const n of [0, 1, 75, 252, 253, 300, 70000]) {
+    const script = 'ab'.repeat(n);
+    const t = sha(Buffer.from('TapLeaf'));
+    const largo = n < 0xfd ? Buffer.from([n]) : n <= 0xffff ? Buffer.from([0xfd, n & 0xff, n >> 8]) : Buffer.from([0xfe, n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, n >>> 24]);
+    assert.equal(hx(tapleafPropio(bx(script))), hx(sha(Buffer.concat([t, t, Buffer.from([0xc0]), largo, bx(script)]))), n + ' bytes');
+  }
+  assert.equal(vale('hex(tapleaf(cat(bytes("6a20"), bytes("' + 'ab'.repeat(32) + '"))))'), await hojaTapscript(scriptDeCompromiso('ab'.repeat(32))), 'la hoja de compromiso del sello: OP_RETURN <32 bytes>');
+});
+
+test('taptweak: la clave de salida del candado de rust-miniscript (NUMS, su hoja y la otra como hermana, en los dos órdenes) y su scriptPubKey', () => {
+  const [a, b] = VEC.candado.hojas.map((h) => h.hoja);
+  const c = ctx([[NUMS], [a], [b], [VEC.candado.scriptPubKey]]);
+  assert.equal(vale('hex(taptweak(bytes(first epoch.0), bytes(first epoch.1), epoch.2))', c), VEC.candado.clave_salida);
+  assert.equal(vale('hex(taptweak(bytes(first epoch.0), bytes(first epoch.2), epoch.1))', c), VEC.candado.clave_salida, 'TapBranch ordena: el camino son solo los hermanos');
+  assert.equal(vale('hex(cat(bytes("5120"), taptweak(bytes(first epoch.0), bytes(first epoch.1), epoch.2))) = first epoch.3', c), true);
+  assert.equal(hx(taptweakPropio(bx(NUMS), bx(a), [bx(b)])), VEC.candado.clave_salida);
+  // Con la raíz como hoja y sin hermanos: la misma clave (sin hermanos, la hoja es la raíz).
+  assert.equal(vale('hex(taptweak(bytes("' + NUMS + '"), bytes("' + VEC.candado.raiz + '"), epoch.9))', c), VEC.candado.clave_salida);
+});
+
+test('taptweak: la misma clave que la secp256k1 mínima y el árbol Taproot de la simulación de StateArk, con 1, 2, 3, 5 y 9 hojas y claves internas variadas', async () => {
+  const internas = [NUMS, VEC.claves.cobra, VEC.claves.reembolso, '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798'];
+  for (const n of [1, 2, 3, 5, 9]) {
+    const hojas = await Promise.all(Array.from({ length: n }, async (_, k) => hojaTapscript(scriptDeCompromiso(await sha256Texto('lote ' + n + '.' + k)))));
+    const { raiz, hermanos } = await arbolTaproot(hojas);
+    const interna = internas[n % internas.length];
+    const esperada = await claveDeSalida(interna, raiz);
+    for (let k = 0; k < n; k++) {
+      const c = ctx([[interna], [hojas[k]], hermanos[k].length ? hermanos[k] : ['-']]);
+      const camino = hermanos[k].length ? 'epoch.2' : 'epoch.9';
+      assert.equal(vale('hex(taptweak(bytes(first epoch.0), bytes(first epoch.1), ' + camino + '))', c), esperada, 'n=' + n + ', k=' + k);
+    }
+  }
+  // Y el ajuste de la secp256k1 mínima (Q = lift_x(P) + t·G) contra el de noble, con ajustes al azar.
+  for (let k = 0; k < 6; k++) {
+    const raiz = await sha256Texto('raíz ' + k);
+    const interna = internas[k % internas.length];
+    const t = schnorr.utils.taggedHash('TapTweak', bx(interna), bx(raiz));
+    assert.equal(hx(taptweakPropio(bx(interna), bx(raiz), [])), ajustar(interna, hx(t)).clave, 'ajuste ' + k);
+  }
+});
+
+test('taptweak: una interna que no es un punto de la curva o un hermano que no son 32 bytes, ERROR; paga como una firma', () => {
+  const hoja = 'ab'.repeat(32);
+  assert.match(estado('taptweak(bytes("' + '0'.repeat(63) + '5"), bytes("' + hoja + '"), epoch.9)').motivo, /taptweak: la clave interna no es la x de un punto de secp256k1/);
+  assert.match(estado('taptweak(bytes("' + 'f'.repeat(64) + '"), bytes("' + hoja + '"), epoch.9)').motivo, /taptweak: la clave interna/);
+  assert.match(estado('taptweak(bytes("' + NUMS + '"), bytes("ab"), epoch.9)').motivo, /la hoja es un hash TapLeaf, 32 bytes/);
+  assert.match(estado('taptweak(bytes("' + NUMS + '"), bytes("' + hoja + '"), epoch.0)', ctx([['abcd']])).motivo, /32 bytes, no 2/);
+  assert.match(estado('taptweak(bytes("' + NUMS + '"), bytes("' + hoja + '"), epoch.0)', ctx([['xyz']])).motivo, /el hermano 0: espera bytes o su texto hex/);
+  assert.equal(estado('taptweak(bytes(first epoch.9), bytes("' + hoja + '"), epoch.9)').estado, 'PENDIENTE', 'sin interna, falta el dato');
+  const r = estado('taptweak(bytes("' + NUMS + '"), bytes("' + hoja + '"), epoch.9)', ctx(), { limites: { bytes: COSTE_TAPTWEAK } });
+  assert.equal(r.subtipo ?? r.estado, 'PENDIENTE POR LÍMITE', 'un TapTweak cuesta como una firma');
+});
+
+test('la cadena entera de un sello de la simulación (0ddd6e7) con las primitivas: id → árbol «sip» → lote → hoja de compromiso → árbol Taproot → TapTweak → salida de la transacción de anclaje → camino «bitcoin» → cabecera → hash y prueba de trabajo', async () => {
+  const s = await Sellador.crear({ inicio: '2026-11-12T00:00:00.000Z', reloj: () => Date.parse('2026-11-12T00:00:00.000Z') });
+  const ids = await Promise.all([0, 1, 2].map((k) => sha256Texto('evento ' + k)));
+  await s.sellar(ids);
+  await s.sellar([await sha256Texto('otro lote')]);
+  await s.minar([await sha256Texto('otra tx')]);
+  const id = ids[0];
+  const p = s.prueba(id);
+  const d = selloComoDecupla(p, id);
+  const c = ctx(d);
+  // La décupla como epoch: epoch.k es su posición k (así se lee lo copiado, como en la regla «sealed»).
+  const T = '(first tx(bytes(first epoch.8.0)))';
+  const C = '(first cabecera(bytes(first epoch.7.0)))';
+  const pasos = {
+    'id → raíz del lote («sip»)': 'hex(merkle(bytes(first epoch.4), epoch.9.0, epoch.9.1, "sip")) = first epoch.3',
+    'lote → hoja → TapTweak → salida': 'cat(bytes("5120"), taptweak(bytes(first epoch.8.2), tapleaf(cat(bytes("6a20"), bytes(first epoch.3))), epoch.8.3)) = first (nth (first epoch.8.1) ' + T + '.2).1',
+    'transacción → raíz de la cabecera («bitcoin»)': 'merkle(first ' + T + '.5, epoch.7.4, epoch.7.5, "bitcoin") = first ' + C + '.3',
+    'cabecera → hash del bloque': 'hex(first ' + C + '.7) = first epoch.2',
+    'prueba de trabajo': 'below(reverse(first ' + C + '.7), first ' + C + '.8)',
+    'altura firmada': 'le(bytes(first epoch.7.2)) = first epoch.1',
+    'firma del observador': 'signed(bytes(first epoch.7.1), hash(cat(bytes(first epoch.7.0), bytes(first epoch.7.2)), "StateArk/Observador/Cabecera/v1"), bytes(first epoch.7.3))',
+  };
+  for (const [que, f] of Object.entries(pasos)) assert.equal(vale(f, c), que === 'firma del observador' ? false : true, que);
+  // La firma del observador de la sim por defecto es SIMULADA (no BIP-340): signed la rechaza; con la noble, vale
+  // (test/verificado-regla.test.js, con servidor/sim/sello-agram.js).
+  assert.equal(scriptDeSalida(p.prueba.taproot.tx, 0), '5120' + hx(taptweakPropio(bx(p.prueba.taproot.interna), tapleafPropio(bx('6a20' + p.lote)), p.prueba.taproot.hermanos.map(bx))));
+  // Un hermano Taproot o una interna manipulados (un punto de la curva) rompen el paso del TapTweak.
+  for (const tocar of [(x) => { x[8][3][0] = 'ab'.repeat(32); }, (x) => { x[8][2] = [VEC.claves.cobra]; }]) {
+    const x = structuredClone(d);
+    tocar(x);
+    assert.equal(vale(pasos['lote → hoja → TapTweak → salida'], ctx(x)), false);
+  }
 });

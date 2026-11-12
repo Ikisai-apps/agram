@@ -44,12 +44,12 @@ async function conR() {
   return { eje, dev };
 }
 
-test('B5: las dieciséis lecturas están en el 2 de la época, con read en su 4 y su posición en el 3; no son condiciones', () => {
+test('B5: las diecisiete lecturas están en el 2 de la época, con read en su 4 y su posición en el 3; no son condiciones', () => {
   // VG 12-11 (estudio BQL-transacciones): el movimiento con fecha (X.7.9), la fecha a la que se refiere (X.7.7) y los tres
   // relojes fuera de orden (X.6.9, #42); y el coste de escribir (decisión 7), que se lee sobre la candidata (ev), sin
-  // materializarse en ninguna posición.
-  assert.deepEqual(LECTURAS.map((r) => r[0][0]), ['present', 'informative', 'attended', 'obligation', 'share', 'weight', 'maturity', 'attention group', 'attention price', 'stage', 'dated movement', 'for when', 'clocks out of order', 'the cost of writing', 'sealed', 'received']);
-  assert.deepEqual(LECTURAS.map(posicionDeLectura), ['X.6.1', 'X.6.7', 'X.7.4', 'A.8.1', 'A.2.6.8', 'X.2.4.8', 'X.8.1', 'X.6.3', 'X.6.2', 'X.4.8', 'X.7.9', 'X.7.7', 'X.6.9', 'ev', 'X.6.8.5', 'X.6.8.4']);
+  // materializarse en ninguna posición. Encargos «verificado-regla» y «taproot»: «sealed», «received» y «paid» (X.6.8.5, 4 y 6).
+  assert.deepEqual(LECTURAS.map((r) => r[0][0]), ['present', 'informative', 'attended', 'obligation', 'share', 'weight', 'maturity', 'attention group', 'attention price', 'stage', 'dated movement', 'for when', 'clocks out of order', 'the cost of writing', 'sealed', 'received', 'paid']);
+  assert.deepEqual(LECTURAS.map(posicionDeLectura), ['X.6.1', 'X.6.7', 'X.7.4', 'A.8.1', 'A.2.6.8', 'X.2.4.8', 'X.8.1', 'X.6.3', 'X.6.2', 'X.4.8', 'X.7.9', 'X.7.7', 'X.6.9', 'ev', 'X.6.8.5', 'X.6.8.4', 'X.6.8.6']);
   for (const r of LECTURAS) {
     assert.ok(esLectura(r));
     assert.equal(r.length, 10, 'una lectura lleva las diez posiciones, como toda regla');

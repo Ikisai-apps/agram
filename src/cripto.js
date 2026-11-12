@@ -1,7 +1,8 @@
 // Primitivas PURAS de verificación (Core AGRAM, 12-11, #67; docs/BQLM.md §12): lo que el BQL mínimo necesita para
 // comprobar, sin salir del libro, las pruebas que un registro trae copiadas (un sello de tiempo, un recibo de pago, un
 // candado por hash, una firma). Todo síncrono, sin efectos ni entrada/salida, y SOLO de verificación: aquí no hay firmar
-// ni claves privadas (la única llamada a la librería vendorizada es `schnorr.verify`).
+// ni claves privadas (de la librería vendorizada solo se usan `schnorr.verify` y, para el TapTweak, la aritmética
+// pública de la curva).
 //
 //   sha256(u8)                    SHA-256 de unos bytes: el de noble, exportado desde src/vendor/noble-secp256k1.js
 //                                 (la única librería admitida); test/bqlm-cripto.test.js lo cruza con node:crypto.
@@ -11,8 +12,13 @@
 //   raizMerkle(hoja, pasos, e)    la raíz de un camino de Merkle, esquema "bitcoin" o "sip" (SIP-0.md, normativo)
 //   aplicarOts(u8, pasos)         los pasos OpenTimestamps prepend / append / sha256
 //   verificarBip340(f, m, k)      BIP-340 (schnorr.verify)
+//   tapleaf(script)               el hash TapLeaf de BIP-341 de una hoja Tapscript (versión 0xc0)
+//   taptweak(interna, hoja, h)    la clave de salida x-only de BIP-341: TapBranch ordenado y TapTweak (H20, 13-11)
 //
-// Lanzan Error con un motivo en español; quien las llama (src/bqlm.js) lo convierte en una Parada ERROR.
+// Lanzan Error con un motivo en español; quien las llama (src/bqlm.js) lo convierte en una Parada ERROR. La librería
+// vendorizada solo se usa para verificar: `schnorr.verify`, y para el TapTweak la aritmética pública de la curva que
+// `schnorr` ya expone (`schnorr.utils.lift_x`, `schnorr.Point`: sumar un punto y multiplicar el generador), sin claves
+// privadas.
 
 import { schnorr, sha256 as nobleSha256 } from './vendor/noble-secp256k1.js';
 
@@ -232,4 +238,57 @@ export function verificarBip340(firma, mensaje, clave) {
   } catch {
     return false;
   }
+}
+
+// ---------- Taproot (BIP-341; H20 del SIP 0, VG 13-11: el sello ancla por Taproot) ----------
+
+/** El compact size de Bitcoin (la longitud que precede a un script): 1, 3, 5 o 9 bytes. */
+function compactSize(n) {
+  if (n < 0xfd) return Uint8Array.of(n);
+  if (n <= 0xffff) return Uint8Array.of(0xfd, n & 0xff, n >>> 8);
+  if (n <= 0xffffffff) return Uint8Array.of(0xfe, n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, n >>> 24);
+  throw new Error('tapleaf: un script de más de 4 GB');
+}
+
+/** La versión de hoja de Tapscript (BIP-342). */
+export const VERSION_TAPSCRIPT = 0xc0;
+
+/** El hash TapLeaf de BIP-341 de un script: hashEtiquetado("TapLeaf", 0xc0 ‖ compact_size(largo) ‖ script) → 32 bytes. */
+export function tapleaf(script) {
+  return hashEtiquetado('TapLeaf', concatenar(Uint8Array.of(VERSION_TAPSCRIPT), compactSize(script.length), script));
+}
+
+/** TapBranch de BIP-341: hashEtiquetado("TapBranch", menor ‖ mayor), los dos hijos en orden lexicográfico. */
+export function tapbranch(a, b) {
+  if (a.length !== 32 || b.length !== 32) throw new Error('taptweak: cada nodo del árbol Taproot son 32 bytes, no ' + (a.length !== 32 ? a.length : b.length));
+  return hashEtiquetado('TapBranch', menor(b, a) ? concatenar(b, a) : concatenar(a, b));
+}
+
+const entero = (u8) => u8.reduce((n, b) => (n << 8n) | BigInt(b), 0n);
+const N_SECP = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+
+/**
+ * La clave de salida x-only de una salida P2TR (BIP-341, taproot_tweak_pubkey): la raíz del árbol desde la hoja y sus
+ * hermanos (TapBranch ordena sus hijos: el camino son solo los hermanos, de la hoja a la raíz; sin hermanos, la hoja es
+ * la raíz), t = hashEtiquetado("TapTweak", interna ‖ raíz) y Q = lift_x(interna) + t·G; da la x de Q (32 bytes). Error si
+ * la interna no es la x de un punto de la curva, si t no es un escalar (t ≥ n) o si Q es el infinito. Solo aritmética
+ * pública, sin secretos: la de `schnorr` de noble, la librería vendorizada.
+ */
+export function taptweak(interna, hoja, hermanos = []) {
+  if (interna.length !== 32) throw new Error('taptweak: la clave interna es x-only, 32 bytes, no ' + interna.length);
+  if (hoja.length !== 32) throw new Error('taptweak: la hoja es un hash TapLeaf, 32 bytes, no ' + hoja.length);
+  let raiz = hoja;
+  for (const h of hermanos) raiz = tapbranch(raiz, h);
+  const t = entero(hashEtiquetado('TapTweak', concatenar(interna, raiz)));
+  if (t >= N_SECP) throw new Error('taptweak: el ajuste no es un escalar de la curva');
+  let p;
+  try {
+    p = schnorr.utils.lift_x(entero(interna));
+  } catch {
+    throw new Error('taptweak: la clave interna no es la x de un punto de secp256k1');
+  }
+  const q = p.add(schnorr.Point.BASE.multiplyUnsafe(t));
+  if (q.is0()) throw new Error('taptweak: el ajuste da el punto del infinito');
+  const x = q.toAffine().x;
+  return Uint8Array.from({ length: 32 }, (_, k) => Number((x >> BigInt(8 * (31 - k))) & 0xffn));
 }

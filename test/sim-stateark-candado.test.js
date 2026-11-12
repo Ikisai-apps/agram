@@ -1,9 +1,10 @@
-// Pruebas de la simulación de StateArk (§8 candado por hash), copiadas tal cual del commit d6bc6bd de InTheState/stateark/sim con las rutas adaptadas.
+// Pruebas de la simulación de StateArk (§8 candado por hash), copiadas tal cual del commit 0ddd6e7 de InTheState/stateark/sim con las rutas adaptadas (los vectores de rust-miniscript, de test/vectores-miniscript.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulacion, firmaSimulada, mensajeAutorizacion, nuevoSecreto, hashDePreimagen, RechazoPago } from '../servidor/sim/stateark/index.js';
 import { huella } from '../servidor/sim/stateark/canon.js';
 import { sha256Texto } from '../servidor/sim/stateark/hash.js';
+import { VECTORES_MINISCRIPT as VEC } from './vectores-miniscript.js'; // test/vectores/miniscript.json de stateark-sim, como constante
 
 const INICIO = '2026-11-12T00:00:00.000Z';
 const reloj = () => Date.parse(INICIO);
@@ -131,6 +132,29 @@ test('un reembolso con la s correcta pegada en el recibo no pasa por cobro', asy
   const v = await ctx.c.verificarCandado(falso);
   assert.equal(v.ok, false);
   assert.match(v.motivo, /no revela esa preimagen/);
+});
+
+test('con las claves, el candado lleva su política de Miniscript, sus hojas y su raíz Taproot', async () => {
+  const ctx = await escenario();
+  const cobra = await ctx.c.direccion('casa');
+  const ins = {
+    schema: 'stateark.payment-instruction@1', rail: 'bitcoin.onchain', asset: 'BTC',
+    amount: { valor: 50_000, unidad: 'sat' },
+    destino: { clase: 'htlc/sha256', valor: VEC.hash, cobra, vence: VEC.vence, claves: VEC.claves },
+    correlation_id: 'MS-1',
+  };
+  const plan = await ctx.c.preparar('huesped', ins);
+  assert.equal(plan.candado.politica.politica, VEC.candado.politica);
+  assert.equal(plan.candado.politica.descriptor, VEC.candado.descriptor);
+  assert.equal(plan.candado.politica.raiz, VEC.candado.raiz);
+  const firma = await firmaSimulada(ctx.huesped, await mensajeAutorizacion(await huella(plan)));
+  const r = await ctx.c.ejecutar('huesped', ins, plan, await ctx.c.autorizar(plan, { titular: ctx.huesped, firma }));
+  assert.deepEqual(r.candado.politica.hojas.map((h) => h.script), VEC.candado.hojas.map((h) => h.script));
+  await ctx.sim.minar();
+  assert.equal(ctx.c.reciboCandado(VEC.hash).recibo.candado.politica.raiz, VEC.candado.raiz);
+  // Claves mal puestas: rechazo.
+  const malo = { ...ins, destino: { ...ins.destino, claves: { cobra: VEC.claves.cobra, reembolso: VEC.claves.cobra } } };
+  await assert.rejects(ctx.c.preparar('huesped', malo), codigo('destination_invalid'));
 });
 
 test('verificarCandado rechaza recibos manipulados', async () => {
