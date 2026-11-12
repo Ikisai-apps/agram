@@ -609,7 +609,7 @@ Casa de ejemplo
 3 · comunicación:
   ↳ ocupante 1 · casa · invitation
 ↳ ocupante 1 · casa · Emisión inicial de casa
-↳ ocupante 2 · casa · Altas del fin de semana
+↳ ocupante 2 · casa · cocina
 ```
 
 La cuenta es el ocupante 2 de la posición 1: el 1 es la propia décupla de la compra. El génesis (un terminal, sin movimientos) lleva anclada en su 3 la invitación de la casa a la huésped (encargo 3b, §7.1) y, en la raíz, la emisión inicial y las altas. En la app, el conmutador «leído» de Pointed enseña `leerEvento` del foco, y el de Clasificar, el de la posición en foco. `node ejemplos/ikisai/leer.mjs` imprime la compra, el menú y la reserva leídos.
@@ -1364,7 +1364,7 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 | emisión inicial | casa | génesis | `0000000000` | `["Emisión inicial de casa"]`: 10 `R:casa` y 500 `E:casa/EUR` |
 | invitación | casa | génesis | `3000000000` | `[["invitation"], ["1 R:casa"], [{ref: época}], [["casa"], ["huesped"]], …]` (§7.1) |
 | alta de la huésped | huesped | invitación | `0000000000` | `["Alta de huesped"]`: acepta la invitación y recoge su R:casa |
-| alta | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
+| alta de cocina | casa | génesis | `0000000000` | `["cocina"]`: su nombre es su 0; la casa, su dueña, le da T (y euros a la huésped) |
 | menú | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
 | compra | huesped | menú | `0000000000` | `["Compra del menú del día", [[{ref: menú, dir: "1000000000"}], [1], ["EUR 12"]], [{ref: menú, dir: "2000000000"}, "all announced movements happened"], ["huesped", "cocina"], ["pagar", "servir"]]` |
 | cuenta | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"<compra>\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |

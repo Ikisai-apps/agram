@@ -50,7 +50,10 @@ export async function ejemploCompra({ claves = {} } = {}) {
   // persona es quien escribe la suya). Con clave, la declara y firma con ella.
   await entrarPorInvitacion(eje, { por: 'casa', quien: 'huesped', t, clave: claves.huesped, privadaDe: priv });
 
-  // La casa da de alta a cocina, una cosa (su alta la escribe la casa, su dueña), y da euros a la huésped.
+  // La casa da de alta a cocina, una cosa: su alta la escribe la casa, su dueña, y es un registro por identidad cuyo 0
+  // es su nombre (así la llama la carta). Es lo que hace la plantilla «register a thing» (#46: su clave y la T que le da
+  // su dueña, sin defecto); aquí se escribe a mano porque la plantilla pone en el 0 su mensaje y no el nombre, y para
+  // que el eje de demostración siga sin claves.
   const declaradas = {};
   if (claves.cocina?.publica) declaradas.cocina = claves.cocina.publica;
   const alta = await escribirPagando(eje, {
@@ -60,17 +63,18 @@ export async function ejemploCompra({ claves = {} } = {}) {
     movimientos: [
       pagaElCoste('casa'),
       // La cocina es una cosa (su máquina): la casa le da T para que escriba (VG, 7-11 noche; Core, 8-11: una
-      // persona da su T a una cosa, y sale de su asignación del día). T no cruza de persona: la persona huésped
-      // recibe euros y escribe con su asignación de T del día (VG, 8-11).
+      // persona da su T a una cosa, y sale de su asignación del día).
       { token: 'T', escala: 'hora', cantidad: 20, de: 'casa', a: 'cocina' },
       { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
+      // Y euros a la persona huésped, que ya entró por su invitación (su alta es su aceptación). T no cruza de
+      // persona: la huésped escribe con su asignación de T del día (VG, 8-11).
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
     ],
-    payload: ['Altas del fin de semana', ['cocina', 'huesped']],
+    payload: ['cocina'],
     contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},
   }, priv('casa'));
 
-  // Cocina publica el menú del día sobre las altas.
+  // Cocina publica el menú del día sobre la alta de cocina.
   const menu = await escribirPagando(eje, {
     autor: 'cocina',
     sobre: alta.id,

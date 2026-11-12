@@ -18,7 +18,7 @@ const attr = (s) => escapar(s).replace(/'/g, '&#39;');
 
 /**
  * Los atributos de clasificación de un elemento (para el botón «opinar», carta/opinar.js clasificar): data-nodo es el
- * tipo (carta, barra, control, foco, pv, ocupante, campo, aro, hueco, accion, camino, paso, roseton, diario,
+ * tipo (carta, sitio, control, foco, pv, ocupante, campo, aro, hueco, accion, camino, paso, roseton, diario,
  * formulario, configuracion, copia) y data-nodo-* lo que lo sitúa y aún no dicen los data-* de la carta (data-x,
  * data-pv, data-centro, data-roseton): x0 (el texto del 0 del registro), d (la posición de un campo), tam (oculto,
  * comprimido, tarjeta, bloque o foco), rep (la representación elegida), cara, modo, ancho, alto. Solo se escriben
@@ -149,7 +149,8 @@ function htmlPersonajeCapa(k, r) {
   const hoy = r.forma === 'franjas' && r.bandas?.length ? (r.bandas.findIndex((b) => b.ahora) === 0 ? 'inicio' : 'fin') : '';
   const quieto = p.pieza.animado && k.respaldo?.recurso ? htmlPieza(k.respaldo, { clase: 'respaldo', alt: p.rol ?? '' }) : '';
   const vivo = htmlPieza(p.pieza, { animar: p.animar, clase: 'pieza-personaje accion-' + attr(p.accion), prioridad: p.animar === ANIMAR.una ? 0 : 1, alt: p.rol ?? p.accion });
-  return `<div class="capa capa-personaje" style="--columnas:${Number(r.columnas) || 1};--filas:${Number(r.filas) || 1}"${hoy ? ` data-hoy="${hoy}"` : ''}>${quieto}${vivo}</div>`;
+  const sitio = r.sitio?.X ? ` data-sitio="${attr(r.sitio.lugar)}" data-sitio-x="${attr(r.sitio.X)}" title="${attr(t('sitioTitulo', { lugar: r.sitio.lugar }))}"` : '';
+  return `<div class="capa capa-personaje" style="--columnas:${Number(r.columnas) || 1};--filas:${Number(r.filas) || 1}"${hoy ? ` data-hoy="${hoy}"` : ''}${sitio}>${quieto}${vivo}</div>`;
 }
 
 /**
@@ -331,14 +332,22 @@ function htmlCeldaDeRejilla(c, forma) {
   const lista = [...(c.ocupantes ?? (c.ocupante ? [c.ocupante] : [])), ...(c.derivados ?? [])];
   const peldano = forma === 'escalera' ? ` style="--peldano:${c.fila}"` : '';
   const cifra = c.vacio || c.total === undefined ? '' : escapar(c.total + (c.totalDerivados ?? 0));
-  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}${Number.isInteger(c.bajar) ? `<button type="button" class="bajar"${nodo('control')} data-bajar="${c.bajar}" title="${attr(t('bajarTitulo', { d: c.bajar }))}" aria-label="${attr(t('bajarTitulo', { d: c.bajar }))}">↘</button>` : ''}</div>`;
+  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span>${htmlInterrogante(c.sitio)}</header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}${Number.isInteger(c.bajar) ? `<button type="button" class="bajar"${nodo('control')} data-bajar="${c.bajar}" title="${attr(t('bajarTitulo', { d: c.bajar }))}" aria-label="${attr(t('bajarTitulo', { d: c.bajar }))}">↘</button>` : ''}</div>`;
 }
 
 /**
- * El interrogante de un sitio (encargo pv3, VG 12-11, issue #38): el personaje del sitio en sobrio; pulsarlo abre la
- * cruceta del propio nodo X.<lugar> como menú de configuración (data-sitio, data-sitio-x).
+ * El personaje de un sitio (VG, 12-11, issue #38): el interrogante en sobrio y, en animado, el muñeco en el MISMO botón
+ * (una capa: quitarla da el sobrio exacto); pulsarlo abre la cruceta del propio nodo X.<lugar> como menú de configuración
+ * (data-sitio, data-sitio-x). El del 0 de mi alta (`general`, data-sitio-general) lleva además las opciones de lo que era la barra.
  */
-const htmlInterrogante = (s) => (s?.X ? `<button type="button" class="sitio-interrogante"${nodo('control')} data-sitio="${attr(s.lugar)}" data-sitio-x="${attr(s.X)}" title="${attr(t('sitioTitulo', { lugar: s.lugar }))}" aria-label="${attr(t('sitioTitulo', { lugar: s.lugar }))}">?</button>` : '');
+function htmlInterrogante(s, { clase = '' } = {}) {
+  if (!s?.X) return '';
+  const titulo = attr(s.general ? t('sitioCero') : t('sitioTitulo', { lugar: s.lugar }));
+  const muneco = s.personaje?.pieza?.recurso
+    ? `<span class="capa capa-sitio" aria-hidden="true">${htmlPieza(s.personaje.pieza, { animar: ANIMAR.no, clase: 'pieza-sitio accion-' + attr(s.personaje.accion), prioridad: 2, alt: s.personaje.rol ?? '' })}</span>`
+    : '';
+  return `<button type="button" class="sitio-interrogante${clase ? ' ' + clase : ''}"${nodo('control')} data-sitio="${attr(s.lugar)}" data-sitio-x="${attr(s.X)}"${s.general ? ' data-sitio-general' : ''} title="${titulo}" aria-label="${titulo}">?${muneco}</button>`;
+}
 
 /**
  * Una persona en una caja del 3 (encargo pv3): su nombre y el marcador pequeño del canal de R (doy: la R mía que tiene;
@@ -375,16 +384,17 @@ function htmlCajaDelTres(c) {
  * esquinas, 6-9 la cruz, 0 y 5 en el centro), cada una con su nombre, su valor y, si quien mira es el dueño, el botón
  * de la acción que la pone (data-sitio-lanzar, con los parámetros del sitio en data-valores: el formulario del aro).
  */
-function htmlSitio(s) {
+function htmlSitio(s, arbol = null, extra = {}) {
   if (!s) return '';
+  const controles = s.general && arbol ? controlesDelCero(arbol, extra) : {};
   const celdas = new Map();
   for (const p of s.posiciones) {
     const k = p.celda.join(',');
     celdas.set(k, [...(celdas.get(k) ?? []), p]);
   }
-  const posicion = (p) => `<div class="sitio-posicion" data-posicion="${p.posicion}" data-color="${p.posicion}"><span class="numero">${p.posicion}</span><span class="nombre">${escapar(p.nombre ?? '')}</span><span class="valor">${escapar(p.valor || '—')}</span>${p.accion ? `<button type="button" class="accion"${nodo('accion')} data-sitio-lanzar="${attr(p.accion.id)}" data-x="${attr(s.X)}" data-valores="${attr(JSON.stringify(p.accion.valores ?? {}))}" title="${attr(p.accion.etiqueta)}">${escapar(p.accion.etiqueta)}</button>` : ''}</div>`;
+  const posicion = (p) => `<div class="sitio-posicion" data-posicion="${p.posicion}" data-color="${p.posicion}"><span class="numero">${p.posicion}</span><span class="nombre">${escapar(p.nombre ?? '')}</span><span class="valor">${escapar(p.valor || '—')}</span>${controles[p.posicion] ? `<div class="sitio-controles"${nodo('sitio-controles', { posicion: p.posicion })}>${controles[p.posicion]}</div>` : ''}${p.accion ? `<button type="button" class="accion"${nodo('accion')} data-sitio-lanzar="${attr(p.accion.id)}" data-x="${attr(s.X)}" data-valores="${attr(JSON.stringify(p.accion.valores ?? {}))}" title="${attr(p.accion.etiqueta)}">${escapar(p.accion.etiqueta)}</button>` : ''}</div>`;
   const cuerpo = [...celdas.entries()].map(([k, ps]) => { const [f, c] = k.split(','); return `<li class="sitio-celda" style="--fila:${Number(f) + 1};--columna:${Number(c) + 1}">${ps.map(posicion).join('')}</li>`; }).join('');
-  return `<div class="sitio-fondo" data-cerrar><div class="sitio-cruceta"${nodo('sitio', { lugar: s.lugar })} data-x="${attr(s.X)}" data-sitio-de="${attr(s.lugar)}" role="dialog" aria-label="${attr(t('sitioDe', { lugar: s.lugar, que: s.texto }))}"><header><h2><span class="sitio-icono" aria-hidden="true">?</span> ${escapar(t('sitioDe', { lugar: s.lugar, que: s.texto }))}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header><ol class="sitio-posiciones">${cuerpo}</ol></div></div>`;
+  return `<div class="sitio-fondo" data-cerrar><div class="sitio-cruceta"${nodo('sitio', { lugar: s.lugar })} data-x="${attr(s.X)}" data-sitio-de="${attr(s.lugar)}"${s.general ? ' data-sitio-general' : ''} role="dialog" aria-label="${attr(t('sitioDe', { lugar: s.lugar, que: s.texto }))}"><header><h2><span class="sitio-icono" aria-hidden="true">?</span> ${escapar(t(s.general ? 'sitioCeroDe' : 'sitioDe', { lugar: s.lugar, que: s.texto }))}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header><ol class="sitio-posiciones">${cuerpo}</ol></div></div>`;
 }
 
 /** Una fracción entre 0 y 1 con tres decimales, para una variable de CSS (solo un número: nada del dato llega al estilo). */
@@ -638,7 +648,7 @@ function htmlBandaDeRejilla(b) {
  */
 function htmlRejilla(r, { completa = false, arbol = null, apilada = false } = {}) {
   if (!r) return '';
-  const cabeza = (completa || apilada) && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${htmlInterrogante(r.sitio)}${r.persona ? `<span class="ruta-rejilla persona-rejilla">${escapar(t('conversacionCon', { que: r.persona.texto, caja: r.persona.caja, grupo: r.persona.nombre ?? '' }))}</span>` : r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.direccion && r.nivel > 1 ? `<span class="direccion-rejilla">${escapar(r.direccion)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
+  const cabeza = (completa || apilada) && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${r.ruta.length ? htmlInterrogante(r.sitio) : ''}${r.persona ? `<span class="ruta-rejilla persona-rejilla">${escapar(t('conversacionCon', { que: r.persona.texto, caja: r.persona.caja, grupo: r.persona.nombre ?? '' }))}</span>` : r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.direccion && r.nivel > 1 ? `<span class="direccion-rejilla">${escapar(r.direccion)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
   const sin = r.sinBanda?.length ? `<div class="rejilla-sin" title="${attr(t('sinBandaTitulo'))}">${r.sinBanda.map(htmlElementoDeBanda).join('')}</div>` : '';
   let cuerpo;
   if (r.forma === 'franjas' && r.bandas) cuerpo = htmlFranjas(r) + sin;
@@ -778,7 +788,7 @@ function htmlLateral(n, arbol, { enFila = false } = {}) {
   const capas = enCapas && arbol.mapa && !arbol.apilada && !enFila;
   const ligera = enCapas && enFila;
   const etapaEnCabeza = capas ? capaPieza(n.etapa, { clase: 'pieza-etapa capa-etapa capa-etapa-pv', alt: n.etiqueta }) : '';
-  const cabeza = `<header class="pv-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">${escapar(n.etiqueta)}${etapaEnCabeza}</span>${n.medida ? htmlMedida(n.medida) : dato}</header>`;
+  const cabeza = `<header class="pv-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">${escapar(n.etiqueta)}${etapaEnCabeza}</span>${n.medida ? htmlMedida(n.medida) : dato}${enFila ? '' : htmlInterrogante(n.sitio)}</header>`;
   // El marco, siempre como capa (las cuatro esquinas del dibujo y una línea, nunca el dibujo estirado en medio del texto):
   // en tarjeta y bloque, en Mapped y en cualquier otro sitio; solo el comprimido (una celda de un dato) lo estira.
   const marco = n.nivel === NIVEL.comprimido ? htmlMarco(n.marco) : ligera ? '' : htmlMarcoCapa(n.marco);
@@ -814,7 +824,7 @@ function htmlFilas(arbol, c) {
     const etapa = arbol.animado && f.abierta ? capaPieza(f.nodo?.etapa, { clase: 'pieza-etapa capa-etapa capa-etapa-fila', alt: f.etiqueta ?? '' }) : '';
     const cabeza = `<button type="button" class="fila-cabeza"${nodo('control')} data-fila="${f.pv}" data-x="${c.X}"${f.hilo ? ` data-hilo="${attr(f.hilo)}"` : ` aria-expanded="${f.abierta}" aria-controls="fila-${f.pv}-contenido"`} title="${attr(titulo)}"><span class="numero">${f.pv}</span><span class="etiqueta">${etiqueta}${f.total ? ` <small>· ${escapar(f.total)}</small>` : ''}${etapa}</span>${f.medida?.propio ? htmlMedida(f.medida) : ''}<span class="fila-marca" aria-hidden="true">${marca}</span></button>`;
     const contenido = f.abierta && f.nodo ? `<div class="fila-contenido" id="fila-${f.pv}-contenido">${htmlLateral(f.nodo, arbol, { enFila: true })}</div>` : '';
-    return `<li class="fila${f.abierta ? ' abierta' : ''}${f.hilo ? ' fila-hilo' : ''}"${nodo('campo', { d: f.pv })} data-color="${f.pv}" data-fila-pv="${f.pv}">${cabeza}${input}${contenido}</li>`;
+    return `<li class="fila${f.abierta ? ' abierta' : ''}${f.hilo ? ' fila-hilo' : ''}"${nodo('campo', { d: f.pv })} data-color="${f.pv}" data-fila-pv="${f.pv}">${cabeza}${htmlInterrogante(f.sitio, { clase: 'sitio-fila' })}${input}${contenido}</li>`;
   };
   return `<ol class="filas">${arbol.secuencia.filas.map(fila).join('')}</ol>`;
 }
@@ -853,12 +863,14 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
   const puntos = htmlPuntos(arbol.mapa?.puntos, c.X);
   const madurez = c.madurez?.nombre ? `<span class="madurez medida" title="${attr(t('madurezTitulo', { nivel: c.madurez.nivel, de: c.madurez.de }))}">${escapar(c.madurez.nombre)} <small>${c.madurez.nivel}/${c.madurez.de}</small></span>` : '';
   const quien = `<span class="quien">${escapar(c.autor ?? '')}</span>`;
+  // El personaje del centro (VG, 12-11, #38): el del 0 es la configuración general; en Sequenced va arriba de la columna (htmlCeroColumna), no aquí.
+  const cero = arbol.apilada && c.cara === 'anverso' ? '' : htmlInterrogante(c.sitio, { clase: 'sitio-centro' });
   const marco = htmlMarcoCapa(c.marco); // el marco del mundo abrazando el borde del centro (sus esquinas y una línea), nunca encima
   // En el móvil en vertical (Sequenced), la tarjeta del foco sin movimientos encima (VG, 11-11, #7): nada flota.
   const efectos = c.nuevos?.efectos?.length && !(arbol.secuencia && c.cara === 'anverso') ? htmlEscenario({ nuevos: c.nuevos, consumido: c.consumido }) : '';
   if (c.cara === 'anverso') {
     return `<section class="nucleo anverso tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'anverso', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
-      <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
+      <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${cero}${voltear}</header>
       ${puntos}
       <h1 class="representacion${c.representacion?.aislada ? ' con-aislada' : ''}">${htmlRepresentacion(c.representacion)}${efectos}</h1>
       ${arbol.secuencia ? htmlFilas(arbol, c) : `<label class="campo campo-0 campo-unico"${nodo('campo', { d: 0 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(t('nuevoAquiMarcador', { que: c.textoDelFoco ?? c.representacion?.texto ?? '' }))}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>`}
@@ -870,7 +882,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
     const pasos = c.pasos ? `<ul class="pasos">${Object.values(c.pasos.porPv).concat(c.pasos.comun ? [c.pasos.comun] : []).map((p) => `<li><b>${escapar(p.nombre)}</b> ${p.k === null ? '—' : escapar(p.k)}${p.de ? `<small>/${escapar(p.de)}</small>` : ''}</li>`).join('')}</ul>` : '';
     const validacion = c.validacion?.length ? `<ul class="motivos">${c.validacion.map((v) => `<li>${escapar(v.motivo)}</li>`).join('')}</ul>` : '';
     return `<section class="nucleo reverso tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'reverso', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
-      <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
+      <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${cero}${voltear}</header>
       ${puntos}
       <p class="tipo">${c.plantilla ? `${t('plantilla')} <b>${escapar(c.plantilla)}</b>` : t('sinPlantilla')}${c.t ? ` · <time>${escapar(c.t)}</time>` : ''}</p>
       ${ancla}${c.verificado ? `<p class="verificado-linea">${htmlVerificado(c)}</p>` : c.pendienteDeSello ? `<p class="verificado-linea">${htmlPendienteDeSello()}</p>` : ''}
@@ -884,7 +896,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
   const etapaEnCabeza = capas && !c.rejilla.flotante ? capaPieza(capas.etapa, { clase: 'pieza-etapa capa-etapa capa-etapa-cabeza', alt: c.etiqueta }) : '';
   const quienConEtapa = etapaEnCabeza ? quien.replace('</span>', etapaEnCabeza + '</span>') : quien;
   return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'abierto', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}"${c.estilo && !c.rejilla ? ` data-id="${attr(c.X)}"` : ''} aria-label="${attr(c.etiqueta)}">
-    <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quienConEtapa}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
+    <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quienConEtapa}${cero}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
     ${c.rejilla ? '' : htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
     ${c.rejilla ? htmlRejilla(c.rejilla, { completa: true, arbol }) : htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
     <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' && !c.rejilla?.camino ? htmlGuia(arbol.guia) : ''}${c.rejilla ? '' : htmlMarcoCapa(c.marco)}
@@ -1081,7 +1093,6 @@ export function htmlSincronia(s) {
   return `<small class="sincronia" data-sincronia role="status" title="${attr(t('sincroniaTitulo'))}">${(s.partes ?? []).map(escapar).join(' · ')}${errores}${rechazados}</small>`;
 }
 
-/** La barra: quién soy, el ejemplo, el tiempo de hoy, «guardar este rato», la configuración, la copia de seguridad (en una cuenta) o reiniciar (en un ejemplo); debajo, lo guardado y el libro compartido. */
 /** Los controles de «opinar» (carta/opinar.js): el conmutador con su contador y, si hay opiniones, exportar, copiar y borrar la última. */
 export function htmlOpinar(o) {
   if (!o) return '';
@@ -1099,7 +1110,15 @@ function htmlInterruptor(i) {
   return `<span class="interruptor"${nodo('control')} role="group" aria-label="${attr(i.etiqueta)}" title="${attr(i.etiqueta)}">${botones}</span>`;
 }
 
-function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null, opinar = null, menu = false } = {}) {
+/**
+ * Lo que era la barra superior, ahora las posiciones del 0 de mi alta (VG, 12-11, #38: «la barra desaparece; la
+ * configuración general es el personaje del 0»): 0 quién soy (y el ejemplo), 1 cuánto (hoy y «guardar este rato»),
+ * 2 la configuración (con qué condición), 4 lo que se hace con la cuenta (la copia de seguridad, olvidar o reiniciar),
+ * 5 el estilo (sobrio o animado), 8 opinar (frente a otros) y 9 cómo: lo guardado, el libro compartido y los ajustes de la guía y del exterior.
+ * Cada control conserva su data-* de siempre (data-quien, data-ejemplo, data-englobar, data-config, data-copia,
+ * data-olvidar, data-reiniciar, data-preferencia, data-opinar-ctl, data-sincronia). → { [posición]: html }.
+ */
+function controlesDelCero(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null, opinar = null } = {}) {
   const quien = htmlSoy(arbol, { cuentas, cuenta });
   const ej = !cuenta && ejemplos.length ? `<label class="ajuste"${nodo('control')}>${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
   const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(' · ') : '';
@@ -1108,13 +1127,20 @@ function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuenta
     ? `<button type="button"${nodo('control')} data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button"${nodo('control')} data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`
     : `<button type="button"${nodo('control')} data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button>`;
   const config = `<button type="button"${nodo('control')} data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>`;
-  if (arbol.apilada) {
-    // Sequenced: una línea (quién soy, sobrio o animado, «menú»); lo demás, debajo, al abrir el menú.
-    const linea = `<div class="barra-linea">${quien}${(arbol.interruptores ?? []).map(htmlInterruptor).join('')}<button type="button" class="menu-boton"${nodo('control')} data-menu aria-expanded="${Boolean(menu)}" aria-controls="barra-menu" title="${attr(t('menuTitulo'))}">${t('menu')}</button></div>`;
-    return `<header class="barra barra-compacta"${nodo('barra')}>${linea}<div class="barra-menu" id="barra-menu"${menu ? '' : ' hidden'}>${ej}${local}${config}${propios}${htmlOpinar(opinar)}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}</div></header>`;
-  }
-  return `<header class="barra"${nodo('barra')}>${quien}${ej}${local}${(arbol.interruptores ?? []).map(htmlInterruptor).join('')}<button type="button"${nodo('control')} data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>${propios}${htmlOpinar(opinar)}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}</header>`;
+  const ajustes = `<button type="button"${nodo('control')} data-config title="${attr(t('ajustesGuiaExteriorTitulo'))}">${t('ajustesGuiaExterior')}</button>`;
+  return {
+    0: quien + ej,
+    1: local,
+    2: config,
+    4: propios,
+    5: (arbol.interruptores ?? []).map(htmlInterruptor).join(''),
+    8: htmlOpinar(opinar),
+    9: `${ajustes}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}`,
+  };
 }
+
+/** Sequenced (el móvil en vertical): el personaje del 0 arriba de la columna, en lugar de la barra de una línea y su menú. */
+const htmlCeroColumna = (s) => (s?.X ? `<div class="cero-columna"${nodo('control')} data-cero>${htmlInterrogante(s, { clase: 'sitio-cero' })}<span class="cero-etiqueta">${escapar(t('ceroColumna'))}</span></div>` : '');
 
 /**
  * La pantalla de arranque (o el diálogo, sobre la carta): crear mi cuenta, restaurar una cuenta desde su copia, o
@@ -1214,7 +1240,7 @@ export function html(arbol, extra = {}) {
   const estilos = htmlEstilos(a);
   return `<div class="${clase}"${nodo('carta', { modo: a.apilada ? 'apilada' : 'matriz', render: a.animado ? 'animado' : 'sobrio', ancho: a.medidas?.ancho, alto: a.medidas?.alto, x0: a.centro?.representacion?.texto ?? '' })} data-x="${a.X}" data-disposicion="${attr(a.disposicion)}" data-animaciones="${Number(a.limite) || 0}">
     ${estilos}
-    ${htmlBarra(a, extra)}
+    ${a.apilada ? htmlCeroColumna(a.centro?.sitio) : ''}
     ${avisos.length ? `<p class="aviso" role="alert">${avisos.map(escapar).join(' · ')}</p>` : ''}
     ${extra.exito ? `<p class="exito" role="status">${escapar(extra.exito)}</p>` : ''}
     ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'arriba' })}
@@ -1222,7 +1248,7 @@ export function html(arbol, extra = {}) {
     ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'abajo' })}
     ${a.apilada ? htmlDigitos(a.secuencia) : ''}
     ${htmlAro(a.aro)}
-    ${htmlSitio(a.sitio)}
+    ${htmlSitio(a.sitio, a, extra)}
     ${htmlFormulario(a.formulario)}
     ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes, exterior: extra.exteriorAjustes }) : ''}
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}

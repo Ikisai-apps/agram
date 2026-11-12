@@ -192,6 +192,11 @@ export const TEXTOS = Object.freeze({
     capaVacia: 'nada todavía',
     sitioTitulo: 'el sitio {lugar}: su configuración (la cruceta del propio nodo)',
     sitioDe: 'sitio {lugar} de {que}',
+    // El personaje del 0 (VG, 12-11, #38): donde estaba la barra superior; sus opciones son las posiciones del 0 de mi alta
+    sitioCero: 'el 0 de mi alta: quién soy, sobrio o animado, la configuración, la sincronía y lo demás de lo que era la barra',
+    sitioCeroDe: 'el 0 de {que}: mi configuración',
+    ajustesGuiaExterior: 'guía y exterior',
+    ajustesGuiaExteriorTitulo: 'los ajustes de la guía (el 9 de mi alta) y del exterior: la clave, las confirmaciones y las direcciones',
     reclasificado: '{que} a la caja {caja}',
     hiloSupuesto: 'no se sabe de qué hilo cuelga: va en el primero',
     // el futuro de una cuenta (contrato.estadoDeEntrada) y sus tres relojes fuera de orden (contrato.franjaDeEntrada, X.6.9)
@@ -234,9 +239,8 @@ export const TEXTOS = Object.freeze({
     nada: '∅',
     deMiAlta: '{que} de mi alta',
     miFoco: 'mi foco',
-    // Sequenced (el móvil en vertical): la barra de una línea, las filas de la tarjeta, el hilo y la fila de dígitos
-    menu: 'menú',
-    menuTitulo: 'el ejemplo, hoy, guardar este rato, la configuración, reiniciar, opinar y lo guardado',
+    // Sequenced (el móvil en vertical): el personaje del 0 arriba de la columna, las filas de la tarjeta, el hilo y la fila de dígitos
+    ceroColumna: 'configuración',
     filaAbrir: 'abrir {que} debajo',
     filaCerrar: 'cerrar {que}',
     irAlPasado: 'subir al pasado (encima de la tarjeta)',

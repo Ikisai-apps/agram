@@ -89,6 +89,8 @@ VG, 7-11 noche (mapa §12, «T, corregido por VG», punto 4): el tamaño de un �
 
 Tres reglas valen para todos [A/D]: **cambiar de modo no muta el contenido** (un modo solo lee); **sobrio y animado son dos renders de la misma operación** (§10.3; en estos módulos solo existe el sobrio, y pedir `'animado'` lanza «render no disponible»; el primer mundo animado, los hilos del 6 y 7, está en el frontend: `mundos/hilos.js`); y la época va **fuera del dato** (§9): cada modo recibe la época con la que se lee.
 
+**El personaje es la configuración del sitio** (VG, 12-11, #38; `test/personaje-del-sitio.test.js`): no hay barra superior. Cada cuadrante (cada PV de la 3 × 3, la pantalla completa de un PV con sus sub-PV y cajas, cada fila de Sequenced) lleva en su cabecera el mismo botón `.sitio-interrogante`: el interrogante en sobrio y, en animado, el muñeco como una capa `.capa-sitio` de ese botón (el arte propio del elemento o el del modelo `general`; sin arte, el interrogante). Pulsarlo abre la cruceta del propio nodo X.<lugar> (`acciones.sitio`). El del 0 es el personaje del foco (arriba de la columna en Sequenced) y abre el 0 de mi alta con las opciones de la barra (quién soy 0, hoy y guardar rato 1, configuración 2, cuenta 4, sobrio/animado 5, opinar 8, guía/exterior, guardado y sincronía 9). La matriz del 4 queda fuera (sus celdas son oficio × ejecución).
+
 **El animado de la pantalla completa de Mapped son capas sobre el sobrio** (VG, 11-11): la rejilla de cada mundo es el mismo DOM en los dos renders y el animado solo añade nodos `.capa` absolutos (fondo, etapa, dibujo de cada hijo, personaje en el hueco, efectos, marco); quitarlos devuelve el sobrio exacto y nada cambia de sitio ni de medida (`test/animado-capas.test.js`; medido con Playwright a 1920 × 1080 y 1366 × 768).
 
 `src/index.js` los expone como espacios de nombres: `pointed`, `sequenced`, `mapped`, `scened`.
@@ -126,7 +128,7 @@ console.log('con { medidas: true }:', m.escritos, 'escritos ·', m.movimientos, 
 E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 %
 T:hora 1: caja 1 · cuota frente al padre 25 %
 recuentos (información): hilo 3 · escritos 0 · movimientos 2 · posiciones 5 · identidades 2
-8 · general · sin base escrita (respaldo al vuelo) · n 19
+8 · general · sin base escrita (respaldo al vuelo) · n 20
 E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 % · en la cohorte 1,8 %
 R:casa 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
 T:anio 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
@@ -148,12 +150,16 @@ Los guisos mueven 12 EUR de los 32 que mueven las cuatro compras del menú (37,5
 
 **En el frontend** (`ui/ocho.js`, enganchado en `app.js`): la celda 8 llama a `ocho` al pintarse (es ahí donde se mide el foco; `mapa()` se pide sin medidas). Arriba, tres botones reales con `aria-pressed` (`hermanos`, `proyecto`, `todo el eje`); la elegida se recuerda en el navegador (`agram.ocho.cohorte`) solo como comodidad, y sin almacenamiento vuelve a hermanos. Debajo, de dónde se lee («entre hermanos · base 1a2b3c4d · sin novedades · n 4» o «sin base escrita (respaldo al vuelo)»), una fila por serie con la cantidad del foco, su caja y su cuota, y en una línea más discreta, marcada «información», los recuentos. Todo envuelve: a 400 px, sin scroll horizontal (un P sobre un registro se enseña con ocho caracteres de su id). En Scened, un botón «medir la escena» pide la suma. El cielo animado (`mundos/cielo.js`, `datosCielo`) lee con `ocho`, la misma función que la celda sobria: una sola verdad.
 
+### 0.5 bis Las formas de la división, por modo
+
+VG, 12-11 (#52): **los modos son cinco** (Pointed, Sequenced, Mapped, Scened y Be, los de `epoch.8.2`, en ese orden) y **las formas de la división de cada mundo (`epoch.8.7`) van por modo, con herencia hacia abajo**. La posición 3 de cada fila es una lista con una hoja por modo; `-` hereda del modo anterior (Sequenced de Pointed, Mapped de Sequenced, Scened de Mapped, Be de Scened). Hoy Mapped lleva las formas de siempre, Sequenced las mismas (apiladas en una columna cuando no caben a lo ancho: eso es píxeles, no dato), Pointed ninguna y Scened y Be heredan de Mapped. `contrato.formaDe(eje, pv, modo, { nivel })` resuelve la herencia; la carta pide `sequenced` en la fila abierta del acordeón y `mapped` en las demás. Detalle y por qué: `docs/CONTRATO.md` §4.2 («Las formas por modo») y `docs/notas/DECISIONES_2026-11-12.md` (#52).
+
 ### 0.6 El móvil: vertical Sequenced, apaisado Mapped
 
 VG, 11-11. **En vertical** (más alto que ancho) la carta del móvil es Sequenced (`carta-apilada`, la disposición se describe abajo); **al girarlo a apaisado** es Mapped (la matriz 3 × 3 con sus pasos de tamaño, la pantalla completa de un PV y el aro anclado), sin scroll de página y legible. La decisión sigue siendo de la época por la proporción alto/ancho (`contrato.division`, `epoch.8.3.2`), no del código: 844 × 390, 915 × 412 y 740 × 360 salen Mapped, 400 × 700 apilado.
-**Medidas por pantalla**: en apaisado y con menos de 500 px útiles, `carta.js medidasDePantalla` (que `app.js` llama con la ventana menos la barra) reduce el hueco (48), la tarjeta (160) y la línea (30) en proporción al alto, con un mínimo del 60 %; son píxeles de pantalla, no datos del dominio. En vertical y en el ordenador son las de siempre.
-**Solo CSS** (`carta/estilo.css`, `@media (orientation:landscape) and (max-height:500px)`): la barra de una fila, los rosetones, los puntitos, las flechas y los mandos como objetivos táctiles de 32 px, y las formas de la pantalla completa con letra más corta; al girar, `app.js` repinta cuando cambia el ancho (no con un campo enfocado).
-**Sequenced en vertical, una sola columna** (VG, 11-11 noche): Pointed es la tarjeta del foco y Sequenced le añade el hilo, que es el scroll. La barra va en una línea (quién soy, sobrio o animado y «menú», que despliega lo demás); no hay rosetones ni franja de comprimidos; abajo, fija, la fila de los diez dígitos en su color (`arbol().secuencia.digitos`).
+**Medidas por pantalla**: en apaisado y con menos de 500 px útiles, `carta.js medidasDePantalla` (que `app.js` llama con la ventana entera: sin barra superior desde el #38) reduce el hueco (48), la tarjeta (160) y la línea (30) en proporción al alto, con un mínimo del 60 %; son píxeles de pantalla, no datos del dominio. En vertical y en el ordenador son las de siempre.
+**Solo CSS** (`carta/estilo.css`, `@media (orientation:landscape) and (max-height:500px)`): el personaje de cada sitio, los rosetones, los puntitos, las flechas y los mandos como objetivos táctiles de 32 px, y las formas de la pantalla completa con letra más corta; al girar, `app.js` repinta cuando cambia el ancho (no con un campo enfocado).
+**Sequenced en vertical, una sola columna** (VG, 11-11 noche): Pointed es la tarjeta del foco y Sequenced le añade el hilo, que es el scroll. Arriba de la columna va el personaje del 0 (VG, 12-11, #38: sustituye a la barra de una línea y su menú; pegajoso, abre la cruceta del 0 de mi alta con las opciones de la barra); cada fila de la tarjeta lleva su interrogante (o su muñeco) a la derecha; no hay rosetones ni franja de comprimidos; abajo, fija, la fila de los diez dígitos en su color (`arbol().secuencia.digitos`).
 La tarjeta lleva una fila por PV (`secuencia.filas`, en el orden de los dígitos), cada una un acordeón: cerrada es `NIVEL.comprimido` y abierta `NIVEL.bloque` en `estado.niveles`, y abierta enseña debajo el segundo nivel del PV como Mapped (`nodoLateral` con `rejillaDe`: los hijos con su nombre, sus ocupantes y la regla del vacío; en una columna si no cabe a lo ancho; se entra y se sube por `estado.profundidad`).
 El hilo: encima de la tarjeta el pasado (el PV 6 en bloque: sus ocupantes y el diario) y debajo el futuro (el 7), por páginas con el paso de la configuración (`estado.paginas`, «cargar más»); las filas 6 y 7 y sus dígitos llevan a su zona en lugar de abrirse.
 
@@ -310,40 +316,40 @@ console.log(render(escena(eje, [compra.id, c2.id, c3.id, menu.id], { ahora, capa
 ```
 
 ```text
-escena · 5 de 5 focos · común c10780d9 · época 0 · camino raíz · 33 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n0 c10780d9 cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
-1 n1 43d72c5f huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
-2 n2 aeacbd0a cocina · 0 Cuenta del menú · 1 =REF("43d72c5f", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
-3 n1 eb0691cc huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
-4 n1 4ecc1456 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+escena · 5 de 5 focos · común 439e59bb · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n0 439e59bb cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
+1 n1 040dd1eb huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
+2 n2 2596256b cocina · 0 Cuenta del menú · 1 =REF("040dd1eb", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
+3 n1 8f384994 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+4 n1 71e051f7 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
 aristas: hilo 4 · referencia 4 · fórmula 1 · fuera de escena 0
 recuentos: grupos 3 · pasado 19 · futuro 0
 medidas del 8 (suma de 5 focos): escritos 4 · movimientos 8 · posiciones 17 · identidades 8
 ---
-escena · 4 de 4 focos · común 6ff043aa · época 0 · camino raíz · 45 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n0 6ff043aa casa · Casa de ejemplo · hermano 1 de 1 · pasado 3 futuro 0 · ← 1
-1 n1 09342d7b casa · 0 Altas del fin de semana · 1 [2] · hermano 1 de 1 (3 en el eje) · pasado 2 futuro 0 · hilo→0 · ← 1
-2 n2 c10780d9 cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
-3*n3 43d72c5f huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
+escena · 4 de 4 focos · común 92a1de0a · época 0 · camino raíz · 43 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n0 92a1de0a casa · Casa de ejemplo · hermano 1 de 1 · pasado 3 futuro 0 · ← 1
+1 n1 6f295c7e casa · 0 cocina · hermano 1 de 1 (3 en el eje) · pasado 2 futuro 0 · hilo→0 · ← 1
+2 n2 439e59bb cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
+3*n3 040dd1eb huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
 aristas: hilo 3 · referencia 2 · fórmula 0 · fuera de escena 0
 recuentos: grupos 4 · pasado 14 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 3 de 3 focos · común c10780d9 · época 0 · camino raíz · 33 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 43d72c5f huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0
-1*n1 eb0691cc huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
-2 n1 4ecc1456 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
+escena · 3 de 3 focos · común 439e59bb · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 040dd1eb huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0
+1*n1 8f384994 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
+2 n1 71e051f7 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 4
 recuentos: grupos 1 · pasado 10 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 2 de 4 focos · común c10780d9 · época 0 · camino raíz · 29 de 30 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 43d72c5f huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
-1 n1 eb0691cc huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
+escena · 2 de 4 focos · común 439e59bb · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 040dd1eb huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
+1 n1 8f384994 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 3
 recuentos: grupos 1 · pasado 7 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
-aviso: capacidad de la escena: 30 posiciones. El foco 4ecc1456 (3º de 4) la llevaría a 33; la escena se corta ahí y quedan fuera 2 focos: 4ecc1456 c10780d9. Trae 29 de 33 posiciones.
+aviso: capacidad de la escena: 30 posiciones. El foco 71e051f7 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: 71e051f7 439e59bb. Trae 27 de 31 posiciones.
 ```
 
 Lectura de la primera escena: se pidieron en desorden y el marco las coloca por el hilo, en preorden. El menú es el común (n0) y recibe siete aristas: el hilo de las tres compras y sus cuatro referencias. La cuenta (n2) cuelga de la compra anclada en su posición 1 (los recursos) y su fórmula lee la 1.2 de la compra (el precio); por eso va justo detrás de la compra y antes de la segunda compra: las tres compras siguen el orden de llegada, pero no van seguidas. En la segunda, el génesis es un terminal y sale como tal, sin índice. En la última, la compra trae 24 posiciones con contenido (ella, que con el criterio de cerrado en su 2 tiene una más que antes del encargo 3b, el menú, las altas, el génesis y la cuenta escrita encima), la segunda compra suma 4 y la tercera pasaría de 30: se corta ahí y el menú, pedido detrás, también queda fuera.

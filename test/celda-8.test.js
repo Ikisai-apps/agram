@@ -38,7 +38,7 @@ test('celda 8: hermanos por defecto y un toque para proyecto y todo el eje; cada
   assert.match(porDefecto, /<div class="ocho-cohortes" role="group" aria-label="cohorte de la celda 8">/);
   // General: todo el eje, con las altas de huesped y vecina (B1); encargo 3b: también la emisión inicial de la casa y sus
   // dos invitaciones, de las que cuelgan esas altas (mapa §16 [D]).
-  const n = { hermanos: 4, proyecto: 9, general: 19 };
+  const n = { hermanos: 4, proyecto: 9, general: 20 };
   for (const c of COHORTES) {
     const o = ocho(eje, guisos.id, { alcance: c });
     assert.equal(o.n, n[c], c);

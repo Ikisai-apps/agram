@@ -14,7 +14,7 @@ Cada nota tiene cuatro líneas: *Qué se decidió*, *Por qué* (lo que dice la f
 
 | Tema | Notas |
 |---|---|
-| 1. Lecturas y profundidad | #12 (diseño 8.7, §7), #44, #45, #47 |
+| 1. Lecturas y profundidad | #12 (diseño 8.7, §7), #44, #45, #47, #52 (formas por modo) |
 | 2. El 3: admisión, grupos, mínimos y personaje | #29, #31, #32, #33, #34 (sustituida), #35, #37, #38, #46 |
 | 3. El 4, la escalera y el rango | #39, #40, #41, y las decisiones 7 y 8 del estudio (en #49) |
 | 4. BQL con transacciones | #43, #48, #49 (decisiones 1 a 10), #50, #67, #64 d |
@@ -45,6 +45,19 @@ Fuente: catálogo #12 y `DISENO_8-7_POR_MODO` (tercera versión). Estado de la f
   - **Propuesta Core de orden** (diseño §5): 1) comprobar y arreglar la profundidad completa; 2) lecturas derivadas en las celdas, empezando por 1.3, 1.3.4, 1.4 y 3.4 con Core, como dato; 3) formas por modo en la fila 8.7; 4) PV a PV en los tres modos, empezando por el 0, el 1 y el 3. Siguiente encargo (§7): los diez operadores como reglas largas, empezando por 1, 2 y 3 anidados, con Core como caso real.
 - **Pruebas.** Las de la fuente: casos de Core verdes (1.3, 1.3.4, 1.4, 3.4; anidación 2.3) en las lecturas; la carta baja los cuatro niveles del 1 con la dirección completa. Para la fila 8.7 por modo, el diseño pide migración de datos con pruebas y no las detalla.
 - Los flecos de #12 que VG cerró el 12-11 están en #44, #45 y #47, y el del 3.4 («cercanos» o «equipo») en #33.
+
+### #52 — Las formas van por modo en la fila 8.7, con herencia hacia abajo; los modos son cinco (DECIDIDO VG 12-11; hecho en la beta)
+
+Fuente: catálogo #52 y `DISENO_8-7_POR_MODO` (§4, la propuesta que VG ha decidido). Esta nota es la excepción a «solo documentación»: lleva dato y código.
+
+- **Qué se decidió.** Las formas de la fila 8.7 van **por modo**, con **herencia hacia abajo**, y los modos son **cinco**: Pointed (10⁰), Sequenced (10¹), Mapped (10², más el clic), Scened (10³) y Be. La posición 3 de cada fila (una por PV) pasa a ser una **lista, no una décupla**, con una hoja por modo en el orden de los modos de la época (`epoch.8.2`); donde la hoja es «-» el modo **hereda del anterior** (Sequenced de Pointed, Mapped de Sequenced, Scened de Mapped, Be de Scened). Cada hoja lleva la forma de cada nivel separadas por «>» (`escalera > columnas`; la última se repite). El PV de la primera profundidad sigue definiendo cómo se ve a cualquier profundidad (no cambia), y no se tocan hijos, profundidad, enlace, estilo, hilos ni orden.
+- **Por qué.** Un mismo mundo no se ve igual en cada modo: Pointed enseña la fila del elemento, Sequenced apila en una columna (acordeón), Mapped lo despliega en 2D con su clic, y lo que hoy decide el código de la carta (apilar o no) debe ser un dato de la época que se pueda cambiar modo a modo sin repetir lo que no cambia; la herencia hacia abajo evita escribir cinco veces lo mismo. Y los modos son cinco porque Scened (varios focos en escena) y Be (sin interfaz gráfica) ya son modos de la época: la fila no puede dejarlos fuera.
+- **Qué cambia.**
+  - Datos: `epoch.8.7`, posición 3 de cada fila, migrada: **Mapped lleva lo de hoy**; **Sequenced lleva lo mismo** (la carta ya enseña en él la misma forma, apilada en una columna cuando no cabe a lo ancho; ese apilado sigue siendo código y píxeles de pantalla, no una forma); **Pointed «-»** (la fila del elemento no es una forma de la división, así que no hay nada que migrar; queda para cuando VG la defina); **Scened y Be «-»**, heredan de Mapped. Una nota nueva al final de `epoch.8.7`.
+  - Núcleo: `contrato.formaDe(eje, pv, modo, { nivel })` resuelve la herencia → `{ forma, formas, de }`; `divisionDelMundo` acepta `modo` (por defecto `mapped`, la fila de siempre) y devuelve `modo`.
+  - Carta: la fila abierta de Sequenced pide su forma como `sequenced` (`rejillaDe(…, { modo })`); lo demás, Mapped. Se ve igual que antes (`test/carta-esperada.json` no cambia).
+- **Pruebas.** `test/contrato.test.js` (herencia por modo, cinco modos, «-», lista más corta, modo desconocido, una época con otras hojas) y `test/modos.test.js` (los cinco modos de `epoch.8.2` y de `src/modos.js`, en el mismo orden); `npm run test:carta`, `epoca-btml`, `traducciones` y `docs/comprobar.mjs` verdes.
+- **Queda abierto.** Qué es la forma propia de Pointed y de Sequenced (hoy Sequenced repite la de Mapped y Pointed no tiene) y cuándo Scened y Be tienen la suya: PV a PV, empezando por el 0, el 1 y el 3 (diseño §5, paso 4). Pendiente de VG.
 
 ### #44 — Flecos de #12 (DECIDIDO VG 12-11)
 
@@ -307,7 +320,7 @@ Fuente: decisión de Core AGRAM del 12-11, a petición de Core StateArk (`InTheS
 - **#47**: principio, sin código; transporte (Nostr, Bitcoin) para cuando AARPIA lo pida.
 - **#48**: prueba que reproduzca el defecto; hipótesis hasta entonces.
 - **#50**: el grado 1 («solo leer») está hecho con #64 d (ejecutada exige «sealed» si el eje tiene sello; si no, autorizada y «pendiente de sello»); el diario materializado (a) y los grados que rechacen siguen en diseño.
-- **Fila 8.7 por modo** y **orden de implementación** (diseño §4 y §5): propuestas de Core; las fuentes no registran la respuesta de VG.
+- **Fila 8.7 por modo**: decidida (#52) y migrada; falta la forma propia de Pointed y de Sequenced, PV a PV (diseño §5, paso 4). El **orden de implementación** (diseño §5) sigue siendo propuesta de Core.
 - **Estudio BQL:** si la asignación de T pasa a regla del libro y destino de `put` (decisión 6, paso 5: «si VG quiere»).
 - **#13**, la mitad de los estilos (plantilla 0.9/5.0 frente a textos de ayuda): decidir VG.
 
