@@ -128,10 +128,12 @@ test('versionDeSw lee la VERSION de sw.js', () => {
 
 test('dom.js pinta data-nodo en cada pieza de la carta y la raíz lleva modo, ancho, alto y render', async () => {
   const c = await ejemploCompra();
-  const a = await arbol({ foco: { X: c.compra, pv: 0 }, niveles: { 3: 3 } }, c.eje, c.yo ?? c.eje.identidades()[0], { ancho: 400, alto: 700, hueco: 48, tarjeta: 160 });
+  const yo = c.yo ?? c.eje.identidades()[0];
+  // Sin barra (#38): los controles de «opinar» están en el 8 del 0 de mi alta, con su cruceta abierta.
+  const a = await arbol({ foco: { X: c.compra, pv: 0 }, niveles: { 3: 3 }, sitio: { X: c.eje.alta(yo).id, lugar: '0', general: true } }, c.eje, yo, { ancho: 400, alto: 700, hueco: 48, tarjeta: 160 });
   const h = html(a, { opinar: { activo: true, cuantas: 2 } });
   const tipos = new Set([...h.matchAll(/data-nodo="([a-z]+)"/g)].map((m) => m[1]));
-  for (const t of ['carta', 'barra', 'control', 'foco', 'pv', 'campo']) assert.ok(tipos.has(t), `falta data-nodo="${t}"`);
+  for (const t of ['carta', 'sitio', 'control', 'foco', 'pv', 'campo']) assert.ok(tipos.has(t), `falta data-nodo="${t}"`);
   assert.match(h, /data-nodo="carta" data-nodo-modo="apilada" data-nodo-render="sobrio" data-nodo-ancho="400" data-nodo-alto="700"/);
   assert.match(h, /data-nodo="pv" data-nodo-tam="bloque"/);
   assert.match(h, /data-opinar-ctl="alternar" aria-pressed="true"[^>]*>opinar · 2</);

@@ -233,7 +233,9 @@ test('el libro local: ver quema un T de segundo y englobar asienta un minuto en 
   assert.equal(libro.recorrido().length, 0);
   const b = await arbol({ foco: { X: X.id, pv: 0 }, local: libro }, eje, 'huesped', MOVIL, { t: T1 });
   assert.deepEqual([b.local.pendientes, b.local.anterior], [0, ev.id]);
-  assert.match(html(b), /guardar este rato/);
+  // «guardar este rato» (la barra ya no existe, #38) está en el 1 del 0 de mi alta: su cruceta abierta.
+  assert.doesNotMatch(html(b), /guardar este rato/);
+  assert.match(html(await arbol({ foco: { X: X.id, pv: 0 }, local: libro, sitio: { X: eje.alta('huesped').id, lugar: '0', general: true } }, eje, 'huesped', MOVIL, { t: T1 })), /data-posicion="1"[^]*?data-englobar[^]*?guardar este rato/);
 });
 
 test('las preferencias se editan como un registro más: la candidata sale de la plantilla «preferences» y la configuración la lee', async () => {
@@ -646,7 +648,7 @@ test('Sequenced: el pasado encima de la tarjeta y el futuro debajo, por páginas
   assert.ok(zonaF.indexOf('class="pv-cabeza hilo-cabeza"') < zonaF.indexOf('data-cargar-mas="7"'), 'en el futuro, la cabeza junto a la tarjeta y cargar más abajo');
 });
 
-test('Sequenced: sin rosetones ni franja de comprimidos; la fila fija de los diez dígitos; la barra en una línea con «menú»; Mapped no cambia', async () => {
+test('Sequenced: sin rosetones ni franja de comprimidos; la fila fija de los diez dígitos; el personaje del 0 arriba de la columna en lugar de la barra; Mapped no cambia', async () => {
   const { eje, compra: X } = await compra();
   const a = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL);
   const m = html(a, { ejemplos: [{ id: 'compra', etiqueta: 'la compra' }], ejemplo: 'compra' });
@@ -657,20 +659,16 @@ test('Sequenced: sin rosetones ni franja de comprimidos; la fila fija de los die
   assert.deepEqual(a.secuencia.digitos.map((d) => d.pv), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   const digitos = trozoDe(m, '<nav class="digitos"', '</nav>');
   assert.deepEqual([...digitos.matchAll(/data-digito="(\d)" data-color="(\d)"/g)].map((x) => [Number(x[1]), Number(x[2])]), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => [d, d]));
-  // La barra: quién soy, el interruptor y «menú» en una línea; lo demás dentro del menú, oculto hasta abrirlo.
-  const barra = trozoDe(m, '<header class="barra barra-compacta"', '</header>');
-  const linea = trozoDe(barra, '<div class="barra-linea">', '<div class="barra-menu"');
-  assert.match(linea, /data-quien/);
-  assert.match(linea, /class="interruptor"/);
-  assert.match(linea, /data-menu aria-expanded="false"/);
-  assert.doesNotMatch(linea, /data-ejemplo|data-config|data-reiniciar/);
-  assert.match(barra, /<div class="barra-menu" id="barra-menu" hidden>[^]*data-ejemplo[^]*data-config[^]*data-reiniciar/);
-  assert.match(html(a, { menu: true }), /data-menu aria-expanded="true"[^]*<div class="barra-menu" id="barra-menu">/);
+  // La barra y su menú ya no existen (#38): arriba de la columna, el personaje del 0 (el 0 de mi alta, con su cruceta de configuración).
+  assert.doesNotMatch(m, /class="barra|data-menu|barra-menu|data-quien|data-config/);
+  const cero = trozoDe(m, '<div class="cero-columna"', '</div>');
+  assert.match(cero, new RegExp(`class="sitio-interrogante sitio-cero"[^>]*data-sitio="0" data-sitio-x="${eje.alta('huesped').id}" data-sitio-general`));
+  assert.match(m, /<div class="cero-columna"[^]*<div class="secuencia"/, 'arriba de la columna');
   // Mapped: ni la secuencia ni los dígitos ni el menú; sus rosetones en su sitio.
   const b = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
   assert.equal(b.secuencia, undefined);
   const g = html(b);
-  assert.doesNotMatch(g, /class="digitos"|data-menu|class="secuencia"|class="filas"/);
+  assert.doesNotMatch(g, /class="digitos"|data-menu|class="secuencia"|class="filas"|class="cero-columna"/);
   assert.match(g, /<nav class="rosetones rosetones-mapa"/);
 });
 
