@@ -308,8 +308,8 @@ test('sin la preferencia no se escribe nada; con una que falla, la opinión qued
   assert.equal(sinT.ok, false);
   assert.match(sinT.motivo, /sin clave para firmar/);
   assert.equal(b.orden.length, n);
-  // «-» quita el ajuste.
-  const quitar = G.ajustesEditables(eje, 'huesped', { 'opinions anchor': '-' });
+  // Vacío quita el ajuste (no se escribe: #77).
+  const quitar = G.ajustesEditables(eje, 'huesped', { 'opinions anchor': '' });
   assert.equal(quitar.cambiado, true);
   await salida.escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: quitar.sobre, en: quitar.en, payload: quitar.payload });
   assert.equal(contrato.anclaDeLasOpiniones(eje, 'huesped'), null);

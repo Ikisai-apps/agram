@@ -57,8 +57,10 @@ test('las 44 plantillas de transacción tienen en es su nombre, la etiqueta y la
       assert.ok(!tiene(C.claves.parametro(nombre, p.nombre, 'help')).startsWith('[['), nombre + ' · ' + p.nombre + ': la ayuda no empieza por [[');
     }
     const original = plantilla[9][plantilla[9].length - 1];
-    const mensaje = tiene(C.claves.mensaje(nombre), original);
-    assert.ok(mensaje.startsWith(nombre + ': '), nombre + ': el mensaje traducido empieza por el nombre canónico');
+    // un mensaje que es solo un hueco (el nombre de la cosa, «register a thing»: es el 0 de lo que escribe, VG 13-11, #75) no se traduce
+    const soloHuecos = original.replace(/\{[^{}]*\}/g, '').trim() === '';
+    const mensaje = tiene(C.claves.mensaje(nombre), soloHuecos ? undefined : original);
+    if (!soloHuecos) assert.ok(mensaje.startsWith(nombre + ': '), nombre + ': el mensaje traducido empieza por el nombre canónico');
     assert.deepEqual(huecos(mensaje), huecos(original), nombre + ': los mismos huecos');
   }
   // Las plantillas de datos (purchase, booking, preferences): cada posición descrita, con su etiqueta y su ayuda.

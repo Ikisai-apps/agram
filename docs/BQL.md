@@ -277,7 +277,7 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 | `CONTAR(col)` | coleccion | numero | siempre |
 | `SUMAR(col)` | coleccion | suma de los valores de los candidatos | siempre |
 | `ORIGEN()` | — | texto `propio` / `referencia` / `escrito` | solo dentro |
-| `PRESENTE()` | — | booleano: si el registro del candidato es presente (pagó con T real; VG, 8-11: el pagado solo con T informativo no lo es, `eje.presente`) | solo dentro |
+| `PRESENTE()` | — | booleano: si el registro del candidato es presente (pagó con T real; VG, 8-11: el pagado solo con T informativo no lo es, `eje.presente`; desde VG 13-11, #76, la época 0 exige a todo registro el coste en T real, así que en ella todo registro del libro lo es) | solo dentro |
 | `SIGNO()` | — | texto `exacto` / `completar` / `reducir` / `mixto` | solo dentro |
 | `ACUERDO()` | — | numero 0–10 | solo dentro |
 | `DESPLAZAMIENTO()` | — | numero (suma de las distancias) | solo dentro |

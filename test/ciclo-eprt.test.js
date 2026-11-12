@@ -175,9 +175,11 @@ test('T no se bloquea ni se libera (VG, 8-11: no hay T acumulable): bloquear sig
 
 test('escalonado: emitir R exige T real del autor en la misma transacción («minting R needs real T»)', async () => {
   const { eje, alta } = await mundo();
-  // Pagar la escritura con T informativo vale, pero no cuenta para emitir R.
+  // Pagar la escritura con T informativo no vale (#76) y tampoco cuenta para emitir R.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [deMemoria('ana'), emiteR('ana', 1)] }), /minting R needs real T: ana mints R without burning real T/);
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [deMemoria('ana')] });
+  // (VG, 13-11, #76: una memoria tampoco se paga con T informativo: se rechaza como cualquier registro que paga de menos.)
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [deMemoria('ana')] }), /writing burns today's T/);
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [gasta('ana'), deMemoria('ana')] });
   // Con un minuto real, sí; y sin colateral (VG, 9-11: se retira el colateral de la #75).
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [gasta('ana'), emiteR('ana', 1)] });
   assert.deepEqual(eje.serie('R:ana'), { emisor: 'ana', emitido: 1 });

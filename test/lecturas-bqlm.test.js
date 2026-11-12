@@ -11,7 +11,7 @@ import { Eje } from '../src/eje.js';
 import { evaluar, evaluarRegla, leerRegla, esLectura, posicionDeLectura, analizar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
-import { esPresente } from '../src/evento.js';
+import { esPresente, crearEvento } from '../src/evento.js';
 import { esInformativoT } from '../src/ciclo.js';
 import { devoluciones } from '../src/lente.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
@@ -91,16 +91,23 @@ test('«present» (X.6.1) e «informative» (X.6.7) dan lo mismo que evento.esPr
   assert.ok(vistos > 40, vistos + ' registros');
 });
 
-test('«present» e «informative» con T pasado: válido, gratis en T real y no presente', async () => {
+test('«present» e «informative» con T pasado: desde VG 13-11 (#76) un recuerdo paga T real de hoy y es presente; solo T pasado se rechaza (la candidata sí se lee como no presente)', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t: T0, foco: 'raíz' });
   await entrarPorInvitacion(eje, { por: 'g', quien: 'ana', t: T0 });
-  const recuerdo = await eje.escribir({ autor: 'ana', sobre: eje.alta('ana').id, t: T0, payload: 'lo que hice hace un año', movimientos: [{ token: 'T', escala: 'pasado', cantidad: 1, de: 'ana', a: null, refiere: '2025-11-08T10:00:00Z' }] });
+  const pasado = { token: 'T', escala: 'pasado', cantidad: 1, de: 'ana', a: null, refiere: '2025-11-08T10:00:00Z' };
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.alta('ana').id, t: T0, payload: 'lo que hice hace un año', movimientos: [pasado] }), /writing burns today's T/);
+  const payload = 'lo que hice hace un año';
+  const recuerdo = await eje.escribir({ autor: 'ana', sobre: eje.alta('ana').id, t: T0, payload, movimientos: [pagaElCoste('ana'), pasado] });
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
-  assert.equal(esPresente(recuerdo), false);
-  assert.deepEqual([uno('first ("' + recuerdo.id + '").6.1', ctx), uno('first ("' + recuerdo.id + '").6.7', ctx)], [false, true]);
+  assert.equal(esPresente(recuerdo), true);
+  assert.deepEqual([uno('first ("' + recuerdo.id + '").6.1', ctx), uno('first ("' + recuerdo.id + '").6.7', ctx)], [true, true], 'presente (paga T real) e informativo (lleva T pasado)');
   assert.deepEqual([uno('first ("' + eje.genesisId + '").6.1', ctx), uno('first ("' + eje.genesisId + '").6.7', ctx)], [true, false], 'el génesis es presente');
-  // Lo leen otras expresiones por su posición, sin repetir la fórmula: los registros no presentes del libro.
-  assert.deepEqual(evaluar('(before.1 where not first it.6.1) each 5', ctx).valor.filter((x) => typeof x === 'string'), [recuerdo.id]);
+  // Todo registro del libro es presente: ninguno queda fuera de la lectura.
+  assert.deepEqual(evaluar('(before.1 where not first it.6.1) each 5', ctx).valor.filter((x) => typeof x === 'string'), []);
+  // La candidata que solo quema T pasado se lee como no presente (la lectura es pura; la condición del coste la rechaza al escribir).
+  const solo = await crearEvento({ autor: 'ana', sobre: eje.alta('ana').id, t: T0, payload, movimientos: [pasado] });
+  assert.equal(esPresente(solo), false);
+  assert.equal(uno('first ev.6.1', new ContextoEje(eje, { epoch: EPOCA_0_BTML, ev: solo })), false);
 });
 
 test('«obligation» (A.8.1) da lo mismo que eje.obligaciones: la R propia en manos ajenas, disponible o bloqueada', async () => {
@@ -122,7 +129,8 @@ test('«attended» (X.7.4): una devolución de R queda atendida cuando su emisor
   // (VG, 9-11, mapa §15 [D] «R, últimas dos»: atender lo define el PV2 del emisor; por defecto, con T real).
   await eje.escribir({ autor: 'otra', sobre: dev.id, t: T0, payload: 'yo no la atiendo', movimientos: [minuto('otra')] });
   assert.equal(atendida(eje), false);
-  await eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'lo recuerdo', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'ana', a: null }] });
+  // (desde VG 13-11, #76, un registro así ni siquiera se escribe: solo T informativo no paga el coste.)
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'lo recuerdo', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'ana', a: null }] }), /writing burns today's T/);
   assert.equal(atendida(eje), false);
   const at = await eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'te atiendo', movimientos: [minuto('ana')] });
   assert.equal(devoluciones(eje, 'ana')[0].atencion, at.id);

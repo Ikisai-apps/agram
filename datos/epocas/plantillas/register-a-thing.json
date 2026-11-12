@@ -31,11 +31,11 @@
       ["any"],
       ["me"],
       ["key", "{thing}"],
-      ["-"],
+      ["{key}"],
       ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
-      ["required"],
+      ["required if signed"],
       [3],
-      ["the public key of the thing (x-only, 64 hexadecimal characters): this record declares it at its alta"]
+      ["the public key of the thing (x-only, 64 hexadecimal characters): this record declares it at its alta; required only if the ledger demands signatures (a ledger that does not may register a thing without a key)"]
     ],
     [
       ["proof"],
@@ -43,7 +43,7 @@
       ["any"],
       ["me"],
       ["proof", "{thing}"],
-      ["-"],
+      ["{proof}"],
       ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
       ["optional"],
       [4],
@@ -91,6 +91,7 @@
   ["=transfer first memo.1 T.1 from me to first memo.3.1"],
   ["1.4"],
   [
+    "VG, 13-11 (issue #75): el nombre de la cosa es el 0 de su alta (la regla del nombre: el 0 de un registro es lo que es); antes el 0 era el mensaje «register a thing: {me} registers the thing {last ev.3.1}», así que una cosa dada de alta por esta plantilla se habría llamado como el mensaje. Ese mensaje ya no se escribe: lo dice la propia alta (quién la escribe, 3.0; la cosa, 3.1; la acción, 4). La clave se declara en el alta pero solo es obligatoria si el eje exige firmas (exigirFirmas: «required if signed»); en un eje que no las exige se puede dar de alta una cosa sin clave",
     "Encargo core-escribe (VG, 11-11 noche): Core es una identidad «cosa» que escribe en el eje de VG con su propia clave. Una cosa es la identidad cuya alta escribe otra, su dueño (VG, 10-11, B1): esta plantilla es esa alta, sobre mi propia alta",
     "La clave de la cosa se declara en este registro («a key is declared at its alta»: quien recibe algo aquí) y llega con su prueba de posesión («a declared key comes with its proof»): la cosa firma el id de este registro; por eso la prueba viene en la petición de la cosa, con el instante del registro",
     "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)",
@@ -99,5 +100,5 @@
   ],
   ["epoch 0"],
   [1, 5],
-  ["register a thing: {me} registers the thing {last ev.3.1}"]
+  ["{last ev.3.1}"]
 ]

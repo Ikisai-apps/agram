@@ -753,7 +753,7 @@ export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
   const ofrecida = acciones.acciones(eje, X, pv, yo, o).find((a) => a.nombre === canonico);
   const defectos = new Map((ofrecida?.parametros ?? []).map((p) => [p.nombre, p.valor]));
   const en = anclaDeAccion(plantilla);
-  const campos = acciones.parametros(plantilla, o).map((p) => {
+  const campos = acciones.parametros(plantilla, { ...o, eje }).map((p) => {
     const valor = valores[p.nombre] !== undefined ? valores[p.nombre] : defectos.get(p.nombre);
     return {
       nombre: p.nombre, etiqueta: p.etiqueta, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, validacion: p.validacion, posicion: p.posicion,
@@ -852,7 +852,7 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   const T = (que, etiqueta, original) => contrato.texto(eje, contrato.claves.parametro(p.nombre, etiqueta, que), o.idioma, { original, epoca: o.epoca });
   const actual = contrato.configuracion(eje, yo, opciones);
   const defectos = contrato.configuracion(eje, null, opciones);
-  const payload = [[p.nombre]];
+  const dados = {};
   const campos = [];
   // Las preferencias las dice el núcleo (contrato.clavesDeConfiguracion): también las que no tienen defecto (el
   // servidor y el eje compartido, etapa 3), que se pintan vacías; la posición que no es una preferencia es el tipo (B4).
@@ -866,11 +866,11 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   p.registro.forEach((desc, d) => {
     if (d === 0 || !Array.isArray(desc) || !esDecupla(desc)) return;
     const clave = hojas(desc[0])[0];
-    if (!deLaEpoca.has(clave)) { payload[d] = [p.nombre]; return; } // no es una preferencia: el tipo (B4)
+    if (!deLaEpoca.has(clave)) return; // no es una preferencia: el tipo (B4)
     const numero = typeof hojas(defectos[clave])[0] === 'number';
     const dado = valores[clave] !== undefined ? hojas(valores[clave]) : hojas(actual[clave]);
-    const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== '-' && v !== undefined && v !== null);
-    // Vacía y sin defecto, la posición queda sin escribir (BTML no tiene posiciones vacías).
+    const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== undefined && v !== null);
+    // Vacía y sin defecto, el ajuste no se escribe: un registro de ajustes solo lleva los que tienen valor (#77, claves y valores).
     let v = limpio.length ? limpio : hojas(defectos[clave]);
     let lista = null;
     if (clave === eleccion.clave && nombres.length) {
@@ -883,15 +883,14 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
       const valoresDe = enumeraciones.get(clave);
       lista = [...valoresDe, ...(v.length && !valoresDe.includes(v[0]) ? [v[0]] : [])].map((x) => ({ valor: x, texto: T('option ' + x, clave, x) }));
     }
-    if (v.length) payload[d] = v;
+    if (v.length) dados[clave] = v;
     if (lista && lista.length < 2) return; // un solo paquete de arte: se guarda el que hay y no se pregunta
     campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: v.length === 1 ? v[0] : v, ...(lista ? { opciones: lista } : {}) });
   });
-  // BTML no tiene huecos: una posición sin valor y sin defecto que queda delante de otra con valor (el servidor, sin dar,
-  // delante del eje compartido: con «relay url» de los ajustes del exterior basta el eje) se escribe «-», que se lee como
-  // vacío (más abajo); el registro acaba en el último valor.
-  while (payload.length && payload[payload.length - 1] === undefined) payload.length -= 1;
-  for (let d = 1; d < payload.length; d++) if (payload[d] === undefined) payload[d] = ['-'];
+  // Sin huecos ni rellenos (VG 13-11, #77): el registro lleva las claves de los ajustes que tienen valor y, en paralelo, sus
+  // valores (contrato.registroDeAjustes); el servidor sin dar (con «relay url» de los ajustes del exterior basta el eje)
+  // no está, no se rellena con nada.
+  const payload = contrato.registroDeAjustes(p.nombre, dados, { quien: yo, ...opciones });
   return { payload, nombre: contrato.texto(eje, contrato.claves.plantilla(p.nombre), o.idioma, { original: p.nombre, epoca: o.epoca }), campos, sobre: alta.id, en: direccion([9]), de: actual.de };
 }
 

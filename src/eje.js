@@ -451,11 +451,11 @@ export class Eje {
   }
 
   /**
-   * ¿Es el registro `id` presente? (evento.esPresente). No lo es el que se pagó
-   * solo con T informativo (pasado, futuro, inventado): válido y gratis en T
-   * real, pero sin la marca de registro presente (VG, 8-11: «el pago es la
-   * ausencia de un registro presente, que puede ser un criterio en PV2 cuando
-   * el tiempo importe (p. ej. caducidad alimentaria)»). undefined si no está.
+   * ¿Es el registro `id` presente? (evento.esPresente). No lo es el que solo
+   * quemara T informativo (pasado, futuro, inventado; VG, 8-11); desde VG 13-11
+   * (#76) la época 0 exige a todo registro el coste en T real de hoy («writing
+   * burns today's T»), así que en ella todo registro del libro lo es. undefined
+   * si no está.
    */
   presente(id) {
     const ev = this.eventos.get(id);

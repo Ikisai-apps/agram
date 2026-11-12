@@ -62,15 +62,21 @@ test('la plantilla «exterior settings» es de la época (9.2.5): relé, archivo
   assert.match(contrato.texto(null, contrato.claves.parametro(PLANTILLA, 'seal url', 'help'), 'es', { original: '' }), /sello de tiempo/);
 });
 
-test('exterior(): las tres url de mi registro (http o https, sin la barra final); lo que no es una url, vacío y «-» no cuentan; el último registro manda', async () => {
+test('exterior(): las tres url de mi registro (http o https, sin la barra final); lo que no es una url y lo vacío no cuentan; el último registro manda; sin huecos: solo las claves con valor, y sus valores en paralelo (VG 13-11, #77)', async () => {
   const c = await cuentaDeVg();
   assert.deepEqual(exterior.exterior(c.eje, 'vg'), { relevo: null, archivos: null, sello: null, guia: null, observadores: [], confirmaciones: 6 });
   const a = await ajustarExterior(c, { 'relay url': 'http://127.0.0.1:8788/', 'blossom url': 'https://archivos.ejemplo/', 'seal url': 'ftp://no-es-http' });
   assert.deepEqual(a.campos.map((x) => x.clave), ['relay url', 'blossom url', 'seal url', 'pay url', 'observer keys', 'confirmations', 'guide url']);
   assert.deepEqual(exterior.exterior(c.eje, 'vg'), { relevo: 'http://127.0.0.1:8788', archivos: 'https://archivos.ejemplo', sello: null, guia: null, observadores: [], confirmaciones: 6 });
-  // Cambiar solo una: lo demás se conserva; «-» quita; vacío conserva.
-  const b = G.ajustesEditablesDe(PLANTILLA, c.eje, 'vg', { 'seal url': 'http://127.0.0.1:8787', 'blossom url': '-', 'relay url': '' });
+  // Sin huecos ni rellenos (#77): 0 el nombre, 1 las claves de los ajustes con valor, 2 sus valores en paralelo, 3 quién, 4 su ayuda, 5 el tipo; ninguna posición vacía ni «-»
+  assert.deepEqual(a.payload.map((x) => x.length), [1, 4, 4, 1, 1, 1]);
+  assert.deepEqual(a.payload.slice(0, 3), [[PLANTILLA], ['relay url', 'blossom url', 'seal url', 'confirmations'], ['http://127.0.0.1:8788/', 'https://archivos.ejemplo/', 'ftp://no-es-http', 6]]);
+  assert.deepEqual([a.payload[3], a.payload[5]], [['vg'], [PLANTILLA]]);
+  assert.ok(a.payload.length === 6 && a.payload.every((x) => Array.isArray(x) && x.length > 0 && x.every((v) => v !== '-' && v !== '')), 'ninguna posición vacía ni rellena');
+  // Cambiar solo una: lo demás se conserva; vacío quita (un ajuste sin valor no se escribe); no dado conserva.
+  const b = G.ajustesEditablesDe(PLANTILLA, c.eje, 'vg', { 'seal url': 'http://127.0.0.1:8787', 'blossom url': '' });
   assert.equal(b.cambiado, true);
+  assert.deepEqual(b.payload.slice(0, 3), [[PLANTILLA], ['relay url', 'seal url', 'confirmations'], ['http://127.0.0.1:8788/', 'http://127.0.0.1:8787', 6]]);
   await salida.escribirDesde(c.eje, { modo: 'sequenced', autor: 'vg', sobre: b.sobre, en: b.en, payload: b.payload, t: T(2) }, c.cuenta.privada);
   assert.deepEqual(exterior.exterior(c.eje, 'vg'), { relevo: 'http://127.0.0.1:8788', archivos: null, sello: 'http://127.0.0.1:8787', guia: null, observadores: [], confirmaciones: 6 });
   assert.equal(G.ajustesEditablesDe(PLANTILLA, c.eje, 'vg', {}).cambiado, false, 'sin cambios, nada que escribir');
@@ -85,11 +91,11 @@ test('exterior(): las tres url de mi registro (http o https, sin la barra final)
 const CLAVE_A = 'a'.repeat(64);
 const CLAVE_B = 'b1'.repeat(32);
 
-test('observer keys, confirmations y guide url (posiciones 6, 7 y 8; el 5 es el tipo): se escriben y se leen, con la lista como texto con espacios o como lista BTML; lo que no es una clave x-only se descarta', async () => {
+test('observer keys, confirmations y guide url (claves de un registro de ajustes, #77): se escriben y se leen, con la lista como texto con espacios o como lista BTML; lo que no es una clave x-only se descarta', async () => {
   const c = await cuentaDeVg();
   const dado = CLAVE_A + ' ' + CLAVE_B.toUpperCase() + ' ' + CLAVE_A + ' no-es-clave';
   const a = await ajustarExterior(c, { 'observer keys': dado, confirmations: '12', 'guide url': 'http://127.0.0.1:8799/' });
-  assert.deepEqual(a.payload.map((x) => x?.[0]).slice(5), ['exterior settings', dado, 12, 'http://127.0.0.1:8799/']);
+  assert.deepEqual(a.payload.slice(1, 3), [['observer keys', 'confirmations', 'guide url'], [dado, 12, 'http://127.0.0.1:8799/']]);
   assert.deepEqual(exterior.exterior(c.eje, 'vg'), { relevo: null, archivos: null, sello: null, guia: 'http://127.0.0.1:8799', observadores: [CLAVE_A, CLAVE_B], confirmaciones: 12 });
   assert.deepEqual(contrato.validar(c.eje, contrato.configuracionDe(c.eje, 'vg', PLANTILLA).de), []);
   // Los textos del formulario, en los dos idiomas: en inglés (el canónico) la ayuda es la del propio registro de la plantilla.
@@ -101,14 +107,16 @@ test('observer keys, confirmations y guide url (posiciones 6, 7 y 8; el 5 es el 
   const f = G.ajustesEditablesDe(PLANTILLA, c.eje, 'vg', {});
   assert.equal(f.cambiado, false);
   assert.equal(f.campos.find((x) => x.clave === 'confirmations').valor, 12);
-  // «-» quita las claves y la guía; una cifra que no es un número positivo conserva la actual.
-  const b = G.ajustesEditablesDe(PLANTILLA, c.eje, 'vg', { 'observer keys': '-', 'guide url': '-', confirmations: 'muchas' });
+  // Vacío quita las claves y la guía (el ajuste no se escribe); una cifra que no es un número positivo conserva la actual.
+  const b = G.ajustesEditablesDe(PLANTILLA, c.eje, 'vg', { 'observer keys': '', 'guide url': '', confirmations: 'muchas' });
+  assert.deepEqual(b.payload.slice(1, 3), [['confirmations'], [12]]);
   await salida.escribirDesde(c.eje, { modo: 'sequenced', autor: 'vg', sobre: b.sobre, en: b.en, payload: b.payload, t: T(2) }, c.cuenta.privada);
   assert.deepEqual(exterior.exterior(c.eje, 'vg'), { relevo: null, archivos: null, sello: null, guia: null, observadores: [], confirmaciones: 12 });
-  // Como lista BTML (varias hojas en la posición 6) también se lee.
+  // Como una clave repetida (varias hojas, un valor por clave) también se lee.
   const l = G.ajustesEditablesDe(PLANTILLA, c.eje, 'vg', { 'observer keys': CLAVE_A });
-  l.payload[6] = [CLAVE_A, CLAVE_B];
-  await salida.escribirDesde(c.eje, { modo: 'sequenced', autor: 'vg', sobre: l.sobre, en: l.en, payload: l.payload, t: T(3) }, c.cuenta.privada);
+  const lista = contrato.registroDeAjustes(PLANTILLA, { 'observer keys': [CLAVE_A, CLAVE_B], confirmations: 12 }, { quien: 'vg' });
+  assert.deepEqual(lista.slice(1, 3), [['observer keys', 'observer keys', 'confirmations'], [CLAVE_A, CLAVE_B, 12]]);
+  await salida.escribirDesde(c.eje, { modo: 'sequenced', autor: 'vg', sobre: l.sobre, en: l.en, payload: lista, t: T(3) }, c.cuenta.privada);
   assert.deepEqual(exterior.exterior(c.eje, 'vg').observadores, [CLAVE_A, CLAVE_B]);
 });
 

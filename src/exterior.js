@@ -6,20 +6,20 @@
 // sella. El nombre de la plantilla y de sus claves se leen aquí, no en src/contrato.js (que no lleva ninguna palabra de la
 // época); sus etiquetas y ayudas, en es y en, son datos de la época.
 //
-//   AJUSTES                    { plantilla, relevo, archivos, sello, observadores, confirmaciones, guia }: el nombre de la plantilla y las claves de sus posiciones 1-3 y 6-8 (el 5 es el tipo, B4)
+//   AJUSTES                    { plantilla, relevo, archivos, sello, observadores, confirmaciones, guia }: el nombre de la plantilla y las claves de sus ajustes («relay url», «blossom url»…): un registro de ajustes lleva sus claves en el 1 y sus valores, en paralelo, en el 2 (VG 13-11, #77: sin huecos ni rellenos)
 //   exterior(eje, yo)          → { relevo, archivos, sello, guia, observadores, confirmaciones }: cada url (http o https, sin la barra final) o null; las claves de los observadores (hex x-only, [] si no hay); las confirmaciones (6 por defecto)
 //   ajustesDelEje(eje)         lo mismo, leído en el registro de la cuenta RAÍZ del eje (la identidad del génesis): lo que se usa para VERIFICAR (docs/CONTRATO.md §4.4)
 
 import { configuracionDe } from './contrato.js';
 import { fijarLectorDelExterior } from './contexto-eje.js';
 
-/** El nombre de la plantilla de los ajustes del exterior y las claves de sus posiciones: el nombre y las etiquetas son de la época; las posiciones 1-3 (4, reservada a los pagos) son el contrato. */
+/** El nombre de la plantilla de los ajustes del exterior y las claves de sus ajustes (la 4.ª, «pay url», reservada a los pagos): el nombre y las etiquetas son de la época; las claves son el contrato. */
 export const AJUSTES = Object.freeze({ plantilla: 'exterior settings', relevo: 'relay url', archivos: 'blossom url', sello: 'seal url', observadores: 'observer keys', confirmaciones: 'confirmations', guia: 'guide url' });
 
 /** Cuántas confirmaciones hacen «en firme» si el registro (o la plantilla) no lo dice: la convención de Bitcoin. */
 export const CONFIRMACIONES = 6;
 
-/** Las claves x-only (32 bytes en hex) de una posición: una lista BTML o un texto separado por espacios, comas o punto y coma; lo que no es una clave (y «-») se descarta; sin repetidas, en minúsculas. */
+/** Las claves x-only (32 bytes en hex) de una posición: una lista BTML o un texto separado por espacios, comas o punto y coma; lo que no es una clave se descarta; sin repetidas, en minúsculas. */
 export function claves(x) {
   const trozos = (Array.isArray(x) ? x : [x]).flatMap((v) => (typeof v === 'string' ? v.split(/[\s,;]+/) : []));
   return [...new Set(trozos.map((k) => k.trim().toLowerCase()).filter((k) => /^[0-9a-f]{64}$/.test(k)))];

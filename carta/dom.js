@@ -1088,7 +1088,7 @@ function htmlAjustesGuia(g) {
  * Los ajustes del exterior dentro del formulario de la configuración (docs/CONTRATO.md §16.2 bis, decisión #58): los campos de
  * la plantilla «exterior settings» de la época (relé, archivos, sello; sin `name`: la app los lee por data-exterior-campo y los
  * escribe como su propio registro en el 9 del alta), en un desplegable como el de la guía. Una dirección vacía deja ese camino
- * sin usar; `-` quita la que había.
+ * sin usar y quita la que había (el registro solo lleva los ajustes que tienen valor, VG 13-11, #77).
  */
 function htmlAjustesExterior(g) {
   if (!g) return '';

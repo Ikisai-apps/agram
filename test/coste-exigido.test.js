@@ -97,13 +97,22 @@ test('un registro de una sola posición sigue costando un minuto (la tarifa de a
   assert.equal((await eje.validar(await candidata(menu, ['uno'], ['segundo', 59]))).length, 1);
 });
 
-test('quien solo quema T informativo (una memoria o un plan, no presente) no paga el coste en T real; si quema algo real, ha de llegar a lo exigido', async () => {
+test('el T informativo no paga la escritura (VG 13-11, #76): una memoria, un plan o lo inventado pagan el coste en T real de hoy; el T informativo es contenido, no pago', async () => {
   const { eje, menu } = await ejemploCompra();
   const payload = ['uno', 'dos', 'tres'];
-  const soloInformativo = await candidata(menu, payload, ['futuro', 1, { refiere: '2026-12-24T20:00:00Z' }]);
-  assert.deepEqual(await eje.validar(soloInformativo), []);
-  const mezcla = await candidata(menu, payload, ['minuto', 1], ['futuro', 1, { refiere: '2026-12-24T20:00:00Z' }]);
-  assert.equal((await eje.validar(mezcla)).length, 1);
+  const informativo = ['futuro', 1, { refiere: '2026-12-24T20:00:00Z' }];
+  // solo T informativo (futuro, pasado o inventado): se rechaza como cualquiera que paga de menos
+  for (const solo of [informativo, ['pasado', 1, { refiere: '2025-01-01T00:00:00Z' }], ['inventado', 1, { nota: 'érase una vez' }]]) {
+    const mal = await eje.validar(await candidata(menu, payload, solo));
+    assert.equal(mal.length, 1, solo[0]);
+    assert.match(mal[0], /writing burns today's T/);
+  }
+  // con algo de T real que no llega a lo exigido, también
+  assert.equal((await eje.validar(await candidata(menu, payload, ['minuto', 1], informativo))).length, 1);
+  // con el coste en T real, la memoria o el plan valen y el T informativo va de contenido
+  const coste = costeT(payload, { eje });
+  assert.deepEqual(await eje.validar(await candidata(menu, payload, ['minuto', coste], informativo)), []);
+  assert.deepEqual(await eje.validar(await candidata(menu, payload, ['minuto', coste])), []);
 });
 
 test('un registro de mil posiciones y uno con referencias se evalúan con el presupuesto de cálculo y cuestan lo que la regla dice', async () => {

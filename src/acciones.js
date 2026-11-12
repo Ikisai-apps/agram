@@ -43,7 +43,7 @@ import { evaluar, rellenar, nombreDeRegla, evaluarPlantilla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS, ESCALAS_REALES, SEGUNDOS, ANUNCIADO, esAnunciado, claveToken } from './tokens.js';
 import { exigido as exigidoDe, tDelCoste, escalaQueAlcanza, REGLA_DEL_COSTE } from './escritura.js';
-import { escalaQueCubre } from './tiempo.js';
+import { escalaQueCubre, ESCALA_MINIMA_PROPUESTA } from './tiempo.js';
 import { contarPosiciones } from './modos.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
 import { plantilla as plantillaDeDatos, etiqueta as etiquetaDe, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones, celdaDeEjecucion } from './contrato.js';
@@ -212,9 +212,13 @@ function destinoDe(cuatro) {
 /** Qué del archivo adjunto pide un parámetro (su 4 «file»): 'ref' (su referencia) o 'format' (su formato); null si no pide un archivo. */
 export const archivoDe = (p) => (p?.destino?.que === 'file' ? p.destino.para : null);
 
+/** Una posición del registro, «1.2» (lo que no lo es, un hueco con nombre «{parámetro}», no se escribe en él). */
+const RE_POSICION = /^\d(\.\d)*$/;
+
 /**
  * Los parámetros que pide una plantilla, leídos de su 1: [{ nombre, etiqueta, tipo, validacion, posicion, requerido,
- * defectos, ayuda, orden, destino }]. `posicion` es dónde va en el registro que escribe («1.2»; «-» si no va en él);
+ * defectos, ayuda, orden, destino }]. `posicion` es dónde va en el registro que escribe («1.2»; null si no va en él: su 5 es
+ * entonces un hueco con nombre, «{parámetro}», y no un «-»: sin huecos ni rellenos, VG 13-11, #77);
  * `destino`, qué se hace con él (su 4: el payload, la clave y la prueba de posesión que declara el registro, o un archivo adjunto); `defectos`
  * son las hojas del 9 menos la ayuda (una fórmula «=…» se evalúa sobre it = X, me y la candidata). `nombre` es el
  * canónico (inglés); `etiqueta` y `ayuda`, con `opciones.idioma`, su traducción (epoch.9.4: «template <nombre> param
@@ -231,8 +235,9 @@ export function parametros(plantilla, opciones = {}) {
       etiqueta: t(claves.parametro(nombre, k, 'label'), k),
       tipo: texto(hoja(p[1])) ?? 'text',
       validacion: esFormula(texto(ultima(p[2]))) ? texto(ultima(p[2])) : null,
-      posicion: texto(hoja(p[5])) ?? '-',
-      requerido: hoja(p[7]) === 'required',
+      posicion: RE_POSICION.test(texto(hoja(p[5])) ?? '') ? texto(hoja(p[5])) : null,
+      // «required if signed»: obligatorio solo si el eje exige firmas (VG 13-11, #75: la clave de una cosa)
+      requerido: hoja(p[7]) === 'required' || (hoja(p[7]) === 'required if signed' && (opciones.exigirFirmas ?? opciones.eje?.exigirFirmas) === true),
       defectos: hojas(p[9]).slice(0, -1),
       ayuda: t(claves.parametro(nombre, k, 'help'), texto(ultima(p[9])) ?? ''),
       orden: Number(hoja(p[8])) || 0,
@@ -246,8 +251,8 @@ const idiomaDe = (eje, yo, opciones) => opciones?.idioma ?? configuracion(eje, y
 
 // ---------- la candidata: el registro que la plantilla describe ----------
 
-/** El camino de dígitos de una posición «1.2» (o «-» si no va en el registro). */
-const caminoDe = (posicion) => (posicion === '-' ? null : String(posicion).split('.').map(Number));
+/** El camino de dígitos de una posición «1.2» (o null si el parámetro no se escribe en el registro). */
+const caminoDe = (posicion) => (posicion === null || posicion === undefined ? null : String(posicion).split('.').map(Number));
 
 /** Pone un valor en una posición del payload (creando las décuplas intermedias): una hoja va entre corchetes (forma canónica), una lista tal cual. */
 function poner(payload, camino, valor) {
@@ -291,7 +296,7 @@ const conHuecos = (ruta, valores) => String(ruta).replace(/\{([^{}]+)\}/g, (_, n
  */
 function preparar(eje, plantilla, X, yo, params, { t, epoca, idioma }) {
   const nombre = nombreDeAccion(plantilla);
-  const lista = parametros(plantilla, { idioma, epoca });
+  const lista = parametros(plantilla, { idioma, epoca, eje });
   const valores = {};
   const motivos = [];
   for (const p of lista) if (params[p.nombre] !== undefined) valores[p.nombre] = comoTipo(params[p.nombre], p.tipo);
@@ -531,7 +536,7 @@ function piezasPedidas(pedida, segundos) {
  * Cada parte exige o no: el coste de escribir (la regla de la época «the cost of writing», por posición) y lo que la
  * plantilla mueve de T real de quien la lanza (sus sentencias: lo que da, bloquea o quema; lo anunciado no, que aún no
  * se mueve). La denominación paga el coste: la propuesta parte de la escala que cubre lo emitido (tiempo.escalaQueCubre
- * de las posiciones, #65) y baja a las menores (1 h 11 min); si el saldo del día no la alcanza, la de una sola escala que
+ * de las posiciones, #65; nunca por debajo del minuto, #78) y baja a las menores (1 h 11 min); si el saldo del día no la alcanza, la de una sola escala que
  * sí (escritura.escalaQueAlcanza). `pedida` (opciones.denominacion) la ajusta: la escala de la que parte o las piezas.
  */
 function resumenDeEjecucion(eje, { payload, movimientos, yo, t, epoca, nombre, pedida }) {
@@ -548,7 +553,9 @@ function resumenDeEjecucion(eje, { payload, movimientos, yo, t, epoca, nombre, p
   const escala = escalaQueCubre(posiciones);
   let propuesta = { desde: escala, piezas: denominacion(coste, escala) };
   if (coste > 0 && !alcanzaPara(eje, yo, propuesta.piezas, t)) {
-    const otra = escalaQueAlcanza(eje, yo, payload, t, { epoca });
+    // Nunca por debajo del minuto (VG 13-11, #78): si solo alcanzara en segundos, se propone el minuto igualmente.
+    const buscada = escalaQueAlcanza(eje, yo, payload, t, { epoca });
+    const otra = ESCALAS_REALES.indexOf(buscada) < ESCALAS_REALES.indexOf(ESCALA_MINIMA_PROPUESTA) ? ESCALA_MINIMA_PROPUESTA : buscada;
     propuesta = { desde: otra, piezas: [tDelCoste(coste, otra)] };
   }
   const piezas = pedida === undefined || pedida === null ? propuesta.piezas : piezasPedidas(pedida, coste);
@@ -781,7 +788,7 @@ export function estacionesDeLaEpoca(opciones = {}) {
   const raiz = raizDe(epocaDe(opciones));
   return hojas(en(raiz, SITIO.estaciones)).filter((x) => Array.isArray(x) && esDecupla(x)).map((x) => {
     const autoriza = texto(hoja(x[3]));
-    return { familia: hoja(x[0]), estacion: hoja(x[1]), plantilla: hoja(x[2]), autoriza: autoriza && autoriza !== '-' ? autoriza : null };
+    return { familia: hoja(x[0]), estacion: hoja(x[1]), plantilla: hoja(x[2]), autoriza: autoriza ?? null };
   });
 }
 

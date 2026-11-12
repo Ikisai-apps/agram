@@ -173,7 +173,8 @@ test('devolver R es pedir atención; atender es un registro del emisor anclado s
   assert.deepEqual(devoluciones(eje, 'ana').map((d) => [d.id, d.de, d.cantidad, d.atencion]), [[dev.id, 'bea', 1, null]]);
   // Lo que escribe otro sobre la petición no la atiende; ni lo que el emisor paga solo con T informativo (no es presente).
   await eje.escribir({ autor: 'otra', sobre: dev.id, t: T0, payload: 'yo no soy ana', movimientos: [minuto('otra')] });
-  await eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'luego', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'ana', a: null }] });
+  // (VG 13-11, #76: solo T informativo ni siquiera se escribe: no paga el coste.)
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'luego', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'ana', a: null }] }), /writing burns today's T/);
   assert.deepEqual(pendientes(eje, 'ana'), [dev.id]);
   // El emisor la atiende con un registro suyo anclado sobre ella, con T real.
   const at = await eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'te atiendo', movimientos: [minuto('ana')] });

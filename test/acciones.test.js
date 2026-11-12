@@ -135,7 +135,7 @@ test('transaccion: los motivos legibles, en el idioma de quien lanza (los parám
   const sin = await A.transaccion(eje, 'apply a resource', { X: menu.id }, 'huesped', { t: T1, idioma: 'en' });
   assert.deepEqual(sin.motivos.map((m) => m.regla), ['price']);
   // Una regla de la época, en español (la configuración de la cocina lo pide): la cocina es una cosa y no acuña.
-  await eje.escribir({ autor: 'cocina', sobre: eje.alta('cocina').id, en: '9000000000', t: T1, movimientos: [minuto('cocina')], payload: ['preferences', 10, 'sober', 'es', [1, 2, 3], 'preferences'] });
+  await eje.escribir({ autor: 'cocina', sobre: eje.alta('cocina').id, en: '9000000000', t: T1, movimientos: [minuto('cocina')], payload: C.registroDeAjustes('preferences', { step: 10, render: 'sober', language: 'es', sizes: [1, 2, 3] }, { quien: 'cocina' }) });
   assert.equal(C.configuracion(eje, 'cocina').language, 'es');
   const emite = await A.transaccion(eje, 'issue E tied to X', { X: menu.id, denomination: 'racion', quantity: 5 }, 'cocina', { t: T1 });
   assert.equal(emite.ok, false);
@@ -490,8 +490,8 @@ test('la estación «autorizada»: la cuarta posición de cada estación de epoc
   assert.deepEqual([est.E.hechos, est.T.pendientes, est.T.autorizados, est.R.pendientes, est.R.autorizados], [[f.pagar.id], [f.servir.id], [f.servir.id], [f.atender.id], []]);
   assert.deepEqual([recuento(c.eje, f.servir.id).pasa, recuento(c.eje, f.atender.id).pasa], [true, false]);
   assert.equal(cerrado(c.eje, c.compra.id).cerrado, false, 'autorizada no es ejecutada');
-  // sin autorización en la época («-»), ningún autorizado
-  const sin = epocaCon((e) => { for (const x of e[4][2]) if (Array.isArray(x) && Array.isArray(x[0])) x[3] = ['-']; });
+  // sin autorización en la época (la estación sin cuarta posición: lo opcional va al final, sin «-»), ningún autorizado
+  const sin = epocaCon((e) => { for (const x of e[4][2]) if (Array.isArray(x) && Array.isArray(x[0])) x.splice(3); });
   assert.deepEqual(A.estacionesDeLaEpoca({ epoca: sin }).map((e) => e.autoriza), [null, null, null, null]);
   assert.deepEqual(A.estaciones(c.eje, c.compra.id, { epoca: sin }).flatMap((e) => e.autorizados), []);
 });
@@ -710,6 +710,11 @@ test('ejecutar desde el 4 (VG 12-11, decisión 7): el 4 recopila lo que exige ca
   assert.deepEqual(r.ejecucion.propuesta, e.propuesta, 'transaccion devuelve el mismo resumen');
   assert.equal(c.eje.orden.length, antes, 'ni ejecucion ni transaccion asientan: interactuar no acuña');
   // la denominación por escalas: lo que cabe entero en la escala de partida y el resto en las menores
+  // nunca baja del minuto (VG 13-11, #78): 6 posiciones son «6 min», no «360 s»; el segundo sigue en el desplegable (pedido a mano)
+  assert.deepEqual(A.denominacion(6 * 60, escalaQueCubre(6)), [{ escala: 'minuto', cantidad: 6 }]);
+  assert.equal(escalaQueCubre(e.posiciones), e.posiciones > 100 ? escalaQueCubre(e.posiciones) : 'minuto');
+  assert.notEqual(e.propuesta.desde, 'segundo');
+  assert.ok(e.propuesta.piezas.every((p) => p.escala !== 'segundo'), 'la propuesta no usa segundos');
   assert.deepEqual(A.denominacion(4260, 'hora'), [{ escala: 'hora', cantidad: 1 }, { escala: 'minuto', cantidad: 11 }], '1 h 11 min');
   assert.deepEqual(A.denominacion(4260, 'minuto'), [{ escala: 'minuto', cantidad: 71 }]);
   assert.deepEqual(A.denominacion(4290, 'hora'), [{ escala: 'hora', cantidad: 1 }, { escala: 'minuto', cantidad: 11 }, { escala: 'segundo', cantidad: 30 }]);
@@ -868,4 +873,22 @@ test('modo de ejecución: «system» exige una revisión del dueño de la época
   // Un libro sin revisión (otro génesis) no hereda la de este.
   const otro = await ejemploCompra();
   assert.equal(A.modoDeEjecucion(otro.eje, 'view thread', { epoca: sistema }).modo, 'agent');
+});
+
+test('«register a thing» (VG 13-11, #75): el 0 del alta es el NOMBRE de la cosa y se lee con su nombre; la clave es obligatoria solo si el eje exige firmas', async () => {
+  const c = await ejemploCompra();
+  const params = { X: c.eje.alta('casa').id, thing: 'robot', minutes: 60 };
+  const r = await A.transaccion(c.eje, 'register a thing', params, 'casa', { t: T1 });
+  assert.equal(r.ok, true, JSON.stringify(r.motivos));
+  assert.equal(r.evento.payload[0], 'robot', 'el 0 es el nombre de la cosa, no un mensaje («casa registers the thing robot»)');
+  assert.deepEqual(r.evento.payload.slice(3), [[['casa'], ['robot']], ['register a thing']], 'el 3 (quién y la cosa) y el 4 (la acción) siguen donde estaban');
+  const alta = await c.eje.anadir(r.evento);
+  // «contrato.legible» la lee por su nombre; sus representaciones, también
+  assert.equal(C.legible(c.eje, { ref: alta.id }, null, { idioma: 'es' }).texto, 'robot');
+  assert.deepEqual(C.representaciones(c.eje, alta.id).map((x) => x.texto), ['robot']);
+  // la clave del alta es obligatoria solo si el eje exige firmas (exigirFirmas)
+  const clave = (opciones) => A.parametros(A.plantillaDeTransaccion('register a thing'), opciones).find((p) => p.nombre === 'key').requerido;
+  assert.deepEqual([clave({}), clave({ exigirFirmas: false }), clave({ exigirFirmas: true }), clave({ eje: c.eje }), clave({ eje: { exigirFirmas: true } })], [false, false, true, c.eje.exigirFirmas === true, true]);
+  // el mensaje que antes era el 0 se escribe en el «por qué» de la plantilla, no en el registro
+  assert.ok(!JSON.stringify(r.evento.payload).includes('registers the thing'));
 });
