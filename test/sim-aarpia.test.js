@@ -1,4 +1,4 @@
-// Pruebas del transporte simulado de AARPIA (servidor/sim/aarpia/), copiadas del commit 73bfc4d de
+// Pruebas del transporte simulado de AARPIA (servidor/sim/aarpia/), copiadas del d282161 de
 // InTheState/aarpia/transporte con las rutas adaptadas: ayuda.js, rele.test.js, servicio.test.js y archivos.test.js
 // en un solo archivo. vendor.test.js (las copias de AGRAM) ya no hace falta: la simulación importa directamente las de
 // este repo.
@@ -223,7 +223,11 @@ describe('sim aarpia: servicio HTTP', () => {
     assert.equal(reloj.rele, s.rele.publica);
     assert.equal(reloj.instante, bajar.eventos[2].recibido);
     assert.equal((await s.manejar(new Request(BASE + '/recibo?eje=vg&id=' + ev.pago.id, { headers: { 'X-Clave-Lectura': 'x' } }))).status, 401);
-    assert.equal((await s.manejar(new Request(BASE + '/recibo?eje=vg&id=' + 'e'.repeat(64), { headers: { 'X-Clave-Lectura': claveLectura } }))).status, 404);
+    const sin = await s.manejar(new Request(BASE + '/recibo?eje=vg&id=' + 'e'.repeat(64), { headers: { 'X-Clave-Lectura': claveLectura } }));
+    assert.equal(sin.status, 404);
+    assert.deepEqual(await sin.json(), { error: 'sin recibo para ese id en ese eje', codigo: 'sin-recibo' });
+    const nadie = await s.manejar(new Request(BASE + '/recibo?eje=nadie&id=' + ev.pago.id, { headers: { 'X-Clave-Lectura': claveLectura } }));
+    assert.deepEqual([nadie.status, (await nadie.json()).codigo], [404, 'eje-desconocido']);
   });
 
   test('paridad con el servidor de prueba de AGRAM ', async () => {

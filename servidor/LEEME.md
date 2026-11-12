@@ -68,7 +68,7 @@ El mismo contrato en `http://127.0.0.1:8787` (`POST /ejes` con `X-Crear-Ejes: pr
 
 ## El transporte (simulación de AARPIA)
 
-El segundo reloj de cada registro (`X.6.8.1`, el recibo de llegada que firma un relé de Nostr; `docs/CONTRATO.md` §4.4) lo pide `src/sincronia.js` al servidor con `GET /eventos/recibo?eje=…&id=…` → `{ instante, rele, firma, recibo }`. Hoy **no hay AARPIA ni relé real**: `servidor/sim/aarpia/` es una **simulación** (copia del commit 73bfc4d de `InTheState/aarpia/transporte`, ver su `LEEME.md`), JavaScript puro, sin dependencias: **la misma API que las funciones `eventos` y `archivos`** (importa las de `servidor/supabase/funciones/`), con un relé Nostr en memoria por debajo (cada evento viaja como un kind 7700; el recibo, un 7701 firmado por el relé) y un Blossom en memoria para los archivos (cifrados antes de subir). Pruebas: `test/sim-aarpia.test.js`; la paridad con un evento real, `test/recibo.test.js`. Cuando exista AARPIA real se sustituye con la misma forma.
+El segundo reloj de cada registro (`X.6.8.1`, el recibo de llegada que firma un relé de Nostr; `docs/CONTRATO.md` §4.4) lo pide `src/sincronia.js` al servidor con `GET /eventos/recibo?eje=…&id=…` → `{ instante, rele, firma, recibo }`. Hoy **no hay AARPIA ni relé real**: `servidor/sim/aarpia/` es una **simulación** (copia del commit d282161 de `InTheState/aarpia/transporte`, ver su `LEEME.md`), JavaScript puro, sin dependencias: **la misma API que las funciones `eventos` y `archivos`** (importa las de `servidor/supabase/funciones/`), con un relé Nostr en memoria por debajo (cada evento viaja como un kind 7700; el recibo, un 7701 firmado por el relé) y un Blossom en memoria para los archivos (cifrados antes de subir). Pruebas: `test/sim-aarpia.test.js`; la paridad con un evento real, `test/recibo.test.js`. Cuando exista AARPIA real se sustituye con la misma forma.
 
 ```sh
 node servidor/sim/aarpia/servidor.mjs                    # http://127.0.0.1:8788/eventos, /eventos/recibo y /archivos  (--puerto, --secreto)
@@ -78,13 +78,29 @@ El sobre 7700 lo firma una clave de transporte del servicio, no el autor (la car
 
 ## El sello de tiempo (simulación de StateArk)
 
-El tercer reloj de cada registro (`X.6.8.2`, el bloque de Bitcoin que lo sella; `docs/CONTRATO.md` §4.4) lo pone `src/sello.js`. Hoy **no hay Bitcoin ni StateArk**: `servidor/sim/stateark/` es una **simulación** (copia del commit b65c93d de `InTheState/stateark/sim`, ver su `LEEME.md`), JavaScript puro, sin dependencias, con las pruebas en `test/sim-stateark.test.js`. Cuando exista StateArk real se sustituye con la misma forma (`sellar`, `prueba`, `verificar`).
+El tercer reloj de cada registro (`X.6.8.2`, el bloque de Bitcoin que lo sella; `docs/CONTRATO.md` §4.4) lo pone `src/sello.js`. Hoy **no hay Bitcoin ni StateArk**: `servidor/sim/stateark/` es una **simulación** (copia del commit d6bc6bd de `InTheState/stateark/sim`, ver su `LEEME.md`: además del §3 trae §5 pagos, §6 custodia y §8 candado, que solo están copiados y probados, la carta no los usa), JavaScript puro, sin dependencias, con las pruebas en `test/sim-stateark*.test.js`. Cuando exista StateArk real se sustituye con la misma forma (`sellar`, `prueba`, `verificar`).
 
 ```sh
 node servidor/sim/stateark/servidor.js 8787 600000      # un servicio de sello local; un bloque cada 10 min (sin el segundo número, solo POST /minar)
 ```
 
-`POST /sellar` `{ ids }`, `GET /prueba/:id` (202 si pendiente, 404 si nunca se selló), `POST /verificar` `{ id, prueba }` y `POST /minar` (solo en la simulación). Escucha solo en 127.0.0.1, con CORS abierto. Por el servicio **solo pasan ids** (SHA-256 del cuerpo), nunca eventos. La carta lo usa si la configuración trae «sello url» (junto a «sync url»; **aún no está en la plantilla de preferencias**, ver el §4.4 del contrato); en Node, `sello.crearSello()` sin url usa la simulación en memoria.
+`POST /sellar` `{ ids }`, `GET /prueba/:id` (202 si pendiente, 404 si nunca se selló), `POST /verificar` `{ id, prueba }` y `POST /minar` (solo en la simulación). Escucha solo en 127.0.0.1, con CORS abierto. Por el servicio **solo pasan ids** (SHA-256 del cuerpo), nunca eventos. La carta lo usa si la configuración trae «seal url» (ajustes del exterior, ver abajo y el §16.2 bis del contrato); en Node, `sello.crearSello()` sin url usa la simulación en memoria.
+
+## Elegir Supabase o la simulación
+
+Es solo configuración de la cuenta (`docs/CONTRATO.md` §16.2 bis, decisión #58 de VG): ni la carta ni el núcleo cambian. En «configuración» hay dos sitios:
+
+- **Servidor y eje compartido** («preferences»): `sync url` y `sync ledger` (y la clave de lectura, aparte). Es **Supabase** (o el servidor de prueba, que habla lo mismo): los eventos, los archivos y la guía van ahí. Con solo esto la carta es la de siempre: solo el reloj 6.8.0.
+- **Ajustes del exterior** («exterior settings», desplegable debajo de los de la guía): `relay url` (transporte: eventos y recibo, 6.8.1), `blossom url` (archivos) y `seal url` (sello, 6.8.2). Cada una que esté **manda sobre `sync url` para lo suyo**; el nombre del eje y la clave de lectura son los mismos. Sin url, nada va por ese camino (sin `seal url`, nada se sella). La guía sigue en `sync url`.
+
+Para probar con la simulación:
+
+```sh
+node servidor/sim/aarpia/servidor.mjs                  # http://127.0.0.1:8788  (eventos, recibo y archivos)
+node servidor/sim/stateark/servidor.js 8787 600000     # http://127.0.0.1:8787  (sello; un bloque cada 10 min)
+```
+
+y en los ajustes del exterior: `relay url` y `blossom url` = `http://127.0.0.1:8788`, `seal url` = `http://127.0.0.1:8787` (más el eje compartido: `sync ledger`, y su clave de lectura, que se crea con `POST /eventos/ejes` en el servicio simulado, cabecera `X-Crear-Ejes: prueba`). Los registros siguen siendo los mismos (ids, cuerpos, orden); la simulación añade el recibo del relé y el bloque simulado, y el registro sale «verificado» (`contrato.verificado`). Para volver a Supabase, vaciar las tres url (escribir `-` en cada una). `test/paridad-exterior.test.js` hace la misma secuencia (crear la cuenta, escribir, adjuntar, sincronizar, bajar en otro dispositivo) por los dos y comprueba que cambia solo lo que debe.
 
 ## La guía del PV9 (función `guia`)
 

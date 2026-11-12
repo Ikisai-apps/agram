@@ -545,6 +545,8 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
       ocupantes: { total: o.total, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamano, ctx, tipoDato, { posicion: pv })) },
       ancla: ev ? { sobre: ev.sobre ?? null, en: ev.en ? dirCorta(ev.en) : '', sobreTexto: ev.sobre ? legibleDe(eje, { ref: ev.sobre }, null, ctx.opciones).texto : null } : null,
       validacion: contrato.validar(eje, X, ctx.opciones),
+      // «verificado» (los tres relojes, contrato.verificado): solo si lo está; una marca discreta, nunca un dato de la carta.
+      ...(contrato.verificado(eje, X, ctx.opciones)?.ok ? { verificado: true } : {}),
     };
   }
   // Un PV lateral abierto como foco: su lista entera (paginada), con la disposición que dice la época para este hueco.
@@ -789,7 +791,7 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
     if (!deLaEpoca.has(clave)) { payload[d] = [p.nombre]; return; } // no es una preferencia: el tipo (B4)
     const numero = typeof hojas(defectos[clave])[0] === 'number';
     const dado = valores[clave] !== undefined ? hojas(valores[clave]) : hojas(actual[clave]);
-    const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== undefined && v !== null);
+    const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== '-' && v !== undefined && v !== null);
     // Vacía y sin defecto, la posición queda sin escribir (BTML no tiene posiciones vacías).
     let v = limpio.length ? limpio : hojas(defectos[clave]);
     let lista = null;
@@ -807,10 +809,11 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
     if (lista && lista.length < 2) return; // un solo paquete de arte: se guarda el que hay y no se pregunta
     campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: v.length === 1 ? v[0] : v, ...(lista ? { opciones: lista } : {}) });
   });
-  // El registro acaba en el primer hueco: lo de detrás de una posición sin valor no se puede escribir (BTML no tiene
-  // huecos), y una preferencia sin valor es la de la época (sync ledger sin sync url no comparte nada).
-  const hueco = payload.findIndex((x) => x === undefined);
-  if (hueco >= 0) payload.length = hueco;
+  // BTML no tiene huecos: una posición sin valor y sin defecto que queda delante de otra con valor (el servidor, sin dar,
+  // delante del eje compartido: con «relay url» de los ajustes del exterior basta el eje) se escribe «-», que se lee como
+  // vacío (más abajo); el registro acaba en el último valor.
+  while (payload.length && payload[payload.length - 1] === undefined) payload.length -= 1;
+  for (let d = 1; d < payload.length; d++) if (payload[d] === undefined) payload[d] = ['-'];
   return { payload, nombre: contrato.texto(eje, contrato.claves.plantilla(p.nombre), o.idioma, { original: p.nombre, epoca: o.epoca }), campos, sobre: alta.id, en: direccion([9]), de: actual.de };
 }
 
@@ -1397,6 +1400,7 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
       const n = nodos[i];
       n.estado = x.estacion;
       n.accion = x.accion;
+      if (n.X && contrato.verificado(eje, n.X, ctx.opciones)?.ok) n.verificado = true;
       const [fila, columna] = conEjes ? [x.oficio, x.ejecucion] : [x.posicion, x.pv];
       const celda = fila === null || fila === undefined || columna === null || columna === undefined ? null : celdas.find((c) => c.fila === fila && c.columna === columna);
       if (celda) celda.ocupantes.push(n);

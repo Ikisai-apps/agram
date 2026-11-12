@@ -4,6 +4,7 @@
 //
 //   POST /eventos/ejes · POST /eventos · GET /eventos?eje&desde&cuantos   → idénticos a AGRAM
 //   GET  /eventos/recibo?eje=…&id=<id AGRAM>                            → el reloj X.6.8.1 (nuevo, no rompe nada)
+//        errores con { error, codigo }: 404 eje-desconocido · 404 sin-recibo · 401 clave · 405 metodo (los textos no cambian)
 //
 // Diferencias con la función de Supabase, todas internas:
 //   - `recibido` es el instante del recibo 7701 que firma el relé (no la hora de Postgres);
@@ -100,15 +101,15 @@ export function crearServicio({ rele = new Rele(), privadaTransporte = generarCl
     }
     if (url.pathname.replace(/\/+$/, '').endsWith('/recibo') && request.method !== 'OPTIONS') {
       const responder = (estado, cuerpo) => new Response(JSON.stringify(cuerpo), { status: estado, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
-      if (request.method !== 'GET') return responder(405, { error: 'solo GET' });
+      if (request.method !== 'GET') return responder(405, { error: 'solo GET', codigo: 'metodo' });
       // La misma autorización que GET /eventos: la clave de lectura del eje.
       const nombre = url.searchParams.get('eje') ?? '';
       const fila = await almacen.eje(nombre);
-      if (!fila) return responder(404, { error: 'eje desconocido: ' + nombre });
+      if (!fila) return responder(404, { error: 'eje desconocido: ' + nombre, codigo: 'eje-desconocido' });
       const clave = request.headers.get('x-clave-lectura');
-      if (!clave || (await hashDeClave(clave)) !== fila.clave_lectura_hash) return responder(401, { error: 'clave de lectura ausente o incorrecta' });
+      if (!clave || (await hashDeClave(clave)) !== fila.clave_lectura_hash) return responder(401, { error: 'clave de lectura ausente o incorrecta', codigo: 'clave' });
       const reloj = await almacen.recibo(nombre, url.searchParams.get('id') ?? '');
-      return reloj ? responder(200, reloj) : responder(404, { error: 'sin recibo para ese id en ese eje' });
+      return reloj ? responder(200, reloj) : responder(404, { error: 'sin recibo para ese id en ese eje', codigo: 'sin-recibo' });
     }
     return api(request);
   }

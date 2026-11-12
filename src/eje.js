@@ -291,6 +291,11 @@ export class Eje {
     return this.#recibos.get(id) ?? null;
   }
 
+  /** Cuántos registros tienen recibo del transporte: 0 si este transporte no los da (lo usa contrato.verificado). */
+  get totalRecibos() {
+    return this.#recibos.size;
+  }
+
   /**
    * El sello de tiempo que ancla un registro (el tercer reloj, `X.6.8.2`: el bloque de Bitcoin que lo sella,
    * src/sello.js). Como el reloj externo, es una vista del libro que llega de fuera: NO es parte del cuerpo firmado, no

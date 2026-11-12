@@ -6,7 +6,7 @@
 // de subir (el mismo SHA-256 que calcula el servidor), así que la transacción se puede escribir aunque no haya red: el
 // archivo se queda en esta pestaña y se sube en la siguiente sincronización (como la cola de eventos de sincronia.js);
 // si la pestaña se cierra antes, se pierde y el registro apunta a un archivo que no está (se pinta «no disponible»).
-// Sin servidor (un ejemplo, o una cuenta sin `sync url`, `sync ledger` o clave de lectura) no cabe encolarlo: se rechaza.
+// Sin servidor (un ejemplo, o una cuenta sin `blossom url` ni `sync url`, sin `sync ledger` o sin clave de lectura) no cabe encolarlo: se rechaza.
 //
 //   tipoDeArchivo(nombre, tipo)            → el tipo admitido (por su tipo o su extensión) o null
 //   formatoDeTipo(tipo, opciones)          → el formato de la época (epoch.9.5.1) con que se representa, o null
@@ -17,6 +17,7 @@
 //     .contenido(id)                       → lo que hay de un archivo en esta pestaña: { estado, tipo, texto?, url? }
 
 import * as contrato from '../src/contrato.js';
+import { destinoDeArchivos } from '../src/sincronia.js';
 import { referenciaDeArchivo } from '../src/modelos.js';
 import { t } from './textos.js';
 
@@ -55,7 +56,16 @@ export async function sha256(bytes) {
   return hex(await globalThis.crypto.subtle.digest('SHA-256', bytes));
 }
 
-/** Lo que espera la función: la base (`sync url`) sin barra final. */
+/**
+ * Dónde están los archivos de `yo` (docs/CONTRATO.md §16.2 bis): { url, eje, claveLectura } o null. La url es la «blossom url» de
+ * «exterior settings» si la ha dicho; si no, la «sync url» de las preferencias (el eje y la clave de lectura son los de siempre).
+ */
+export function destinoDe(eje, yo, claveLectura) {
+  const d = eje && yo ? destinoDeArchivos(eje, yo) : null;
+  return d && claveLectura ? { url: d.url, eje: d.eje, claveLectura } : null;
+}
+
+/** Lo que espera la función: la base (`blossom url` o `sync url`) sin barra final. */
 const base = (url) => String(url).replace(/\/+$/, '');
 
 /**

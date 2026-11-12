@@ -572,6 +572,8 @@ html.mapped body{padding:0}
 .ejecucion[data-estado="ejecutada"]::after{content:'✓';position:absolute;right:1px;top:50%;width:11px;height:11px;margin-top:-6px;border-radius:50%;border:1.5px solid var(--ok);color:var(--ok);font-size:8px;line-height:9px;text-align:center;transform:rotate(-12deg)}
 .ejecucion .ocupante{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;padding:0;min-height:0;border:0;background:transparent}
 .ejecucion .estacion-nombre{flex:none;font-size:9px;color:var(--muted)}
+.verificado{flex:none;font-size:9px;color:var(--ok);opacity:.8;white-space:nowrap;letter-spacing:.02em}
+.verificado-linea{margin:2px 0}
 .ejecucion .quien,.ejecucion .celda-abrir{display:none}
 .rejilla-matriz .hijo-cuerpo:has(>.ejecuciones){align-items:flex-start;justify-content:flex-start;overflow:hidden}
 .ejecucion-mas{font-size:9px;color:var(--muted);text-align:center}

@@ -28,6 +28,7 @@ export * as contrato from './contrato.js';
 export * as local from './local.js';
 export * as sincronia from './sincronia.js';
 export * as sello from './sello.js';
+export * as exterior from './exterior.js';
 export * as pasos from './pasos.js';
 export * as modelos from './modelos.js';
 export * as acciones from './acciones.js';

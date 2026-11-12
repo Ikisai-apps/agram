@@ -29,6 +29,7 @@
 //   franjaDeEntrada(eje, id, pv)           la franja de una entrada en el 6 o el 7 (el primer paso de la fila que da valor) y si sus tres
 //                                          relojes van fuera de orden (`rara`, X.6.9)
 //   relojesFueraDeOrden(eje, id)           si los tres relojes de un registro (X.6.8) van fuera de orden: la lectura «clocks out of order»
+//   verificado(eje, id)                    { ok, sello, recibo, relojes }: sello verificado, recibo (si el transporte los da) y relojes en orden (§4.4)
 //   cohorteDe(eje, X, { cohorte })         la cohorte del 8: contra quién se compara X, sus comparables por caja y quién escribió la base
 //   yo(eje, identidad)                     mi alta y sus posiciones: cartera, criterio, atención, tiempo
 //   configuracion(eje, yo)                 mis preferencias (el registro en el 9 de mi alta) o los defectos de la plantilla
@@ -1036,7 +1037,7 @@ function aplicarLectura(eje, lectura, nodo, ctx, me, opciones) {
  */
 export function leer(eje, N, d, opciones = {}) {
   const r = leerRuta(eje, N, [Number(d)], opciones);
-  return { pv: Number(d), anclado: r.anclado, derivado: r.derivado, lista: r.lista };
+  return { pv: Number(d), anclado: r.anclado, derivado: r.derivado, lista: r.lista, ...(r.verificado ? { verificado: r.verificado } : {}) };
 }
 
 /**
@@ -1077,7 +1078,10 @@ export function leerRuta(eje, N, ruta, { yo, t: _t, tope = SIN_TOPE, ...opciones
   // nada repite lo anclado.
   const hilo = digitos.length > 1 && eje.obtener(raizNodo) ? eje.hilo(raizNodo).map((e) => claveDeValor({ ref: e.id })) : [];
   const fuera_ = new Set([...anclado.map(claveDeValor), ...hilo]);
-  return fuera(items.filter((x) => !fuera_.has(claveDeValor(x.valor))));
+  const dado = fuera(items.filter((x) => !fuera_.has(claveDeValor(x.valor))));
+  // El 5 de un registro, «dónde encaja», trae también si está verificado (los tres relojes; §4.4): una lectura, no un dato.
+  const marca = digitos.length === 1 && digitos[0] === 5 ? verificado(eje, raizNodo, opciones) : null;
+  return marca ? { ...dado, verificado: marca } : dado;
 }
 
 
@@ -1621,6 +1625,25 @@ export function relojesFueraDeOrden(eje, id, opciones = {}) {
   return v?.length === 1 && v[0] === true;
 }
 
+/**
+ * ¿Está verificado un registro? (VG 12-11, #49.8 y #60; docs/CONTRATO.md §4.4): una LECTURA de los tres relojes, no un dato.
+ * → { ok, sello, recibo, relojes } o null si el registro no está en el eje:
+ *   sello    true si su sello de tiempo (X.6.8.2) está en un bloque y `verificar` de src/sello.js lo dio por bueno
+ *            (`eje.sello(id).verificado`: el gancho de la estación «verificado»);
+ *   recibo   true si el transporte dio su recibo de llegada (X.6.8.1); false si el transporte los da (el eje tiene alguno)
+ *            pero no el de este; null si en este eje el transporte no da ninguno (no se exige);
+ *   relojes  true si los tres relojes van en orden («clocks out of order», X.6.9, es falso);
+ *   ok       sello && recibo !== false && relojes.
+ * Sin sello verificado nunca es ok: sin Bitcoin no hay «verificado».
+ */
+export function verificado(eje, id, opciones = {}) {
+  if (typeof id !== 'string' || !eje?.obtener?.(id)) return null;
+  const sello = eje.sello?.(id)?.verificado === true;
+  const recibo = eje.recibo?.(id) ? true : (eje.totalRecibos ?? 0) > 0 ? false : null;
+  const relojes = !relojesFueraDeOrden(eje, id, opciones);
+  return { ok: sello && recibo !== false && relojes, sello, recibo, relojes };
+}
+
 /** La plantilla de transacción que cambia la cohorte (epoch.9.6) y su parámetro: se leen de la época. */
 const CAMBIAR_COHORTE = Object.freeze({ plantilla: 'change cohort', parametro: 'cohort' });
 
@@ -1817,11 +1840,14 @@ export function anclaDeLasOpiniones(eje, quien, opciones = {}) {
   return typeof v === 'string' && v.trim() && v.trim() !== '-' ? v.trim() : null;
 }
 
-/** ¿Es X un registro de configuración (de las preferencias o de los ajustes de la guía)? Lo que no se manda a ninguna IA: puede llevar dónde se comparte el eje. */
+/** ¿Es X un registro de configuración (de las preferencias o de los ajustes de la guía o del exterior)? Lo que no se manda a ninguna IA: puede llevar dónde se comparte el eje. */
 export function esDeConfiguracion(eje, X, opciones = {}) {
   const p = plantilla(eje, X, opciones);
   if (!p) return false;
-  return p === en(raizDe(epocaDe(opciones)), SITIO.preferencias) || p === plantillas(null, opciones).find((x) => x.nombre === ajustesDeLaGuia(opciones))?.registro;
+  const propias = plantillas(null, opciones);
+  // `ajustes`: los nombres de otras plantillas de configuración que la pantalla conoce (los ajustes del exterior, src/exterior.js).
+  const otras = (Array.isArray(opciones.ajustes) ? opciones.ajustes : []).map((n) => propias.find((x) => x.nombre === n)?.registro);
+  return p === en(raizDe(epocaDe(opciones)), SITIO.preferencias) || p === propias.find((x) => x.nombre === ajustesDeLaGuia(opciones))?.registro || otras.includes(p);
 }
 
 function leerConfiguracion(eje, quien, p, opciones) {

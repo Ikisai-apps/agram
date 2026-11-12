@@ -43,6 +43,7 @@
 
 import { Eje } from './eje.js';
 import { configuracion } from './contrato.js';
+import { exterior } from './exterior.js';
 
 export const VERSION_SINCRONIA = 1;
 
@@ -52,27 +53,45 @@ export const PRUEBAS_POR_PASADA = 500;
 /** Cuántos recibos de llegada se piden como mucho en cada sincronización (el resto, en la siguiente). */
 export const RECIBOS_POR_PASADA = 500;
 
-/** Las claves de la configuración (plantilla «preferences», 8 y 9: docs/CONTRATO.md §15.7) que dicen dónde se comparte el eje. */
+/** Las claves de la configuración (plantilla «preferences», 8 y 9: docs/CONTRATO.md §15.7) que dicen dónde se comparte el eje; «relay url» y «blossom url» de «exterior settings» (§16.2 bis) mandan sobre `sync url` para el transporte y los archivos. */
 export const CONFIGURACION = Object.freeze({ url: 'sync url', eje: 'sync ledger' });
 
 const primeraHoja = (x) => (Array.isArray(x) ? x.find((h) => typeof h === 'string') : x);
 
-/**
- * Dónde comparte `yo` este eje, según su configuración: { url, eje } si tiene las dos (la url, http o https), o null:
- * sin ellas el eje vive solo en este dispositivo. La clave de lectura no está aquí (no va en el eje).
- */
-export function destino(eje, yo, opciones = {}) {
-  const c = configuracion(eje, yo, opciones);
-  const url = primeraHoja(c[CONFIGURACION.url]);
-  const nombre = primeraHoja(c[CONFIGURACION.eje]);
-  if (typeof url !== 'string' || typeof nombre !== 'string' || !url.trim() || !nombre.trim()) return null;
+const urlHttp = (x) => {
+  const v = primeraHoja(x);
+  if (typeof v !== 'string' || !v.trim()) return null;
   try {
-    if (!/^https?:$/.test(new URL(url.trim()).protocol)) return null;
+    if (!/^https?:$/.test(new URL(v.trim()).protocol)) return null;
   } catch {
     return null;
   }
-  return { url: url.trim().replace(/\/+$/, ''), eje: nombre.trim() };
+  return v.trim().replace(/\/+$/, '');
+};
+
+/**
+ * Dónde comparte `yo` este eje, según su configuración: { url, eje } si tiene las dos (la url, http o https), o null:
+ * sin ellas el eje vive solo en este dispositivo. La clave de lectura no está aquí (no va en el eje). `url` es la del
+ * TRANSPORTE (eventos y recibo): la «relay url» de «exterior settings» (docs/CONTRATO.md §16.2 bis) si la ha dicho; si
+ * no, «sync url» de las preferencias. El eje y la clave de lectura son los mismos en los dos casos: elegir Supabase o la
+ * simulación es solo configuración. Con `opciones.como`: 'archivos' da la de los archivos («blossom url», si no
+ * «sync url») y 'libro' solo «sync url» (donde vive la guía, ruta /guia).
+ */
+export function destino(eje, yo, { como = 'eventos', ...opciones } = {}) {
+  const c = configuracion(eje, yo, opciones);
+  const sync = urlHttp(c[CONFIGURACION.url]);
+  const nombre = primeraHoja(c[CONFIGURACION.eje]);
+  const fuera = como === 'libro' ? null : exterior(eje, yo, opciones);
+  const url = (como === 'archivos' ? fuera?.archivos : fuera?.relevo) ?? sync;
+  if (!url || typeof nombre !== 'string' || !nombre.trim()) return null;
+  return { url, eje: nombre.trim() };
 }
+
+/** Dónde están los archivos de `yo` (`destino` con la «blossom url»): { url, eje } o null. */
+export const destinoDeArchivos = (eje, yo, opciones = {}) => destino(eje, yo, { ...opciones, como: 'archivos' });
+
+/** Dónde está el servidor del libro de `yo` por «sync url» sola (la guía llama a {url}/guia): { url, eje } o null. */
+export const destinoDelLibro = (eje, yo, opciones = {}) => destino(eje, yo, { ...opciones, como: 'libro' });
 
 /** La espera antes de reintentar tras `intentos` fallos, en milisegundos: 1 s, 2 s, 4 s… hasta cinco minutos. */
 export function espera(intentos) {

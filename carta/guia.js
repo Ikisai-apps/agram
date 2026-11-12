@@ -16,7 +16,7 @@
 //                         en el servidor (servidor/supabase/funciones/guia).
 //   «direct» (provisional) la carta llama a la API de Anthropic desde el navegador con la clave guardada aquí.
 
-import { contrato, acciones, leer, leerEvento, sincronia, direccion } from '../src/index.js';
+import { contrato, acciones, leer, leerEvento, sincronia, direccion, exterior } from '../src/index.js';
 import { MEDIDAS } from './carta.js';
 import { pintar } from './texto.js';
 import { t } from './textos.js';
@@ -63,12 +63,22 @@ export function ajustes(eje, yo, opciones = {}) {
  * valores dados difieren de los actuales (si no, no hay nada que escribir).
  */
 export function ajustesEditables(eje, yo, valores = {}, opciones = {}) {
+  return ajustesEditablesDe(contrato.ajustesDeLaGuia(opciones), eje, yo, valores, opciones);
+}
+
+/**
+ * Lo mismo para cualquier plantilla de ajustes de la época, por su nombre (los de la guía y los del exterior, docs/CONTRATO.md
+ * §16.2 y §16.2 bis): el registro candidato de `yo` con los valores dados sobre los actuales. Un ajuste sin valor por
+ * defecto (una url) se quita escribiendo «-».
+ */
+export function ajustesEditablesDe(nombre, eje, yo, valores = {}, opciones = {}) {
   const alta = eje?.alta(yo);
-  const nombre = contrato.ajustesDeLaGuia(opciones);
   const plantilla = contrato.plantillas(null, opciones).find((p) => p.nombre === nombre);
   if (!alta || !plantilla) return null;
   const idioma = opciones.idioma ?? contrato.configuracion(eje, yo, opciones).language;
-  const actual = contrato.configuracionGuia(eje, yo, opciones);
+  const leido = contrato.configuracionDe(eje, yo, nombre, opciones);
+  // «-» es lo que se escribe en una posición sin valor que queda delante del tipo (BTML no tiene huecos): se lee como vacío.
+  const actual = Object.fromEntries(Object.entries(leido).map(([k, x]) => [k, x === '-' ? undefined : x]));
   const claves = contrato.clavesDeConfiguracionDe(nombre, opciones);
   const payload = [[plantilla.nombre]];
   const campos = [];
@@ -88,6 +98,8 @@ export function ajustesEditables(eje, yo, valores = {}, opciones = {}) {
       ayuda: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'help'), idioma, { original: '', ...opciones }),
     });
   }
+  // Las posiciones sin valor y sin defecto (una url sin decir) que quedan delante del tipo se escriben «-»: BTML no tiene huecos.
+  for (const { pv } of claves) if (pv < 5 && payload[pv] === undefined) payload[pv] = ['-'];
   payload[5] = [plantilla.nombre]; // el tipo (B4)
   return { payload, campos, sobre: alta.id, en: direccion([9]), cambiado };
 }
@@ -194,7 +206,7 @@ function delNueve(eje, X, o) {
   const propio = Array.isArray(ev?.payload) ? ev.payload[9] : undefined;
   if (propio !== undefined) trozos.push(leer(propio, { eje, epoca: o.epoca }));
   for (const h of eje.sobre(X, '9000000000') ?? []) {
-    if (!h || contrato.esDeConfiguracion(eje, h.id, o)) continue;
+    if (!h || contrato.esDeConfiguracion(eje, h.id, { ...o, ajustes: [exterior.AJUSTES.plantilla] })) continue;
     trozos.push(leer(h.payload, { eje, epoca: o.epoca }));
   }
   return trozos.map((x) => String(x).trim()).filter(Boolean).join('\n');
@@ -334,6 +346,6 @@ export async function preguntar({ via, url, ejeCompartido, claveLectura, claveIa
   return typeof datos.texto === 'string' && datos.texto ? { ok: true, texto: datos.texto, uso: datos.uso ?? { entrada: 0, salida: 0 } } : { ok: false, motivo: t('guiaRespuestaVacia') };
 }
 
-/** Dónde está el libro compartido de quien mira, para la vía servidor: { url, eje } o null (sincronia.destino). */
-export const destinoDe = (eje, yo) => sincronia.destino(eje, yo);
+/** Dónde está el libro compartido de quien mira, para la vía servidor: { url, eje } o null (sincronia.destinoDelLibro: la «sync url», no la del relé). */
+export const destinoDe = (eje, yo) => sincronia.destinoDelLibro(eje, yo);
 
