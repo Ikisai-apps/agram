@@ -70,7 +70,7 @@ Fuente: catálogo #52 y `DISENO_8-7_POR_MODO` (§4, la propuesta que VG ha decid
 ### #45 — El 6 lee las dos cosas, siempre (DECIDIDO VG 12-11)
 
 - **Qué se decidió.** El 6 lee las **dos** cosas, siempre (celda y mundo): el **hilo** (de dónde cuelga exactamente, hacia arriba) y el **diario** (todo lo pasado que le ha llegado, sobre él y lo que cuelga de él). El diario es más que el hilo pero no lo contiene. En las franjas: el hilo como la cadena de origen, lo llegado en los cuatro hilos 1 2 3 4 por lo que movió.
-- **Por qué.** La fuente no lo dice más allá de la distinción hilo/diario.
+- **Por qué.** Porque son dos cosas con sitios y garantías distintos (aclarado a VG): el hilo son los punteros «sobre» hacia arriba y está completo por construcción; el diario es el índice inverso «quién apunta a mí» (hoy el servidor; con Nostr, los relés, así que parcial por naturaleza). Por eso «el diario es más que el hilo pero no lo contiene»: leer solo una perdería la otra.
 - **Qué cambia.** Ajustar la regla `where-it-comes-from` (hoy solo `path`, es decir, el hilo) para que lea también el diario, y las franjas en la carta. Rama `beta-bqllee`. El estudio BQL (#43) propone cómo escribirlo («PV6, where it comes from»).
 - **Pruebas.** La fuente no las nombra: deben cubrir que la lectura devuelve el hilo y el diario por separado y que el diario no es el hilo.
 
@@ -99,14 +99,14 @@ Todas estas notas hablan del mismo sitio, el PV3 («para quién»). La **versió
 ### #31 — La admisión baja por el árbol (DECIDIDO VG 11-11, «Perfecto»)
 
 - **Qué se decidió.** La admisión **baja por el árbol**, no es global: quien recibe R mía sobre un registro queda admitido en ese registro y en todo lo que cuelga de él (admitir en el proyecto vale para sus issues; admitir en el alta, para todo lo mío). La regla de elegibles sube por `sobre` mientras el dueño sea el mismo.
-- **Por qué.** La fuente no lo dice más allá del ejemplo.
+- **Por qué.** No registrado; decisión de VG del 11-11 («Perfecto»), sobre la propuesta de Core de que la admisión no fuera global. Lo único que queda escrito es el efecto buscado: admitir en el proyecto vale para sus issues, y admitir en el alta vale para todo lo mío.
 - **Qué cambia.** Encargo pequeño en elegibles (regla/dato). Rama `beta-pv3`.
 - **Pruebas.** «+ prueba» (la fuente no la detalla): quien recibió R sobre un proyecto queda admitido en sus issues y no fuera de ese árbol.
 
 ### #32 — Dejar de admitir = quitar (DECIDIDO VG 11-11)
 
 - **Qué se decidió.** Dejar de admitir = **quitar** a esa identidad (o dejar de aceptar su R) de la posición mía donde la admití: una corrección del dueño sobre esa posición; desde entonces la lectura del 3 no la coloca y elegibles no la admite en lo que cuelga. Devolver la R es la **liquidación** (puede venir después); **vetar** (grupo 5) es la emergencia y gana sobre cualquier R.
-- **Por qué.** La fuente no lo dice.
+- **Por qué.** Porque quitar, devolver la R y vetar son tres cosas distintas y la decisión las separa: quitar es la corrección del dueño sobre la posición donde admitió; devolver la R es la liquidación, que puede venir después; vetar es la emergencia y por eso gana sobre cualquier R. El porqué de fondo (que no se coloque lo ajeno sin su aceptación) es el principio de #29.
 - **Qué cambia.** Una acción del aro «quitar» (inversa de admitir) como plantilla; elegibles lee la corrección. Rama `beta-pv3`.
 - **Pruebas.** La fuente no las nombra: deben cubrir que tras «quitar» el 3 no la coloca y elegibles no la admite en lo que cuelga, y que el veto gana sobre una R vigente.
 
@@ -129,14 +129,14 @@ Todas estas notas hablan del mismo sitio, el PV3 («para quién»). La **versió
 - **Corrección VG 12-11: la escalera de tokens** es T → +R → +P → +E (como el ciclo cerrado el 7-11): T = estar en el 4 (trabajo); T+R = 3.3 cercanos; T+R+P = 3.2 expertos (el criterio necesita gente y registros); T+R+P+E = 3.1 comercial (el recurso necesita criterios, un creador y registros). Lo acumulativo crece **del 4 hacia el 1**, no al revés.
 - **Principio transversal.** El 4 no representa información, funciona distinto; el 6 y el 7 existen para apoyarlo y quitarle el ruido (el trabajo en el tiempo); el token usado marca por dónde va cada registro.
 - **PV3 v2 (VG 12-11, la pantalla).** Grupos 0 a 5 como los PV: 0 ruido/base, 1 comercial (+E), 2 expertos (+P), 3 cercanos/favoritos (R), 4 equipo (+T), 5 vetados. Regla única en los dos sentidos: quien escribe pone su R, y el segundo token ya en el primer mensaje lo mete directo en su grupo; atender devuelve, perdonar quema. R = canal de estado por pareja, transferible entre tenedores (loops), cerrar = devolver. El dueño arrastra a cualquiera a cualquier grupo. En cada grupo: personas con marcador de cantidad; orden: primero los que tienen R mía, luego los que usan su R; un botón que cicla doy/recibo/todos. Dentro: 0 chat; 1 + recursos compartidos; 2 + paquetes de criterios; 3 favoritos; 4 equipo; acumulativos y filtrados por el elemento/criterio en foco.
-- **Por qué.** La fuente da el principio (el 4 funciona distinto; los tokens son consecuencia del tema, no una etiqueta) y no más.
+- **Por qué.** Porque el tema de lo que hablas ya dice qué se mueve, así que el grupo no necesita ser un dato aparte: los tokens son consecuencia, no una etiqueta. La escalera crece del 4 hacia el 1 porque cada peldaño necesita al anterior (el criterio necesita gente y registros; el recurso necesita criterios, un creador y registros). Y el 4 funciona distinto (no representa información): el 6 y el 7 existen para apoyarlo y quitarle el ruido.
 - **Qué cambia.** Lectura del 3 (por tema, no por grupo), pantalla del 3 (grupos 0 a 5, arrastrar, botón doy/recibo/todos) y la regla del precio. Rama `beta-pv3`. Queda un punto **abierto con VG**: «arrastrar vs. movimientos» (Core lo cierra con VG y luego hace el encargo).
 - **Pruebas.** La fuente no las nombra: deben cubrir el sitio por tema (los cuatro casos, más el 0 y el 5), que la escalera acumula del 4 al 1 y que arrastrar al 5 veta.
 
 ### #37 — Mínimo y rango por caja del 3 (VG 12-11)
 
 - **Qué se decidió.** «Rango» = nivel.grado. Por caja del 3 (y en 1 y 2 dentro del 3): **mínimo de cantidad** para que algo aparezca (luego decido si lo leo) y **filtro por rango**: por defecto mi propio rango sobre el foco; modos: solo ese rango · ampliar hacia arriba · ampliar hacia abajo; contador de los que quedan fuera. El precio por grupo de `epoch.1.2.1` **desaparece como está**; los mínimos son datos del propio nodo X.3.d (su 1 = cantidad mínima, su 8 = rango exigido).
-- **Por qué.** La fuente no lo dice más allá del reparto de datos (los mínimos viven en el nodo).
+- **Por qué.** Para que lo que no alcanza el mínimo no moleste y caiga al 3.0 («luego decido si lo leo»), y porque la R ya es el precio universal: el precio por grupo sobraba y lo que queda son mínimos opcionales por caja, vacíos por defecto, que viven en el propio nodo (encargo `pv3` de Core). El rango por defecto es el mío propio (VG).
 - **Qué cambia.** Datos del nodo X.3.d y retirada del precio por grupo de `epoch.1.2.1`; filtro en la carta. Rama `beta-pv3` (filtro preparado; el rango sale de `beta-el4`, #39), con #35 y #38.
 - **Pruebas.** La fuente no las nombra: deben cubrir el mínimo, los tres modos de rango y el contador de los excluidos.
 
@@ -173,14 +173,14 @@ Todas estas notas hablan del mismo sitio, el PV3 («para quién»). La **versió
 ### #39 — Un solo rango (DECIDIDO VG 12-11, corregido)
 
 - **Qué se decidió.** **Un solo rango**, el del 8 (nivel.grado por la cuota en la cohorte), usado por detrás en todas partes: filtro del 3, posiciones del 9, etc. No hay rango declarado: situarse en el 9 es elegir entre las posiciones que ese rango deja disponibles. Se descarta repartir la madurez.
-- **Por qué.** La fuente no lo dice más allá de la corrección de VG.
+- **Por qué.** No registrado; decisión de VG del 12-11 (corregida). Lo escrito es el efecto: el rango se lee del 8 y no se declara, de modo que el filtro del 3 y las posiciones del 9 usan el mismo y no hay que repartir la madurez (se descarta).
 - **Qué cambia.** Lectura `how` apoyada en la del 8; filtro del 3 por rango. Rama `beta-el4`. Se enlaza con #41 (los rangos son los peldaños) y #37 (el filtro).
 - **Pruebas.** La fuente no las nombra: deben cubrir que `how` sale del 8 y que el filtro del 3 por rango coincide con él.
 
 ### #40 — El orden de ver es 1, 2, 3, 4 (DECIDIDO VG 12-11)
 
 - **Qué se decidió.** El **orden de ver** es 1, 2, 3, 4 (sobre qué me centro, con qué criterios, para quién, hago) en todas partes; los hilos del 6 y del 7 pasan a 1 2 3 4 de arriba abajo (hoy 1 3 2 4 / 2 4 1 3, dato en la fila 8.7). Lo hecho se construye al revés: T (que se recalcula) → R → P → E.
-- **Por qué.** La fuente no lo dice más allá del orden de ver frente al de construir.
+- **Por qué.** No registrado; decisión de VG del 12-11. Lo escrito es la distinción: ver va de lo que miras a lo que haces (sobre qué me centro, con qué criterios, para quién, hago) y construir va al revés (T se recalcula, luego R, P, E); el orden de ver se aplica en todas partes.
 - **Qué cambia.** Dos datos en la fila 8.7. Rama `beta-el4`.
 - **Pruebas.** «+ prueba» (la fuente la nombra): los hilos del 6 y del 7 salen en 1 2 3 4.
 
