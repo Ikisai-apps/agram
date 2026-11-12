@@ -51,7 +51,7 @@ async function conCore() {
   const menu = await anclar(cuenta.cuenta.alta, 'Menú del día', 'tres platos y postre');
   const core = { nombre: 'core', ...(await autoridad.generarClaves()) };
   const tAlta = T(m++);
-  const peticion = await acciones.transaccion(eje, 'register a thing', { X: cuenta.cuenta.alta, thing: 'core', key: core.publica }, yo, { t: tAlta, firmar: (ev) => autoridad.firmarPosesion(ev, 'core', core.privada) });
+  const peticion = await acciones.transaccion(eje, 'register a thing', { X: cuenta.cuenta.alta, thing: 'core', key: core.publica, minutes: 60 }, yo, { t: tAlta, firmar: (ev) => autoridad.firmarPosesion(ev, 'core', core.privada) });
   const alta = await K.enviar(eje, cuenta.cuenta.alta, 'register a thing', { thing: 'core', key: core.publica, minutes: 60, proof: peticion.evento.posesion.core }, yo, firmar, { t: tAlta });
   assert.equal(alta.ok, true, JSON.stringify(alta.motivos));
   const deCore = async (nombre, X, valores) => {
@@ -177,8 +177,9 @@ test('Core en la carta: el mundo 1 del alta de VG trae a Core derivado en su 3 (
   assert.ok(celda(uno, 4).ocupantes.every((o) => !o.derivado), 'lo anclado sigue en ocupantes, sin marca');
   const h = html(await arbol(completa(c.alta, 1), c.eje, c.yo, GRANDE));
   assert.ok(h.includes(`class="derivado" title="${textoDe('derivadoPor', { por: '1 cuánto › 3 con quién' })}"`), 'la marca: una clase y el title con el por');
+  // el 3 por tema (encargo pv3): Core, admitido con R y T, es una persona de la caja 4 (equipo)
   const tres = (await arbol(completa(c.alta, 3), c.eje, c.yo, GRANDE)).centro.rejilla;
-  assert.deepEqual(celda(tres, 4).derivados.map((o) => [o.valor, o.por]), [['core', '3 con quién › 4 qué se hace']]);
+  assert.deepEqual(celda(tres, 4).personas.map((p) => [p.identidad, p.porque]), [['core', 'tema']]);
 });
 
 // ---------- la anidación 1 ⊂ 2 ⊂ 3 ----------
@@ -200,7 +201,8 @@ test('la anidación con el jardín y el parque: el 2 de un elemento lee sus crit
   // las matrices: el 2 enciende los del 1 y el 3 los del 2 (fila 8.7, sin tocar)
   const hijos = (pv) => C.divisionDelMundo(null, pv).hijos;
   assert.deepEqual(hijos(2).slice(0, 4), hijos(1));
-  assert.deepEqual(hijos(3).slice(0, 5), hijos(2));
+  // el 3 por tema (VG, 12-11, encargo pv3) numera sus cajas 0-5 como los PV: la lectura 2.3 sigue encadenándose
+  assert.deepEqual(hijos(3), [0, 1, 2, 3, 4, 5]);
   // en la carta, el 3 del mundo 2 de la compra trae el comentario, derivado
   const r = (await arbol(completa(c.compra.id, 2), c.eje, 'huesped', GRANDE)).centro.rejilla;
   assert.ok(r.celdas.find((y) => y.pv === 3).derivados.some((o) => o.X === comentario.id && o.por === '2 con qué condición › 3 con quién'));
@@ -244,12 +246,12 @@ test('la carta baja toda la profundidad del 1 con la dirección entera (1 → 1.
   }
   const quinto = await nivel([{ d: 1 }, { d: 1 }, { d: 1 }, { d: 1 }]);
   assert.equal(quinto.nivel, 4, 'no pasa de la profundidad de su matriz');
-  // el 2 baja cinco niveles y el 3 seis, con la dirección entera
+  // el 2 baja cinco niveles con la dirección entera; el 3 por tema (encargo pv3), dos: las cajas y la conversación
   const enMundo = async (pv, n) => (await arbol(completa(c.compra.id, pv, { profundidad: { [pv]: Array(n).fill({ d: 1 }) } }), c.eje, 'huesped', GRANDE)).centro.rejilla;
   const r2 = await enMundo(2, 4);
   assert.deepEqual([r2.nivel, r2.direccion], [5, '2.1.1.1.1']);
   const r3 = await enMundo(3, 5);
-  assert.deepEqual([r3.nivel, r3.direccion], [6, '3.1.1.1.1.1']);
+  assert.deepEqual([r3.nivel, r3.direccion], [2, '3.1']);
   // entrar en un registro (con el dígito de su celda) también suma su dígito a la dirección
   const nota = await c.eje.escribir({ autor: 'huesped', sobre: c.compra.id, en: '3000000000', t: '2026-11-08T11:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: [['Nota']] });
   const dentro = (await arbol(completa(c.compra.id, 1, { profundidad: { 1: [{ X: nota.id, d: 3 }] } }), c.eje, 'huesped', GRANDE)).centro.rejilla;

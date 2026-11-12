@@ -308,7 +308,10 @@ function aceptacionDe(eje, ev) {
   if (!X) return '?';
   if (X.autor === ev.autor) return 'en lo suyo';
   const el = elegibles.elegibles(eje, X.id);
+  if (el.vetados?.has(ev.autor)) return 'vetado: ' + el.dueno + ' lo ha vetado (su 3.5)';
   if (el.todos) return 'aceptado (el criterio de ' + el.dueno + ' admite a cualquiera)';
+  // La admisión baja por el árbol (encargo pv3): admitido arriba, en lo del mismo dueño.
+  if (el.heredados?.has(ev.autor)) return 'aceptado (' + el.dueno + ' admite a ' + ev.autor + ' en lo de arriba: baja por el árbol)';
   if (el.autores.has(ev.autor)) return 'aceptado (' + el.dueno + ' admite a ' + ev.autor + (el.origen === 'lista' ? ' en el 2.3' : ' en su 3') + ')';
   return 'pendiente: ' + el.dueno + ' no lo ha aceptado';
 }

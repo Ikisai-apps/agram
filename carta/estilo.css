@@ -1027,3 +1027,38 @@ html.mapped body{padding:0}
 .aro.aro-nuevo .aro-centro{grid-area:2 / 1 / 3 / 4;justify-self:center;width:var(--centro-ancho);padding:8px}
 .aro.aro-nuevo .aro-centro>b{display:block;font-size:12px;color:var(--muted)}
 .aro.anclado.aro-nuevo .aro-centro>b{display:block}
+/* el 3 por tema (encargo pv3, VG 12-11): cada caja, sus personas con el marcador del canal de R (doy, recibo); el botón
+   que cicla y el interrogante del sitio en la cabeza; arrastrar una persona a otra caja la reclasifica */
+.caja-tres .hijo-cabeza{align-items:center}
+.caja-tres .hijo-nombre{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filtro-caja{flex:none;font-size:11px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));background:var(--bg);color:inherit;cursor:pointer}
+.filtro-caja[data-filtro="doy"]{border-color:var(--c,var(--accent));font-weight:700}
+.filtro-caja[data-filtro="recibo"]{border-style:dashed;font-weight:700}
+.sitio-interrogante{flex:none;width:22px;height:22px;min-height:22px;padding:0;border-radius:50%;border:1px solid color-mix(in oklab,var(--c,var(--accent)) 60%,var(--rule));background:color-mix(in oklab,var(--c,var(--accent)) 12%,var(--bg));color:inherit;font-weight:700;font-size:12px;line-height:1;cursor:pointer}
+.rejilla-cabeza .sitio-interrogante{margin-left:4px}
+.caja-tres .personas{list-style:none;margin:0;padding:4px;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}
+.persona{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-height:28px;padding:2px 8px;border-radius:999px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 40%,var(--rule));background:var(--bg);color:inherit;font-size:12px;cursor:grab;touch-action:none;user-select:none;-webkit-touch-callout:none}
+.persona .texto{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.persona .marcador{display:inline-flex;gap:3px;flex:none}
+.persona .marcador small{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;line-height:16px;min-width:16px;padding:0 4px;border-radius:999px;text-align:center}
+.persona .marcador .doy{background:color-mix(in oklab,var(--c,var(--accent)) 30%,var(--bg))}
+.persona .marcador .doy::before{content:"↑"}
+.persona .marcador .recibo{border:1px solid color-mix(in oklab,var(--c,var(--accent)) 50%,var(--rule))}
+.persona .marcador .recibo::before{content:"↓"}
+.persona.arrastrando{cursor:grabbing;opacity:.55;outline:2px dashed var(--accent)}
+.hijo-minimo{margin:0}
+.persona-rejilla{font-weight:600}
+/* la cruceta del propio nodo de un sitio (el personaje del sitio, #38): sus diez posiciones en la geometría de la cruz */
+.sitio-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+.sitio-cruceta{background:var(--bg);border:1px solid var(--rule);border-radius:12px;padding:12px;width:min(92vw,720px);max-height:92vh;overflow:auto;display:grid;gap:10px}
+.sitio-cruceta header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sitio-cruceta h2{margin:0;font-size:16px;display:flex;align-items:center;gap:8px}
+.sitio-icono{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:color-mix(in oklab,var(--accent) 18%,var(--bg));border:1px solid var(--accent);font-size:13px}
+.sitio-posiciones{list-style:none;margin:0;padding:0;display:grid;gap:6px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.sitio-celda{grid-row:var(--fila);grid-column:var(--columna);display:grid;gap:6px;min-width:0;align-content:start}
+.sitio-posicion{display:grid;gap:3px;align-content:start;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));background:color-mix(in oklab,var(--c,var(--rule)) 8%,var(--bg));font-size:12px}
+.sitio-posicion .numero{font-size:10px;font-weight:700;justify-self:start;padding:0 5px;border-radius:4px;background:color-mix(in oklab,var(--c,var(--rule)) 30%,transparent)}
+.sitio-posicion .nombre{font-weight:600}
+.sitio-posicion .valor{color:var(--muted);overflow-wrap:anywhere}
+.sitio-posicion .accion{font-size:11px;min-height:26px;justify-self:start}
+@media (max-width:520px){.sitio-posiciones{grid-template-columns:1fr}.sitio-celda{grid-row:auto;grid-column:auto}}

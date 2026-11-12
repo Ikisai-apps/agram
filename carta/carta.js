@@ -1118,7 +1118,7 @@ const enDosFilas = (d) => (d.bandas?.length ? { columnas: Math.ceil(d.bandas.len
 const FORMAS = {
   cruceta: { geometria: enColumnas(2, 2), celdas: celdasDeHijos, flotante: true },
   escalera: { geometria: unaColumna, celdas: celdasDeHijos },
-  conversacion: { geometria: unaColumna, celdas: celdasDeHijos },
+  conversacion: { geometria: unaColumna, celdas: (...a) => celdasDeConversacion(...a) },
   columnas: { geometria: (d) => (d.hijos.length ? { columnas: d.hijos.length, filas: 1 } : null), celdas: celdasDeHijos, siguiente: true },
   rejilla: { geometria: enColumnas(3), celdas: celdasDeHijos },
   matriz: { geometria: () => ({ columnas: 10, filas: 10 }), celdas: celdasDeMatriz },
@@ -1127,6 +1127,8 @@ const FORMAS = {
   camino: { geometria: enDosFilas, celdas: caminoDeRejilla },
 };
 const geometriaDe = (d) => FORMAS[d.forma]?.geometria(d) ?? null;
+/** Lo que mide la fila del 3 por tema (encargo pv3): sus hijos son cajas de personas. */
+const MIDE_GRUPOS = 'groups';
 
 /** Las posiciones de un registro (los dígitos de la geometría, del 0 al 9). */
 const POSICIONES = Object.freeze(Object.keys(GEOMETRIA).map(Number).sort((a, b) => a - b));
@@ -1255,7 +1257,9 @@ function medidaDeHijo(h, eje, ctx) {
  */
 function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar, base = [], direccion = null, raiz = R }) {
   const forma = FORMAS[d.forma];
-  const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, base, ...(direccion ? { direccion, raiz } : {}), ...ctx.opciones }).map((h, i) => {
+  const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, base, filtros: ctx.estado?.filtrosDelTres ?? {}, ...(direccion ? { direccion, raiz } : {}), ...ctx.opciones }).map((h, i) => {
+    // El 3 por tema (encargo pv3): la caja es de personas, cada una con su marcador (doy, recibo) y, al entrar, su conversación.
+    if (h.personas) return celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar);
     const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio, base);
     // Lo que el núcleo mide de cada hijo (encargo «datos», issue #11): el estado de cada paquete del 3, en su ocupante.
     if (h.estados) ocupantes.forEach((o, k) => { if (h.estados[k]) o.estado = h.estados[k]; });
@@ -1268,6 +1272,64 @@ function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar, base = [], direccion = n
     return celda;
   });
   return { celdas, vacia: celdas.every((c) => c.vacio), pagina: null, ...(forma.flotante ? { flotante: centroFlotante(eje, R, pv, ctx) } : {}) };
+}
+
+/**
+ * Una caja del 3 por tema (encargo pv3, VG 12-11; contrato.hijosDe con «groups»): las personas que caen en ella, en el
+ * orden del núcleo (primero quienes tienen R mía, luego quienes usan la suya), cada una con su marcador (`doy`, `recibo`:
+ * el canal de R de la pareja); un clic entra en su conversación (su alta, con el dígito de la caja), mantener abre el aro
+ * de su alta y arrastrarla a otra caja la reclasifica (la app: «move to group»). La caja lleva el botón que cicla (`filtro`:
+ * todos, doy, recibo), sus mínimos (`minimo`, `fuera`: cuántos cayeron al 0) y su sitio, el nodo R.3.d (el interrogante
+ * que abre su cruceta). En la caja no se baja por el dígito: dentro hay personas, no lo anclado.
+ */
+function celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar) {
+  const personas = h.personas.map((p) => ({
+    tipo: 'persona', identidad: p.identidad, texto: p.texto, X: p.alta, pv: h.digito, caja: h.digito, doy: p.doy, recibo: p.recibo, porque: p.porque, cae: p.cae ?? null,
+    entra: Boolean(entrar && d.entra && p.alta),
+  }));
+  return {
+    fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, caja: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total,
+    ocupantes: [], ocupante: null, personas, entra: personas.some((p) => p.entra), escribir: null,
+    filtro: h.filtro, minimo: h.minimo, fuera: h.fuera, rangoPendiente: h.rangoPendiente, sitio: { X: R, lugar: pv + '.' + h.digito },
+  };
+}
+
+/** Los nombres de las capas de la conversación con una persona (textos de la interfaz): 0 el chat, 1 recursos, 2 criterios, 3 favoritos, 4 trabajo. */
+const CAPAS = Object.freeze({ 0: 'capaChat', 1: 'capaRecursos', 2: 'capaCriterios', 3: 'capaFavoritos', 4: 'capaTrabajo' });
+
+/**
+ * La conversación del 3 con una persona (encargo pv3; contrato.conversacionDelTres): R es el alta de la persona en la
+ * que se entró desde su caja (el dígito de la caja es el último de la dirección); una celda por capa, en una columna: el
+ * chat (cada mensaje con su autor, su hora y el estado de su paquete) y, acumulativo del 4 hacia el 1 según la caja, el
+ * trabajo, los favoritos, los criterios y los recursos compartidos (con el aro sobre cada uno). Sin «groups» en lo que
+ * mide la fila, la conversación de siempre (celdasDeHijos).
+ */
+function celdasDeConversacion(eje, R, pv, d, g, ctx, opciones) {
+  const { raiz = R, direccion = null } = opciones;
+  if (!d.mide?.includes(MIDE_GRUPOS) || raiz === R) return celdasDeHijos(eje, R, pv, d, g, ctx, opciones);
+  const caja = Array.isArray(direccion) && direccion.length > 1 ? direccion[direccion.length - 1] : undefined;
+  const c = contrato.conversacionDelTres(eje, raiz, R, { caja, ...ctx.opciones });
+  if (!c) return celdasDeHijos(eje, R, pv, d, g, ctx, opciones);
+  const sobrio = sobrioDe(ctx);
+  const celdas = c.capas.map((k, i) => {
+    const ocupantes = k.items.map((it) => ({ ...nodoOcupante(eje, { ref: it.ref }, tamanoDeNivel(2, ctx.opciones), sobrio, null, { pv: k.capa, lado: GEOMETRIA[k.capa]?.lado ?? 0, posicion: k.capa, anidar: 0 }), ...(it.estado ? { estado: it.estado } : {}), entra: false }));
+    return { fila: i, columna: 0, pv: k.capa, capaDelTres: k.capa, nombre: t(CAPAS[k.capa]), vacio: ocupantes.length === 0, total: ocupantes.length, ocupantes, ocupante: ocupantes[0] ?? null, entra: false, escribir: null };
+  });
+  return { celdas, vacia: celdas.every((x) => x.vacio), pagina: null, columnas: 1, filas: Math.max(1, celdas.length), persona: { identidad: c.persona, texto: c.texto, caja: c.caja, nombre: c.nombre, alta: R } };
+}
+
+/**
+ * El personaje del sitio (encargo pv3, VG 12-11, issue #38): la cruceta del propio nodo X.<lugar> (acciones.sitio), con
+ * sus diez posiciones en la geometría de la cruz (1-4 en las esquinas, 6-9 en la cruz, 0 y 5 en el centro), cada una
+ * con su nombre, su valor y la acción que la configura (la app abre su formulario con los parámetros del sitio).
+ */
+function nodoSitio(eje, s, yo, ctx) {
+  const n = acciones.sitio(eje, s.X, s.lugar, yo, ctx.opciones);
+  if (!n) return null;
+  return {
+    X: n.X, lugar: n.direccion, texto: legibleDe(eje, { ref: n.X }, null, ctx.opciones).texto,
+    posiciones: n.posiciones.map((p) => ({ ...p, valor: p.valor.map(String).join(' · '), celda: GEOMETRIA[p.posicion].celda })),
+  };
 }
 
 /**
@@ -1531,6 +1593,8 @@ function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1,
     pv, forma: d.forma, columnas: g.columnas, filas: g.filas, niveles: d.profundidad, nivel: d.nivel, entra: d.entra && entrar,
     ruta: pasos.map((p) => p.X ?? p.d), X: R, base: sub, direccion: direccion ? direccion.join('.') : null,
     texto: R === X ? null : legibleDe(eje, { ref: R }, null, ctx.opciones).texto, estilo: estiloDe(eje, R, pv, ctx),
+    // El personaje del sitio (encargo pv3): en el 3 por tema, el interrogante del nodo R.3 (su cruceta)
+    ...(d.mide?.includes(MIDE_GRUPOS) && !pasos.length ? { sitio: { X: R, lugar: String(pv) } } : {}),
   };
   return { ...base, ...FORMAS[d.forma].celdas(eje, R, pv, d, g, ctx, { pagina, hueco, entrar, base: sub, direccion, raiz: X }) };
 }
@@ -1577,12 +1641,14 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano, { personaje: conP
   // Cada ocupante que es un registro con arte propio se ve con su retrato (#25); los demás, con el dibujo del mundo.
   const deOcupante = (o) => (o?.X && retratoDe(ctx, o.X, pv, lado, tamano)) || (esPersonaOcupante(eje, o) && dibujo('persona')) || dibujo('ocupante');
   const efectosDe = (entradas) => (entradas?.length ? efectosDeEntradas(ctx, entradas, pv, lado, tamano, R) : null);
+  // Las personas de una caja del 3 (encargo pv3): la que es persona, con el dibujo de persona del mundo; una cosa, el de ocupante.
+  const dePersona = (p) => (eje.esPersona?.(p.identidad) === true && dibujo('persona')) || dibujo('ocupante');
   for (const c of r.celdas ?? []) {
-    const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
+    const lista = c.personas ?? c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
     c.capa = {
       total: c.total ?? lista.length,
       hijo: r.forma === 'matriz' ? null : c.vacio || !lista.length ? dibujo('vacio') : dibujo('hijo'),
-      ocupantes: lista.map(deOcupante).filter(Boolean),
+      ocupantes: lista.map(c.personas ? dePersona : deOcupante).filter(Boolean),
       hecho: c.estado === 'ejecutada' ? dibujo('hecho') : null,
       efectos: null,
     };
@@ -1813,6 +1879,8 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const aro = !estado.aro?.X || !eje.obtener(estado.aro.X) ? null
     : Number.isInteger(estado.aro.nuevo) ? nodoAroNuevo(eje, estado.aro.X, estado.aro.nuevo, ctx) : nodoAro(eje, estado.aro.X, yo, ctx);
   const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, ctx.opciones) : null;
+  // El personaje de un sitio abierto (encargo pv3): la cruceta del nodo, si no hay formulario encima.
+  const sitio = !form && estado.sitio?.X && eje.obtener(estado.sitio.X) ? nodoSitio(eje, estado.sitio, yo, ctx) : null;
   return {
     tipo: 'carta',
     X,
@@ -1840,6 +1908,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     // Sequenced: las filas de la tarjeta, el pasado y el futuro del hilo y la fila de dígitos (en Mapped no está).
     ...(secuencia ? { secuencia: { filas: secuencia.filas, pasado: secuencia.pasado, futuro: secuencia.futuro, digitos: secuencia.digitos } } : {}),
     aro,
+    sitio,
     formulario: form ? { ...form, motivos: estado.formulario.motivos ?? [], resultado: estado.formulario.resultado ?? null } : null,
     camino,
     local: localDe(estado.local, opciones.t),

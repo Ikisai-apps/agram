@@ -87,8 +87,9 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
   // R (encargo 3b, mapa §16 [D] «PV3 = regla de atención»): las seis zonas, cada una con su precio por defecto.
   assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k + '.0')), ['desconocidos', 'comercial', 'expertos', 'cercanos', 'equipo', 'vetados']);
   assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k + '.1')), [0, 1, 2, 3, 4, 5]);
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k + '.2.0')), ['my R', 'E', 'P', 'their R', 'open record', 'nothing']);
-  assert.match(val('epoch.1.2.2').at(-1), /seis grupos son seis precios/);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k + '.2.0')), ['their R', 'their R', 'their R', 'their R', 'their R', 'nothing']); // la R es el precio universal (VG, 12-11, encargo pv3)
+  assert.match(val('epoch.1.2.2').at(-2), /seis grupos son seis precios/);
+  assert.match(val('epoch.1.2.2').at(-1), /la R es el precio universal/, 'VG, 12-11 (encargo pv3)');
   // T: el dígito de cada escala es el de D-SERIE (tokens.ESCALAS_T), y su 1, la asignación diaria del eje.
   ESCALAS_T.forEach((e, k) => {
     const asignacion = uno('epoch.1.3.1.' + k + '.1');

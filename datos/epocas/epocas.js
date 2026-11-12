@@ -168,7 +168,7 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             [
-              "my R"
+              "their R"
             ],
             [
               1
@@ -184,7 +184,7 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             [
-              "E"
+              "their R"
             ],
             [
               1
@@ -200,7 +200,7 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             [
-              "P"
+              "their R"
             ],
             [
               1
@@ -232,10 +232,10 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             [
-              "open record"
+              "their R"
             ],
             [
-              0
+              1
             ]
           ]
         ],
@@ -258,7 +258,8 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         "VG, 9-11 (mapa §16 [D] «PV3 = regla de atención»): cercanos pagan con su propia R, comerciales con E, otros con P, algunos devolviendo mi propia R, vetados nada; grupo por defecto «desconocidos» con precio mi propia R (nada hasta que yo le dé algo). Zonas del encargo 3b: general/desconocidos 0, comercial 1, expertos 2, cercanos 3, equipo 4, vetados 5",
-        "VG, tras 3b-bis (encargo 3c-2a): los seis grupos son seis precios, y la regla de atención los lee de aquí (las lecturas «attention group» y «attention price»): desconocidos «my R» (la R del destinatario devuelta: gratis para quien ya tiene R suya), comercial «E» (la cantidad la fija el dueño en su A.3.1.2; el token no se cambia), expertos «P» (P del remitente sobre el dominio del destinatario: gratis para quien tiene criterio sobre lo suyo), cercanos «their R» (atención por atención), equipo «open record» (sin pago mientras exista un registro abierto, no cerrado, entre ambos), vetados «nothing» (no llegan)"
+        "VG, tras 3b-bis (encargo 3c-2a): los seis grupos son seis precios, y la regla de atención los lee de aquí (las lecturas «attention group» y «attention price»): desconocidos «my R» (la R del destinatario devuelta: gratis para quien ya tiene R suya), comercial «E» (la cantidad la fija el dueño en su A.3.1.2; el token no se cambia), expertos «P» (P del remitente sobre el dominio del destinatario: gratis para quien tiene criterio sobre lo suyo), cercanos «their R» (atención por atención), equipo «open record» (sin pago mientras exista un registro abierto, no cerrado, entre ambos), vetados «nothing» (no llegan)",
+        "VG, 12-11 (encargo pv3, issues #33-#37): los precios por grupo desaparecen como estaban: la R es el precio universal (quien escribe pone su R, «their R» para quien la recibe; atender la devuelve, perdonar la quema, dejarlo es pendiente) y los grupos 0-4 cobran lo mismo; vetados sigue sin llegar («nothing»: el veto gana sobre cualquier R). No hay «grupo» como dato: la caja del 3 en que cae cada persona la deciden de qué habla cada mensaje y lo que mueve (contrato.gruposDelTres); lo que queda por caja son mínimos opcionales, datos del propio nodo X.3.d (su 1, la cantidad mínima; su 8, el rango mínimo), vacíos por defecto. Los nombres siguen siendo los seis de la época, ahora numerados como los PV: 0 desconocidos (la bandeja, el ruido), 1 comercial, 2 expertos, 3 cercanos, 4 equipo, 5 vetados"
       ]
     ],
     [
@@ -469,7 +470,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae"
     },
     {
-      "ref": "2839bc0459da64e0f9d212f00290dee370bf6a6cb40404299c4bfeb7e32c5181"
+      "ref": "58d93d3b5ed904abf3c21bf9e53fc15c99410b7a5de545768903aeb09ed530dc"
     },
     {
       "ref": "ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32"
@@ -2733,40 +2734,36 @@ export const EPOCA_0_BTML_DATOS = [
             3
           ],
           [
-            1,
-            2,
-            3,
-            4,
-            5,
-            6
-          ],
-          [
-            6
-          ],
-          [
-            "rejilla",
-            "conversacion"
-          ],
-          [
-            "epoch.1.2.1",
-            "attended"
-          ],
-          [
-            "-"
-          ],
-          [
-            "nivel 1: rejilla 3 × 2 de los seis grupos de atención; dentro, la conversación"
-          ],
-          [
-            "-"
-          ],
-          [
             0,
             1,
             2,
             3,
             4,
             5
+          ],
+          [
+            2
+          ],
+          [
+            "rejilla",
+            "conversacion"
+          ],
+          [
+            "groups",
+            "attended"
+          ],
+          [
+            "-"
+          ],
+          [
+            "nivel 1: rejilla 3 × 2 de los seis grupos de atención; dentro, la conversación",
+            "VG, 12-11 (encargo pv3, issue #35): los grupos del 3 numerados 0-5 como los PV (3.d = «con quién» sobre d): 0 sin tema (la bandeja, el ruido), 1 sobre un recurso, 2 sobre un criterio, 3 sobre personas (cercanos), 4 sobre trabajo (equipo), 5 vetados. Cada caja son las personas que caen en ella (groups: contrato.gruposDelTres, por el ancla de cada mensaje y lo que mueve), no lo anclado en X.d; dentro de una persona, la conversación acumulativa del 4 hacia el 1"
+          ],
+          [
+            "-"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -4627,6 +4624,50 @@ export const EPOCA_0_BTML_DATOS = [
           "template admit someone param actions label: acción",
           "template admit someone param actions help: la acción",
           "template admit someone message: admit someone: {me} admite a {last ev.3.1} en {first it.0} con {first ev.1.0} de su R",
+          "template remove someone: quitar a alguien",
+          "template remove someone param whom label: a quién",
+          "template remove someone param whom help: a quién dejo de admitir en X (y en lo que cuelga de X): una identidad con alta",
+          "template remove someone param about label: sobre qué",
+          "template remove someone param about help: sobre qué es: X",
+          "template remove someone param criteria label: criterio",
+          "template remove someone param criteria help: la plantilla de cerrado del registro",
+          "template remove someone param who label: quién",
+          "template remove someone param who help: quién quita: el dueño de X",
+          "template remove someone param actions label: acción",
+          "template remove someone param actions help: la acción",
+          "template remove someone message: remove someone: {me} quita a {last ev.3.1} de {first it.0}",
+          "template veto someone: vetar",
+          "template veto someone param whom label: a quién",
+          "template veto someone param whom help: a quién veto: una identidad con alta (por defecto, aquella cuya alta es X, o el dueño de X)",
+          "template veto someone message: veto someone: {me} veta a {first ev.0}",
+          "template move to group: llevar a un grupo",
+          "template move to group param whom label: a quién",
+          "template move to group param whom help: a quién llevo: una identidad con alta (por defecto, aquella cuya alta es X, o el dueño de X)",
+          "template move to group param zone label: grupo",
+          "template move to group param zone help: el grupo de mi 3 al que va la conversación (0 sin tema … 4 trabajo, 5 vetados): donde se ancla el registro, el 3.<grupo>.3 de mi alta",
+          "template move to group message: move to group: {me} lleva a {first ev.0} a un grupo de su 3",
+          "template set a minimum: poner un mínimo",
+          "template set a minimum param box label: caja",
+          "template set a minimum param box help: la caja del 3 (0 … 5): el nodo X.3.<caja> cuya posición se pone",
+          "template set a minimum param amount label: cantidad",
+          "template set a minimum param amount help: la cantidad mínima de R en el canal (lo que doy más lo que recibo) para aparecer en la caja; quien no llega cae al 0",
+          "template set a minimum message: set a minimum: {me} pone la cantidad mínima de una caja de su 3",
+          "template set a minimum rank: poner un rango mínimo",
+          "template set a minimum rank param box label: caja",
+          "template set a minimum rank param box help: la caja del 3 (0 … 5): el nodo X.3.<caja> cuya posición se pone",
+          "template set a minimum rank param rank label: rango",
+          "template set a minimum rank param rank help: el rango (nivel.grado, las diez cajas del 8) que hace falta sobre el foco para aparecer en la caja",
+          "template set a minimum rank param mode label: modo",
+          "template set a minimum rank param mode help: solo ese rango, o ampliar hacia arriba o hacia abajo desde él",
+          "template set a minimum rank message: set a minimum rank: {me} pone el rango mínimo de una caja de su 3",
+          "template configure a place: configurar el sitio",
+          "template configure a place param place label: sitio",
+          "template configure a place param place help: el sitio, como un camino de dígitos bajo X (3.4: la caja 4 de su 3)",
+          "template configure a place param position label: posición",
+          "template configure a place param position help: la posición del sitio que se pone (0 su nombre, 5 el estilo de lo de abajo, 9 su guía…)",
+          "template configure a place param value label: valor",
+          "template configure a place param value help: lo que dice la posición",
+          "template configure a place message: configure a place: {me} pone una posición de un sitio de {first it.0}",
           "template aggregate T: agrupar T",
           "template aggregate T param title label: título",
           "template aggregate T param title help: el título del registro de la escala superior",
@@ -4945,7 +4986,7 @@ export const EPOCA_0_BTML_DATOS = [
           "template register a thing param thing label: cosa",
           "template register a thing param thing help: la identidad de la cosa nueva (un nombre sin alta en este eje)",
           "template register a thing param minutes label: minutos",
-          "template register a thing param minutes help: los minutos de T que doy a la cosa para escribir (una cosa no tiene T diario: gasta lo que le da su dueño)",
+          "template register a thing param minutes help: los minutos de T que doy a la cosa para escribir, por escalas (un minuto, una hora, un día, una semana, un ciclo, un año: el calendario de la época); sin defecto: lo decide el dueño (una cosa no tiene T diario: gasta lo que le da su dueño; reponer es otra transferencia de T)",
           "template register a thing param key label: clave",
           "template register a thing param key help: la clave pública de la cosa (x-only, 64 caracteres hexadecimales): este registro la declara en su alta",
           "template register a thing param proof label: prueba",
@@ -5393,6 +5434,15 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         {
+          "ref": "4696ab643e7d05644a4719ec6e31a14a1629b8fad23cef72c58b416da6e4c9b4"
+        },
+        {
+          "ref": "121e27901c3b39eab3fa5db2cf5c5f5c7ea58c366a5aebbef6078105090ed750"
+        },
+        {
+          "ref": "7423cca795184f42a1fe0b1c1c3b46b5748363c1fb02ba0412df86524c9e4b72"
+        },
+        {
           "ref": "24fc2107e671a6ba31bfd4a847db7d6d7ce8b4db7659c0d52c17723cbe164532"
         },
         {
@@ -5405,7 +5455,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "6673dd08e2ec537c4bb74d4e1935052c784f4e70148a5ad0458334dd4ae65f79"
         },
         {
-          "ref": "c40a734ef6f8724c568b9edd3d94fc6864a2856a5e2462612a4ebe28e95f1d28"
+          "ref": "f62a8f285736655082b7ba61988e7a05fbf6fb1b31f6e886d7d901c779281300"
         },
         {
           "ref": "9350e15110720d8f0cd5cead5d6be871fd18b7cce5d2e9d340238bfbce90e67d"
@@ -5423,7 +5473,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "6d875ed77dbd348a0c896e38bab2d3c5c821fa66b5b6b0b3de1a4e092feef8f1"
         },
         {
-          "ref": "e9061e0f3c2b6f03f37cca86a88f8bdc2a7a05b46cbf315498b01f4ea10288b2"
+          "ref": "a1110a0fdc249a98eb530f50f3bbd2c06f1ea5aed8b5a2c70b9c9d51e233aafc"
         },
         {
           "ref": "a29b9b379f3e861e3e3e19b8cd1c32b9617ed14e9aa7e1a3c2d29a6982f01fda"
@@ -5432,7 +5482,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "a2903afa88be81ba996077d8aead129885c094004fdf1af77d4595bcc655dc12"
         },
         {
-          "ref": "73e01442c1d70a63fce67ec72ed0e5f563daa086fab93039bd4ff9244f62b050"
+          "ref": "624473d731c9f5399afe6ff505cb7ce3d628f2213a94d33e6e759e00120af5b6"
         },
         {
           "ref": "be16ac1f715a3b9aa537d5cb1f336ed6c4986d3ba868021b6e58faad7c5f5cfb"
@@ -5442,6 +5492,15 @@ export const EPOCA_0_BTML_DATOS = [
         },
         {
           "ref": "2965f8623b0bfde0972d590c850768eb0916530e2fa14ea6765dfa163c0512cb"
+        },
+        {
+          "ref": "24113a9228bc59f11d6d0aef317f7530ee5baaab49d9ef91c768fa0aa54bd47c"
+        },
+        {
+          "ref": "99219d8cf3bc49ce06a0ed0cff758653608d526f1b39e30f7bd1ec9c1024e279"
+        },
+        {
+          "ref": "9f6c6c613f048e28c513d1d9ca1553dd2286a38d28883d75d2a08462de0440ac"
         },
         {
           "ref": "2bd533ca2e2c33d60d18c8f80a614d231621ad8b0c92f04e271c76761020fb52"
@@ -6978,7 +7037,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attention-has-a-price.json",
-    "id": "2839bc0459da64e0f9d212f00290dee370bf6a6cb40404299c4bfeb7e32c5181",
+    "id": "58d93d3b5ed904abf3c21bf9e53fc15c99410b7a5de545768903aeb09ed530dc",
     "registro": [
       [
         "attention has a price"
@@ -6995,7 +7054,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "\"P\""
       ],
       [
-        "=not (first ev.3 != first (first ev.6.5).3 and count (first (first ev.6.5).3).6 > 0 and first (first (first ev.6.5).3).6 = first ev.6.5) or (first ev.6.2.0 != \"nothing\" and (first ev.6.2.0 != \"open record\" or count (before.1 where first ev.3 in it.3 and first (first ev.6.5).3 in it.3 and count (it.4.8 where count it2.5 > 0) > 0) > 0) and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first ev.6.5).3 and ((first ev.6.2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (first ev.6.2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first ev.6.5).3) or (first ev.6.2.0 = \"E\" and E in it.0.0.0) or (first ev.6.2.0 = \"P\" and P in it.0.0.0 and first (first (first ev.6.5).3).6 in path (first it.0.0.1)))) each 1) >= first ev.6.2.1)"
+        "=not (first ev.3 != first (first ev.6.5).3 and count (first (first ev.6.5).3).6 > 0 and first (first (first ev.6.5).3).6 = first ev.6.5) or (first ev.6.2.0 != \"nothing\" and (first ev.6.2.0 != \"open record\" or count (before.1 where first ev.3 in it.3 and first (first ev.6.5).3 in it.3 and count (it.4.8 where count it2.5 > 0) > 0) > 0) and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first ev.6.5).3 and ((first ev.6.2.0 = \"their R\" and R in it.0.0.0 and (it.0.0.1 = first ev.3 or it.0.0.1 = first (first ev.6.5).3)) or (first ev.6.2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first ev.6.5).3) or (first ev.6.2.0 = \"E\" and E in it.0.0.0) or (first ev.6.2.0 = \"P\" and P in it.0.0.0 and first (first (first ev.6.5).3).6 in path (first it.0.0.1)))) each 1) >= first ev.6.2.1)"
       ],
       [
         "ev.3"
@@ -7011,7 +7070,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "La lente de R y las condiciones de aceptación son la misma cosa: aceptar tu R como pago es darte peso (src/lente.js)",
         "El grupo de quien escribe: el último que lo nombra en su 3 (A.3.k.3); si no lo nombra ninguno, el que le asignó la invitación que aceptó (su 8); si no, desconocidos (zona 0, epoch.9.0.2). El precio: el último del 2 del grupo (A.3.k.2: [[en qué], [cuánto]]): «their R» su R, «my R» mi R devuelta, «E», «P», «nothing» el veto",
         "Revisión de seguridad (encargo 3b): se aplica a todo registro anclado sobre el alta de otra identidad, en cualquier dirección (su 3 entero, 3100000000, 3.2… y fuera del 3); la única exención es la autoría: el dueño escribe en su propia alta sin pagarse",
-        "VG, tras 3b-bis (encargo 3c-2a): los seis grupos de R son seis precios y la regla de atención los lee de los datos (epoch.1.2.1 y lo que cada identidad ancla en el 3.k.2 de su alta), no los lleva escritos. El grupo de quien escribe y su precio son las lecturas «attention group» (X.6.3) y «attention price» (X.6.2) de la propia transacción; aquí solo se comprueba el pago: «their R» su R, «my R» la del destinatario devuelta, «E», «P» sobre el dominio del destinatario (su alta en el hilo del registro del P), «open record» sin pago si existe un registro abierto que nombre a los dos en su 3 (abierto: con movimientos anunciados y pendientes, la lectura «stage», X.4.8), «nothing» el veto"
+        "VG, tras 3b-bis (encargo 3c-2a): los seis grupos de R son seis precios y la regla de atención los lee de los datos (epoch.1.2.1 y lo que cada identidad ancla en el 3.k.2 de su alta), no los lleva escritos. El grupo de quien escribe y su precio son las lecturas «attention group» (X.6.3) y «attention price» (X.6.2) de la propia transacción; aquí solo se comprueba el pago: «their R» su R, «my R» la del destinatario devuelta, «E», «P» sobre el dominio del destinatario (su alta en el hilo del registro del P), «open record» sin pago si existe un registro abierto que nombre a los dos en su 3 (abierto: con movimientos anunciados y pendientes, la lectura «stage», X.4.8), «nothing» el veto",
+        "VG, 12-11 (encargo pv3): la R es el precio universal y la regla es la misma en los dos sentidos: «their R» se paga con R de quien escribe o devolviendo R del destinatario que quien escribe tiene (el canal de R de la pareja: devolver es cerrar; una cosa, que no acuña, escribe así con la R que su dueño le dio)"
       ],
       [
         "epoch 0"
@@ -8981,6 +9041,431 @@ export const REGLAS_DE_EPOCA_DATOS = [
 // plantillas/*.json: las plantillas de transacción (las acciones del aro, encargo 3c-2a), { archivo, id, registro }, en el orden de su 8 (el del 9.6 de la época)
 export const PLANTILLAS_DE_EPOCA_DATOS = [
   {
+    "archivo": "set-a-minimum.json",
+    "id": "4696ab643e7d05644a4719ec6e31a14a1629b8fad23cef72c58b416da6e4c9b4",
+    "registro": [
+      [
+        "set a minimum"
+      ],
+      [
+        [
+          [
+            "box"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it >= 0 and it <= 5"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "-"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "the box of the 3 (0 … 5): the node X.3.<box> whose position is set"
+          ]
+        ],
+        [
+          [
+            "amount"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it >= 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "0"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "the minimum amount of R in the channel (what I give plus what I receive) for someone to appear in the box; who does not reach it falls to the 0"
+          ]
+        ]
+      ],
+      [
+        "=first it.3 = me"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ]
+      ],
+      [
+        "3.{box}.1"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): los mínimos por caja del 3 son datos del propio nodo X.3.d: su 1, la cantidad mínima (esta acción ancla el número en X.3.<box>.1; manda el último del dueño), vacíos por defecto. Es una acción de configuración del sitio (PV 0: no está en el aro; la abre el interrogante, el personaje del sitio, en la cruceta del nodo)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        "set a minimum: {me} sets the minimum amount of a box of its 3"
+      ]
+    ]
+  },
+  {
+    "archivo": "set-a-minimum-rank.json",
+    "id": "121e27901c3b39eab3fa5db2cf5c5f5c7ea58c366a5aebbef6078105090ed750",
+    "registro": [
+      [
+        "set a minimum rank"
+      ],
+      [
+        [
+          [
+            "box"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it >= 0 and it <= 5"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "-"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum rank»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "the box of the 3 (0 … 5): the node X.3.<box> whose position is set"
+          ]
+        ],
+        [
+          [
+            "rank"
+          ],
+          [
+            "text"
+          ],
+          [
+            "=\"0.3\" in it or \"1.1\" in it or \"2.1\" in it or \"3.1\" in it or \"3.2\" in it or \"4.1\" in it or \"4.2\" in it or \"5.1\" in it or \"5.2\" in it or \"5.3\" in it"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "0"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum rank»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "the rank (level.grade, the ten boxes of the 8) someone needs on the focus to appear in the box"
+          ]
+        ],
+        [
+          [
+            "mode"
+          ],
+          [
+            "text"
+          ],
+          [
+            "=\"only\" in it or \"up\" in it or \"down\" in it"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum rank»"
+          ],
+          [
+            "optional"
+          ],
+          [
+            3
+          ],
+          [
+            "up",
+            "only that rank, or widen up or down from it"
+          ]
+        ]
+      ],
+      [
+        "=first it.3 = me"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ]
+      ],
+      [
+        "3.{box}.8"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el rango mínimo de una caja del 3 es su 8 (X.3.<box>.8: el rango, nivel.grado, el de las diez cajas del 8, y el modo: solo ese, ampliar hacia arriba o hacia abajo). El filtro queda preparado: la lectura del rango de una persona sobre el foco es del 8 (#39, otro encargo); mientras no la dé, no deja a nadie fuera y se dice. Acción de configuración del sitio (PV 0: la abre el interrogante)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        "set a minimum rank: {me} sets the minimum rank of a box of its 3"
+      ]
+    ]
+  },
+  {
+    "archivo": "configure-a-place.json",
+    "id": "7423cca795184f42a1fe0b1c1c3b46b5748363c1fb02ba0412df86524c9e4b72",
+    "registro": [
+      [
+        "configure a place"
+      ],
+      [
+        [
+          [
+            "place"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "-"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #38): parámetro de «configure a place»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "the place, as a path of digits under X (3.4: the box 4 of its 3)"
+          ]
+        ],
+        [
+          [
+            "position"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it >= 0 and it <= 9"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "-"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #38): parámetro de «configure a place»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "the position of the place that is set (0 its name, 5 the style of what is below, 9 its guide…)"
+          ]
+        ],
+        [
+          [
+            "value"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "0"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #38): parámetro de «configure a place»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "what the position says"
+          ]
+        ]
+      ],
+      [
+        "=first it.3 = me"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ]
+      ],
+      [
+        "{place}.{position}"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el personaje es la configuración del sitio: cada cuadrante (un PV o un sub-PV, X.3.d) es un nodo con sus diez posiciones, y configurarlo es escribir en ellas (0 su nombre, 5 el estilo de lo de abajo, X.<sitio>.5.0, que ya existía sin dónde tocarse, 9 su guía…); esta acción ancla el valor en X.<place>.<position> (manda el último del dueño). El 1 y el 8 de una caja del 3 tienen su acción propia («set a minimum», «set a minimum rank»). Acción de configuración (PV 0: no está en el aro; la abre el interrogante, en la cruceta del nodo)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        "configure a place: {me} sets a position of a place of {first it.0}"
+      ]
+    ]
+  },
+  {
     "archivo": "apply-a-resource.json",
     "id": "24fc2107e671a6ba31bfd4a847db7d6d7ce8b4db7659c0d52c17723cbe164532",
     "registro": [
@@ -10044,7 +10529,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "register-a-thing.json",
-    "id": "c40a734ef6f8724c568b9edd3d94fc6864a2856a5e2462612a4ebe28e95f1d28",
+    "id": "f62a8f285736655082b7ba61988e7a05fbf6fb1b31f6e886d7d901c779281300",
     "registro": [
       [
         "register a thing"
@@ -10090,7 +10575,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "number"
           ],
           [
-            "=it > 0"
+            "=it = 1 or it = 60 or it = 1440 or it = 10080 or it = 40320 or it = 525600"
           ],
           [
             "me"
@@ -10111,8 +10596,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             2
           ],
           [
-            60,
-            "the minutes of T I give the thing to write with (a thing has no daily T: it spends what its owner gives it)"
+            "the minutes of T I give the thing to write with, by scales (a minute, an hour, a day, a week, a cycle, a year: the calendar of the epoch); no default: the owner decides (a thing has no daily T: it spends what its owner gives it; to top it up, another transfer of T)"
           ]
         ],
         [
@@ -10333,7 +10817,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "Encargo core-escribe (VG, 11-11 noche): Core es una identidad «cosa» que escribe en el eje de VG con su propia clave. Una cosa es la identidad cuya alta escribe otra, su dueño (VG, 10-11, B1): esta plantilla es esa alta, sobre mi propia alta",
         "La clave de la cosa se declara en este registro («a key is declared at its alta»: quien recibe algo aquí) y llega con su prueba de posesión («a declared key comes with its proof»): la cosa firma el id de este registro; por eso la prueba viene en la petición de la cosa, con el instante del registro",
-        "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)"
+        "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)",
+        "VG, 12-11 (issue #46): la T de una cosa al darla de alta no tiene defecto en la plantilla (se quitan los 60 minutos): es un parámetro que decide el dueño, con un desplegable por escalas (los minutos de cada escala del calendario, epoch.7: minuto, hora, día, semana, ciclo y año; contrato.opciones los lee de esta validación); reponer es otra transferencia de T del dueño a la cosa. Una cosa nunca tiene más T que la que una persona le dio"
       ],
       [
         "epoch 0"
@@ -11449,7 +11934,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "write-to-x.json",
-    "id": "e9061e0f3c2b6f03f37cca86a88f8bdc2a7a05b46cbf315498b01f4ea10288b2",
+    "id": "a1110a0fdc249a98eb530f50f3bbd2c06f1ea5aed8b5a2c70b9c9d51e233aafc",
     "registro": [
       [
         "write to X"
@@ -11654,7 +12139,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "=me"
           ],
           [
-            "=count (epoch where first ev.6.2.0 = \"their R\") * (first ev.6.2.1 - sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = me) each 1))"
+            "=count (epoch where first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it3.0.0.0 and it3.0.0.1 = first it.3) each 1) < first ev.6.2.1) * (first ev.6.2.1 - sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = me) each 1))"
           ],
           [
             "mint"
@@ -11674,7 +12159,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "=me"
           ],
           [
-            "=count (epoch where first ev.6.2.0 = \"their R\") * first ev.6.2.1"
+            "=count (epoch where first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it3.0.0.0 and it3.0.0.1 = first it.3) each 1) < first ev.6.2.1) * first ev.6.2.1"
           ],
           [
             "transfer"
@@ -11694,7 +12179,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "=first it.3"
           ],
           [
-            "=count (epoch where first ev.6.2.0 = \"my R\") * first ev.6.2.1"
+            "=count (epoch where first ev.6.2.0 = \"my R\" or (first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it3.0.0.0 and it3.0.0.1 = first it.3) each 1) >= first ev.6.2.1)) * first ev.6.2.1"
           ],
           [
             "transfer"
@@ -11754,7 +12239,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "El paquete con el pago que exige el grupo (VG: los seis grupos de R son seis precios): el precio es la lectura «attention price» de la propia candidata (ev.6.2); un movimiento por token posible, y solo mueve el que el precio nombra («their R» acuña antes la propia R que falte; «open record» no paga; al vetado no se le ofrece); se ancla en el 3 del alta del destinatario (el dueño de X)"
+        "El paquete con el pago que exige el grupo (VG: los seis grupos de R son seis precios): el precio es la lectura «attention price» de la propia candidata (ev.6.2); un movimiento por token posible, y solo mueve el que el precio nombra («their R» acuña antes la propia R que falte; «open record» no paga; al vetado no se le ofrece); se ancla en el 3 del alta del destinatario (el dueño de X)",
+        "VG, 12-11 (encargo pv3): la R es el precio universal, en los dos sentidos: si quien escribe tiene R del destinatario (se la dio, lo admitió), paga devolviéndosela (cerrar el canal es devolver; así escribe también una cosa, que no acuña); si no, acuña y paga con la suya (es la bandeja del destinatario, su 3.0)"
       ],
       [
         "epoch 0"
@@ -12241,7 +12727,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attend.json",
-    "id": "73e01442c1d70a63fce67ec72ed0e5f563daa086fab93039bd4ff9244f62b050",
+    "id": "624473d731c9f5399afe6ff505cb7ce3d628f2213a94d33e6e759e00120af5b6",
     "registro": [
       [
         "attend"
@@ -12414,7 +12900,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "=first (first it.6.5).3 = me and count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = me and it2.3.1 = me) > 0"
+        "=first (first it.6.5).3 = me and (count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = me and it2.3.1 = me) > 0 or count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) > 0)"
       ],
       [
         "me"
@@ -12438,6 +12924,26 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "nobody"
             ]
           ]
+        ],
+        [
+          [
+            "R",
+            "=first it.3"
+          ],
+          [
+            "=sum ((it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) each 1)"
+          ],
+          [
+            "transfer"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "=first it.3"
+            ]
+          ]
         ]
       ],
       [
@@ -12446,7 +12952,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "X es una petición de atención a mí (devuelve mi R sobre mi alta): un registro mío sobre ella con T real la atiende (la lectura «attended», X.7.4)"
+        "X es una petición de atención a mí (devuelve mi R sobre mi alta): un registro mío sobre ella con T real la atiende (la lectura «attended», X.7.4)",
+        "VG, 12-11 (encargo pv3): la regla es la misma en los dos sentidos: quien escribe pone su R y atender la devuelve. Si X me trae R de su autor (un mensaje con su R, la bandeja del 3), atenderlo es además devolvérsela (perdonar la quema, «forgive»; dejarlo es pendiente)"
       ],
       [
         "epoch 0"
@@ -13132,6 +13639,438 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       ],
       [
         "admit someone: {me} admits {last ev.3.1} on {first it.0} with {first ev.1.0} of its R"
+      ]
+    ]
+  },
+  {
+    "archivo": "remove-someone.json",
+    "id": "24113a9228bc59f11d6d0aef317f7530ee5baaab49d9ef91c768fa0aa54bd47c",
+    "registro": [
+      [
+        "remove someone"
+      ],
+      [
+        [
+          [
+            "whom"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "=it != me and count it.6 > 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3.1"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #32): parámetro de «remove someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "whom I stop admitting on X (and on what hangs from it): an identity with an alta"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #32): parámetro de «remove someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "=first it.5",
+            "what the removal is about: X"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #32): parámetro de «remove someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3.0"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #32): parámetro de «remove someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=me",
+            "who removes: the owner of X"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #32): parámetro de «remove someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "remove someone",
+            "the action"
+          ]
+        ]
+      ],
+      [
+        "=first it.3 = me"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ]
+      ],
+      [
+        "3"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): dejar de admitir es QUITAR a esa identidad de la posición mía donde la admití, una corrección del dueño sobre esa posición (la inversa de «admit someone», que ancla en el mismo sitio, el 3 de X): desde entonces la lectura del 3 no la coloca por lo admitido ahí y la regla de elegibles (R8, src/elegibles.js) no la admite en X ni en lo que cuelga de X. No mueve R: devolver la R es la liquidación, y puede venir después («return R»); vetar es otra cosa («veto someone», el grupo 5)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        "remove someone: {me} removes {last ev.3.1} from {first it.0}"
+      ]
+    ]
+  },
+  {
+    "archivo": "veto-someone.json",
+    "id": "99219d8cf3bc49ce06a0ed0cff758653608d526f1b39e30f7bd1ec9c1024e279",
+    "registro": [
+      [
+        "veto someone"
+      ],
+      [
+        [
+          [
+            "whom"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "=it != me and count it.6 > 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "0"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #32): parámetro de «veto someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "=first (before.3 where first it2.6 = first it.5 or (it2 = first it.3 and count (before.3 where first it3.6 = first it.5) = 0))",
+            "whom: an identity with an alta (by default, the one whose alta X is, or the owner of X)"
+          ]
+        ]
+      ],
+      [
+        "=count (before.3 where first it2.6 = first it.5 and it2 != me) > 0 or (first it.3 != me and count (first it.3).6 > 0)"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ]
+      ],
+      [
+        "3.5.3",
+        "=first me.6"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): vetar es rechazar su R, el grupo 5 del 3 (vetados), y gana sobre cualquier R: el registro, con la identidad en su 0, se ancla en el 3.5.3 del alta de quien veta (los «quiénes» del grupo 5, A.3.5.3), así que la lectura «attention group» lo pone en la zona 5 (gana la más alta que lo nombra) y su precio es «nothing»: no le llegan sus mensajes («write to X» no se le ofrece y la regla de atención los rechaza); la lectura del 3 lo pone en el 3.5 y la regla de elegibles no lo admite en nada del que veta. Arrastrarlo al 3.5 en la carta es lo mismo («move to group» con la zona 5)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        "veto someone: {me} vetoes {first ev.0}"
+      ]
+    ]
+  },
+  {
+    "archivo": "move-to-group.json",
+    "id": "9f6c6c613f048e28c513d1d9ca1553dd2286a38d28883d75d2a08462de0440ac",
+    "registro": [
+      [
+        "move to group"
+      ],
+      [
+        [
+          [
+            "whom"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "=it != me and count it.6 > 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "0"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #35): parámetro de «move to group»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "=first (before.3 where first it2.6 = first it.5 or (it2 = first it.3 and count (before.3 where first it3.6 = first it.5) = 0))",
+            "whom: an identity with an alta (by default, the one whose alta X is, or the owner of X)"
+          ]
+        ],
+        [
+          [
+            "zone"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it >= 0 and it <= 5"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "-"
+          ],
+          [
+            "encargo pv3 (VG, 12-11, issue #35): parámetro de «move to group»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "the group of my 3 where the conversation goes (0 without topic … 4 work, 5 vetoed): where the record anchors, 3.<zone>.3 of my alta"
+          ]
+        ]
+      ],
+      [
+        "=count (before.3 where first it2.6 = first it.5 and it2 != me) > 0 or (first it.3 != me and count (first it.3).6 > 0)"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ]
+      ],
+      [
+        "3.{zone}.3",
+        "=first me.6"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): arrastrar a alguien de una caja del 3 a otra es reclasificar la conversación: el dueño la pone en el grupo que dice, anclando la identidad en el 3.<zone>.3 de su alta (los «quiénes» de ese grupo, A.3.k.3); la lectura del 3 toma el último que la nombra (gana sobre lo que dicen los mensajes) y el 5, vetar, gana sobre todo. No mueve tokens más que el T de escribir"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        "move to group: {me} moves {first ev.0} to a group of its 3"
       ]
     ]
   },
@@ -16705,7 +17644,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "59a7900ad3707df371b16cb7718535c32a98ff8040ed2b759562efbdba6745c4";
+export const EPOCA_0_BTML_ID = "29625d5c91089ec57ed8d37aaef1373b45c5e878faec7f5c57a88032a8af0dd5";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

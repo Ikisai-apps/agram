@@ -185,7 +185,12 @@ test('las capas de cada mundo: fondo, etapa (en la tarjeta de la cruceta o en la
     const marco = `<img src="./${r.capas.marco.recurso}" alt="" loading="lazy" decoding="async">`;
     assert.ok(h.includes(`<div class="capa capa-marco" aria-hidden="true">${['arriba-izquierda', 'arriba-derecha', 'abajo-izquierda', 'abajo-derecha'].map((e) => `<span class="marco-esquina ${e}">${marco}</span>`).join('')}</div></div>`), 'el marco, en sus cuatro esquinas, lo último de la rejilla del ' + pv);
   }
-  // El 4: la matriz lleva su pieza en cada estación; el 8: el polvo en las cajas vacías; el 3: el baño para quien es persona.
+  // El 4: la matriz lleva su pieza en cada estación; el 8: el polvo en las cajas vacías; el 3: el baño para quien es persona
+  // (el 3 por tema, encargo pv3: sus cajas son de personas; la casa le escribe a la huésped sobre la compra).
+  const { transaccion } = await import('../src/acciones.js');
+  const msg = await transaccion(eje, 'write to X', { X: compra.id, text: 'sobre tu compra' }, 'casa', { t: T1 });
+  assert.equal(msg.ok, true, JSON.stringify(msg.motivos));
+  await eje.anadir(msg.evento);
   const tres = (await arbol({ foco: { X: compra.id, pv: 3 } }, eje, 'huesped', GRANDE)).centro.rejilla;
   assert.ok(tres.celdas.some((x) => x.capa.ocupantes.some((d) => d.subclave === 'bano')), 'una persona en el parque');
 });

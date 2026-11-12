@@ -113,13 +113,13 @@ test('contexto() sobre la compra: modo y ancho, quién soy, el foco con su lectu
 
 test('contexto() respeta el tope: recorta por el final de cada bloque y lo dice', async () => {
   const { eje, compra } = await ejemploCompra();
-  const ancho = await G.contexto(estadoDe(compra.id), eje, 'huesped', { tope: 6000 });
+  const ancho = await G.contexto(estadoDe(compra.id), eje, 'huesped', { tope: 8000 }); // el aro del 3 trae más acciones (encargo pv3: quitar, vetar, llevar a un grupo)
   const justo = await G.contexto(estadoDe(compra.id), eje, 'huesped', { tope: 1200 });
   assert.ok(justo.length <= 1200, 'longitud ' + justo.length);
   assert.ok(justo.length < ancho.length);
   assert.match(justo, /\[recortado por el tope de 1200 caracteres: .*foco/);
   assert.match(justo, /…/);
-  assert.ok(!/recortado por el tope/.test(ancho), 'a 6000 la compra cabe entera');
+  assert.ok(!/recortado por el tope/.test(ancho), 'a 8000 la compra cabe entera');
   // Los ajustes mandan el tope por defecto.
   assert.ok((await G.contexto(estadoDe(compra.id), eje, 'huesped', {})).length <= 6000);
 });

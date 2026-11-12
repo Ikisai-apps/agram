@@ -16,14 +16,14 @@
     [
       ["minutes"],
       ["number"],
-      ["=it > 0"],
+      ["=it = 1 or it = 60 or it = 1440 or it = 10080 or it = 40320 or it = 525600"],
       ["me"],
       ["payload"],
       ["1"],
       ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
       ["required"],
       [2],
-      [60, "the minutes of T I give the thing to write with (a thing has no daily T: it spends what its owner gives it)"]
+      ["the minutes of T I give the thing to write with, by scales (a minute, an hour, a day, a week, a cycle, a year: the calendar of the epoch); no default: the owner decides (a thing has no daily T: it spends what its owner gives it; to top it up, another transfer of T)"]
     ],
     [
       ["key"],
@@ -106,7 +106,8 @@
   [
     "Encargo core-escribe (VG, 11-11 noche): Core es una identidad «cosa» que escribe en el eje de VG con su propia clave. Una cosa es la identidad cuya alta escribe otra, su dueño (VG, 10-11, B1): esta plantilla es esa alta, sobre mi propia alta",
     "La clave de la cosa se declara en este registro («a key is declared at its alta»: quien recibe algo aquí) y llega con su prueba de posesión («a declared key comes with its proof»): la cosa firma el id de este registro; por eso la prueba viene en la petición de la cosa, con el instante del registro",
-    "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)"
+    "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)",
+    "VG, 12-11 (issue #46): la T de una cosa al darla de alta no tiene defecto en la plantilla (se quitan los 60 minutos): es un parámetro que decide el dueño, con un desplegable por escalas (los minutos de cada escala del calendario, epoch.7: minuto, hora, día, semana, ciclo y año; contrato.opciones los lee de esta validación); reponer es otra transferencia de T del dueño a la cosa. Una cosa nunca tiene más T que la que una persona le dio"
   ],
   ["epoch 0"],
   [1, 5],

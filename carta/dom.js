@@ -313,6 +313,7 @@ function htmlSiguiente(s) {
 /** Lo de dentro de un hijo con ocupantes, según la forma de su mundo: la tabla de la cruceta, la conversación, la lista (con el nivel siguiente en las columnas). */
 function cuerpoDeHijo(c, forma) {
   const lista = [...(c.ocupantes ?? (c.ocupante ? [c.ocupante] : [])), ...(c.derivados ?? [])];
+  if (!lista.length && Number.isInteger(c.capaDelTres)) return `<span class="hijo-vacio">${escapar(t('capaVacia'))}</span>`; // una capa de la conversación del 3 (encargo pv3): nada que escribir ahí
   if (!lista.length) return c.vacio ? htmlEscribir(c.escribir) : '';
   if (forma === 'cruceta') return `<table class="hijo-tabla"><tbody>${lista.map(htmlFilaDeTabla).join('')}</tbody></table>`;
   if (forma === 'conversacion') return `<ol class="conversacion">${lista.map((o) => `<li${marcaDerivado(o)}>${htmlMensaje(o)}</li>`).join('')}</ol>`;
@@ -326,10 +327,64 @@ function cuerpoDeHijo(c, forma) {
  * cada peldaño su escalón (--peldano).
  */
 function htmlCeldaDeRejilla(c, forma) {
+  if (c.personas) return htmlCajaDelTres(c);
   const lista = [...(c.ocupantes ?? (c.ocupante ? [c.ocupante] : [])), ...(c.derivados ?? [])];
   const peldano = forma === 'escalera' ? ` style="--peldano:${c.fila}"` : '';
   const cifra = c.vacio || c.total === undefined ? '' : escapar(c.total + (c.totalDerivados ?? 0));
   return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}${Number.isInteger(c.bajar) ? `<button type="button" class="bajar"${nodo('control')} data-bajar="${c.bajar}" title="${attr(t('bajarTitulo', { d: c.bajar }))}" aria-label="${attr(t('bajarTitulo', { d: c.bajar }))}">↘</button>` : ''}</div>`;
+}
+
+/**
+ * El interrogante de un sitio (encargo pv3, VG 12-11, issue #38): el personaje del sitio en sobrio; pulsarlo abre la
+ * cruceta del propio nodo X.<lugar> como menú de configuración (data-sitio, data-sitio-x).
+ */
+const htmlInterrogante = (s) => (s?.X ? `<button type="button" class="sitio-interrogante"${nodo('control')} data-sitio="${attr(s.lugar)}" data-sitio-x="${attr(s.X)}" title="${attr(t('sitioTitulo', { lugar: s.lugar }))}" aria-label="${attr(t('sitioTitulo', { lugar: s.lugar }))}">?</button>` : '');
+
+/**
+ * Una persona en una caja del 3 (encargo pv3): su nombre y el marcador pequeño del canal de R (doy: la R mía que tiene;
+ * recibo: la suya que tengo yo). Un clic entra en su conversación (data-celda, su alta); mantener abre el aro de su alta;
+ * arrastrarla a otra caja la reclasifica (data-persona, data-caja: gestos.js).
+ */
+function htmlPersona(p) {
+  const marca = (clase, n, titulo) => (n > 0 ? `<small class="${clase}" title="${attr(t(titulo, { n }))}">${escapar(n)}</small>` : '');
+  const marcador = `<span class="marcador">${marca('doy', p.doy, 'marcadorDoy')}${marca('recibo', p.recibo, 'marcadorRecibo')}</span>`;
+  const entrar = p.entra ? ` data-celda="${attr(p.X)}"` : '';
+  const titulo = t(p.cae ? 'personaCae' : 'personaTitulo', { que: p.texto });
+  return `<button type="button" class="ocupante persona"${nodo('ocupante', { x0: p.texto })} data-persona="${attr(p.identidad)}" data-caja="${p.caja}" data-pv="${p.caja}"${p.X ? ` data-x="${attr(p.X)}"` : ''}${entrar} data-porque="${attr(p.porque ?? '')}" title="${attr(titulo)}"><span class="texto">${escapar(p.texto)}</span>${marcador}</button>`;
+}
+
+/**
+ * Una caja del 3 por tema (encargo pv3): su número y su grupo, cuántos tiene, el botón que cicla doy / recibo / todos
+ * (data-filtro-caja) y el interrogante de su nodo; dentro, sus personas; al pie, sus mínimos y cuántos cayeron al 0. Es
+ * donde se suelta a alguien al arrastrarlo (data-caja).
+ */
+function htmlCajaDelTres(c) {
+  const filtro = `<button type="button" class="filtro-caja"${nodo('control')} data-filtro-caja="${c.caja}" data-filtro="${attr(c.filtro)}" title="${attr(t('filtroTitulo'))}">${escapar(t('filtro_' + c.filtro))}</button>`;
+  const cuerpo = c.personas.length ? `<ul class="personas">${c.personas.map((p) => `<li>${htmlPersona(p)}</li>`).join('')}</ul>` : `<span class="hijo-vacio">${escapar(t(c.total ? 'cajaFiltrada' : 'cajaVacia'))}</span>`;
+  const m = c.minimo ?? {};
+  const pie = [
+    typeof m.cantidad === 'number' ? t('cajaMinimo', { n: m.cantidad }) : '',
+    m.rango ? t(c.rangoPendiente ? 'cajaRangoPendiente' : 'cajaRango', { rango: m.rango }) : '',
+    c.fuera ? t('cajaFuera', { n: c.fuera }) : '',
+  ].filter(Boolean);
+  return `<div class="rejilla-celda hijo caja-tres${c.total ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-caja="${c.caja}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${c.total ? escapar(c.total) : ''}</span>${filtro}${htmlInterrogante(c.sitio)}</header><div class="hijo-cuerpo">${cuerpo}${htmlDibujo(c.capa)}</div>${pie.length ? `<footer class="hijo-pie"><p class="hijo-minimo">${escapar(pie.join(' · '))}</p></footer>` : ''}</div>`;
+}
+
+/**
+ * La cruceta del propio nodo de un sitio (encargo pv3, #38): sus diez posiciones en la geometría de la cruz (1-4 las
+ * esquinas, 6-9 la cruz, 0 y 5 en el centro), cada una con su nombre, su valor y, si quien mira es el dueño, el botón
+ * de la acción que la pone (data-sitio-lanzar, con los parámetros del sitio en data-valores: el formulario del aro).
+ */
+function htmlSitio(s) {
+  if (!s) return '';
+  const celdas = new Map();
+  for (const p of s.posiciones) {
+    const k = p.celda.join(',');
+    celdas.set(k, [...(celdas.get(k) ?? []), p]);
+  }
+  const posicion = (p) => `<div class="sitio-posicion" data-posicion="${p.posicion}" data-color="${p.posicion}"><span class="numero">${p.posicion}</span><span class="nombre">${escapar(p.nombre ?? '')}</span><span class="valor">${escapar(p.valor || '—')}</span>${p.accion ? `<button type="button" class="accion"${nodo('accion')} data-sitio-lanzar="${attr(p.accion.id)}" data-x="${attr(s.X)}" data-valores="${attr(JSON.stringify(p.accion.valores ?? {}))}" title="${attr(p.accion.etiqueta)}">${escapar(p.accion.etiqueta)}</button>` : ''}</div>`;
+  const cuerpo = [...celdas.entries()].map(([k, ps]) => { const [f, c] = k.split(','); return `<li class="sitio-celda" style="--fila:${Number(f) + 1};--columna:${Number(c) + 1}">${ps.map(posicion).join('')}</li>`; }).join('');
+  return `<div class="sitio-fondo" data-cerrar><div class="sitio-cruceta"${nodo('sitio', { lugar: s.lugar })} data-x="${attr(s.X)}" data-sitio-de="${attr(s.lugar)}" role="dialog" aria-label="${attr(t('sitioDe', { lugar: s.lugar, que: s.texto }))}"><header><h2><span class="sitio-icono" aria-hidden="true">?</span> ${escapar(t('sitioDe', { lugar: s.lugar, que: s.texto }))}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header><ol class="sitio-posiciones">${cuerpo}</ol></div></div>`;
 }
 
 /** Una fracción entre 0 y 1 con tres decimales, para una variable de CSS (solo un número: nada del dato llega al estilo). */
@@ -575,7 +630,7 @@ function htmlBandaDeRejilla(b) {
  */
 function htmlRejilla(r, { completa = false, arbol = null, apilada = false } = {}) {
   if (!r) return '';
-  const cabeza = (completa || apilada) && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.direccion && r.nivel > 1 ? `<span class="direccion-rejilla">${escapar(r.direccion)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
+  const cabeza = (completa || apilada) && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${htmlInterrogante(r.sitio)}${r.persona ? `<span class="ruta-rejilla persona-rejilla">${escapar(t('conversacionCon', { que: r.persona.texto, caja: r.persona.caja, grupo: r.persona.nombre ?? '' }))}</span>` : r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.direccion && r.nivel > 1 ? `<span class="direccion-rejilla">${escapar(r.direccion)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
   const sin = r.sinBanda?.length ? `<div class="rejilla-sin" title="${attr(t('sinBandaTitulo'))}">${r.sinBanda.map(htmlElementoDeBanda).join('')}</div>` : '';
   let cuerpo;
   if (r.forma === 'franjas' && r.bandas) cuerpo = htmlFranjas(r) + sin;
@@ -1146,6 +1201,7 @@ export function html(arbol, extra = {}) {
     ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'abajo' })}
     ${a.apilada ? htmlDigitos(a.secuencia) : ''}
     ${htmlAro(a.aro)}
+    ${htmlSitio(a.sitio)}
     ${htmlFormulario(a.formulario)}
     ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes }) : ''}
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}

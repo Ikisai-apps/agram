@@ -54,6 +54,7 @@ import { HITOS, cajaDeCuota, confluir, situar, SIN_BASE_ESCRITA } from './bases.
 import { pasoDe } from './pasos.js';
 import { recuento, miradasDe } from './motor.js';
 import { estadoDePaquete } from './lente.js';
+import { cajasDelTres, conversacionDelTres as conversacionTres } from './tres.js';
 
 const RE_ID = /^[0-9a-f]{64}$/;
 const RE_SERIE = /^[EPRT]:.+/;
@@ -881,6 +882,8 @@ export function hijosDe(eje, X, pv, { nivel = 1, cuantos, base = [], direccion, 
   const d = divisionDelMundo(eje, pv, { nivel, ...opciones });
   if (!d) return [];
   if (!d.hijos.length && d.bandas && d.cohortes) return cajasDelCielo(eje, X, d, { cohorte, cuantos, ...opciones });
+  // El 3 por tema (encargo pv3): cada hijo es una caja de personas, no lo anclado en X.d.
+  if (d.mide.includes(MIDE.grupos) && !caminoDe(base).length) return cajasComoHijos(eje, X, d, { cuantos, ...opciones });
   if (!d.hijos.length && d.bandas && d.escalera?.length) return posicionesParaSituarse(eje, X, d, opciones);
   const raiz = raizDe(epocaDe(opciones));
   const profundidad = Math.min(Math.max(1, d.nivel), ARIDAD - 1);
@@ -1077,8 +1080,73 @@ export function leerRuta(eje, N, ruta, { yo, t: _t, tope = SIN_TOPE, ...opciones
   return fuera(items.filter((x) => !fuera_.has(claveDeValor(x.valor))));
 }
 
-/** Las referencias de lo que mide una fila de epoch.8.7 que dan algo por hijo (encargo «datos», issue #11). */
-const MIDE = Object.freeze({ poder: 'epoch.1.1', recuento: 'epoch.9.0.0', atencion: 'epoch.1.2.1', atendido: 'attended', coste: 'epoch.9.2', capacidad: 'capacity', flujo: 'epoch.4.0', cohorte: 'cohort', ejecucion: 'execution', rango: 'rank' });
+
+// ---------- 4.5 el 3 por tema: las cajas de personas y la conversación (encargo pv3, VG 11/12-11) ----------
+
+/** Los nombres de las seis cajas del 3: los de los grupos de la época (epoch.1.2.1), por su zona. */
+function nombresDeLasCajas(opciones) {
+  const nombres = [];
+  for (const g of hojas(en(raizDe(epocaDe(opciones)), [1, 2, 1])).filter(Array.isArray)) {
+    const zona = hoja(g[1]);
+    if (Number.isInteger(zona)) nombres[zona] = texto(hoja(g[0])) ?? null;
+  }
+  return nombres;
+}
+
+/**
+ * Las seis cajas del 3 de X (encargo pv3, issues #33-#37; src/tres.js): 3.d = «con quién» sobre d. [{ caja, nombre,
+ * personas: [{ identidad, texto, alta, doy, recibo, caja, porque, cae?, ultimo, mensajes }], total, filtro, minimo:
+ * { cantidad, rango, modo }, fuera, rangoPendiente }]. La caja de cada persona la deciden de qué habla cada mensaje y lo
+ * que mueve (el segundo token: E 1, P 2, T 4; la R sola: la mía que doy 3, la suya que me trae 0), el arrastre del dueño
+ * («move to group») y el veto (5, gana sobre todo); en cada caja, primero quienes tienen R mía (`doy`), luego quienes usan
+ * la suya (`recibo`); `filtros` ({ [caja]: 'doy' | 'recibo' | 'todos' }) es el botón que cicla. Los mínimos son datos del
+ * nodo X.3.d (su 1 la cantidad, su 8 el rango): lo que no alcanza cae al 0 (`fuera` cuenta cuántos). El rango de una
+ * persona (nivel.grado) es, por defecto, el de su alta por `rango` (la escalera del 8, encargo «el4»); `rangoDe`
+ * (persona → «n.g» o null) lo cambia (el rango «sobre el foco» pide aún leer lo que la persona ejecutó en X).
+ */
+export function gruposDelTres(eje, X, { filtros, rangoDe, ...opciones } = {}) {
+  const ev = eventoDe(eje, X);
+  if (!ev || !eje?.obtener?.(ev.id)) return [];
+  const idioma = opciones.idioma ?? 'en';
+  const epoca = epocaDe(opciones);
+  const delAlta = (persona) => {
+    const alta = eje.alta?.(persona)?.id;
+    const r = alta ? rango(eje, alta, opciones) : null;
+    return r && Number.isInteger(r.nivel) && Number.isInteger(r.grado) ? r.nivel + '.' + r.grado : null;
+  };
+  return cajasDelTres(eje, ev.id, { nombres: nombresDeLasCajas(opciones), filtros, rangoDe: typeof rangoDe === 'function' ? rangoDe : delAlta }).map((c) => ({
+    ...c, personas: c.personas.map((p) => ({ ...p, texto: legible(eje, p.identidad, TIPO.identidad, { idioma, epoca }).texto })),
+  }));
+}
+
+/**
+ * La conversación del dueño de X con una persona (encargo pv3; src/tres.js): { dueno, persona, texto, caja, nombre,
+ * capas: [{ capa, items: [{ ref, autor, t, estado? }] }] }. 0 el chat (con el estado de cada paquete: pendiente,
+ * atendido, perdonado) y, acumulativo del 4 hacia el 1 según la caja, 4 el trabajo, 3 los favoritos, 2 los criterios, 1
+ * los recursos compartidos; filtrado por el elemento en foco si X no es el alta del dueño. Sin `caja`, la de la persona.
+ */
+export function conversacionDelTres(eje, X, persona, { caja, ...opciones } = {}) {
+  const ev = eventoDe(eje, X);
+  if (!ev || !eje?.obtener?.(ev.id)) return null;
+  const c = conversacionTres(eje, ev.id, persona, { caja });
+  if (!c) return null;
+  return { ...c, texto: legible(eje, c.persona, TIPO.identidad, { idioma: opciones.idioma ?? 'en', epoca: epocaDe(opciones) }).texto, nombre: nombresDeLasCajas(opciones)[c.caja] ?? null };
+}
+
+/** Las cajas del 3 como hijos de la división (hijosDe): cada una con sus personas (y, como ocupantes, sus identidades). */
+function cajasComoHijos(eje, X, d, { cuantos, ...opciones }) {
+  const porCaja = new Map(gruposDelTres(eje, X, opciones).map((c) => [c.caja, c]));
+  return d.hijos.map((digito) => {
+    const c = porCaja.get(digito) ?? { caja: digito, nombre: null, personas: [], total: 0, filtro: 'todos', minimo: { cantidad: null, rango: null, modo: null }, fuera: 0, rangoPendiente: false };
+    const personas = c.personas.slice(0, cuantos ?? paso(opciones));
+    return {
+      digito, nombre: c.nombre, ocupantes: personas.map((p) => p.identidad), total: c.total, vacio: c.total === 0,
+      personas, filtro: c.filtro, minimo: c.minimo, fuera: c.fuera, rangoPendiente: c.rangoPendiente, enLista: c.personas.length,
+    };
+  });
+}
+/** Las referencias de lo que mide una fila de epoch.8.7 que dan algo por hijo (encargo «datos», issue #11; «groups», encargo pv3). */
+const MIDE = Object.freeze({ poder: 'epoch.1.1', recuento: 'epoch.9.0.0', atencion: 'epoch.1.2.1', atendido: 'attended', coste: 'epoch.9.2', capacidad: 'capacity', flujo: 'epoch.4.0', cohorte: 'cohort', ejecucion: 'execution', rango: 'rank', grupos: 'groups' });
 
 /** La plantilla de transacción que declara capacidad (epoch.9.6) y su parámetro (encargo «datos2»): se leen de la época. */
 const DECLARAR_CAPACIDAD = Object.freeze({ plantilla: 'declare capacity or threshold', parametro: 'capacity' });
@@ -1809,9 +1877,13 @@ export function clavesDeConfiguracionDe(nombre, opciones = {}) {
 function valoresDeValidacion(formula) {
   if (typeof formula !== 'string') return null;
   const clausula = /^\s*"([^"]+)"\s+in\s+it(?:\.\d+)*\s*$/;
+  // También «it = n or it = m…» (encargo pv3, #46: los minutos de T de una cosa, por escalas): los números, en su orden.
+  const numero = /^\s*it\s*=\s*(-?\d+(?:\.\d+)?)\s*$/;
   const partes = formula.replace(/^=/, '').split(/\s+or\s+/);
-  if (!formula.startsWith('=') || !partes.every((x) => clausula.test(x))) return null;
-  return partes.map((x) => x.match(clausula)[1]);
+  if (!formula.startsWith('=')) return null;
+  if (partes.every((x) => clausula.test(x))) return partes.map((x) => x.match(clausula)[1]);
+  if (partes.every((x) => numero.test(x))) return partes.map((x) => Number(x.match(numero)[1]));
+  return null;
 }
 
 function clavesDe(p) {

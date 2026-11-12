@@ -56,6 +56,9 @@ const estado = {
   sincronia: null, lineaSincronia: null,
   // La guía del PV9: la conversación de la alta en pantalla, lo escrito sin enviar y lo que está pasando.
   guia: { alta: null, historial: [], borrador: '', pensando: false, pendiente: '', error: '' },
+  // El 3 por tema (encargo pv3): el botón de cada caja ({ [caja]: 'todos' | 'doy' | 'recibo' }) y el sitio abierto
+  // ({ X, lugar }: la cruceta del propio nodo, el personaje del sitio) o null.
+  filtrosDelTres: {}, sitio: null,
 };
 let limpiarLottie = () => {};
 let gestos = null;
@@ -815,11 +818,60 @@ const manejadores = {
     tocar(sobre, 'lanzar ' + canonicoDe(accion));
     pintar();
   },
+  /** El 3 por tema (encargo pv3): el botón de una caja cicla todos → doy → recibo. */
+  filtroCaja(caja) {
+    if (!Number.isInteger(caja)) return;
+    const orden = ['todos', 'doy', 'recibo'];
+    const f = estado.filtrosDelTres;
+    f[caja] = orden[(orden.indexOf(f[caja] ?? 'todos') + 1) % orden.length];
+    tocar(estado.foco.X, 'filtro 3.' + caja + ' ' + f[caja]);
+    pintar();
+  },
+  /** El interrogante (o el muñeco) de un sitio: la cruceta del propio nodo X.<lugar>, como menú de configuración (#38). */
+  sitio(X, lugar) {
+    if (!X || !estado.eje?.obtener(X)) return;
+    estado.sitio = { X, lugar };
+    estado.aro = null;
+    estado.formulario = null;
+    limpiarMensajes();
+    tocar(X, 'sitio ' + lugar);
+    pintar();
+  },
+  /** Una posición de la cruceta de un sitio: el formulario de su acción con los parámetros que el sitio ya da. */
+  lanzarCon(X, accion, valores) {
+    if (!X || !accion) return;
+    estado.formulario = { X, accion, valores: valores ?? {}, motivos: [], resultado: null };
+    estado.aro = null;
+    limpiarMensajes();
+    tocar(X, 'lanzar ' + canonicoDe(accion));
+    pintar();
+  },
+  /**
+   * Arrastrar a una persona de una caja del 3 a otra (encargo pv3): reclasificar la conversación con «move to group»
+   * sobre su alta (al 5, vetar). Si no pasa, el formulario de la acción con el motivo.
+   */
+  async reclasificar(persona, caja) {
+    const alta = estado.eje?.alta(persona)?.id;
+    if (!alta || !Number.isInteger(caja)) return;
+    limpiarMensajes();
+    const valores = { whom: persona, zone: caja };
+    const r = await enviar(estado.eje, alta, 'move to group', valores, estado.identidad, firmarCon(estado.identidad));
+    if (r.ok && r.asentado) {
+      trasEscribir();
+      estado.exito = t('registrado', { accion: nombreDeAccion('move to group'), id: r.asentado.id.slice(0, 8) }) + ' · ' + t('reclasificado', { que: persona, caja }) + (r.asentado.firma ? ' ' + t('firmado') : '');
+      tocar(estado.foco.X, 'reclasificar ' + persona + ' 3.' + caja);
+      marcarNuevos();
+    } else {
+      estado.formulario = { X: alta, accion: 'move to group', valores, motivos: r.motivos ?? [], resultado: null };
+    }
+    pintar();
+  },
   cerrar() {
     if (estado.copia) estado.copia = null;
     else if (estado.arranque && estado.eje) estado.arranque = null;
     else if (estado.config) { estado.config = false; estado.motivosPreferencias = []; }
     else if (estado.formulario) estado.formulario = null;
+    else if (estado.sitio) estado.sitio = null;
     else if (estado.aro) estado.aro = null;
     else if (estado.celdaMatriz) estado.celdaMatriz = null; // la celda abierta de la matriz del 4 (encargo «el4»)
     else if (enMapped() && estado.profundidad[estado.foco.pv]?.length) estado.profundidad[estado.foco.pv].pop(); // subir un nivel de la rejilla

@@ -32,7 +32,7 @@ import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
-import { plantilla as plantillaDeDatos, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones, celdaDeEjecucion } from './contrato.js';
+import { plantilla as plantillaDeDatos, etiqueta as etiquetaDe, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones, celdaDeEjecucion } from './contrato.js';
 import { recuento } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
 
@@ -791,4 +791,70 @@ export async function autoejecutar(eje, X, yo, firmar, opciones = {}) {
     hechos.push({ paso, evento });
   }
   return { hechos, parado: null };
+}
+
+// ---------- 6. el personaje del sitio: la cruceta del propio nodo (encargo pv3, VG 12-11, issue #38) ----------
+
+/** Un camino de anclaje de plantilla («3.{box}.1», «{place}.{position}») contra unos dígitos: los parámetros que lo dan, o null. */
+function encajarRuta(ruta, digitos) {
+  const trozos = String(ruta).split('.');
+  const ir = (i, j, dados) => {
+    if (i === trozos.length) return j === digitos.length ? dados : null;
+    const m = /^\{([^{}]+)\}$/.exec(trozos[i]);
+    if (!m) return Number(trozos[i]) === digitos[j] ? ir(i + 1, j + 1, dados) : null;
+    // Un hueco toma uno o más dígitos, los más que pueda (lo de detrás, un dígito por trozo).
+    for (let k = digitos.length - (trozos.length - i - 1); k >= j + 1; k--) {
+      const r = ir(i + 1, k, { ...dados, [m[1]]: digitos.slice(j, k) });
+      if (r) return r;
+    }
+    return null;
+  };
+  return ir(0, 0, {});
+}
+
+/**
+ * El personaje de un sitio (VG, 12-11, issue #38: «el personaje es la configuración del sitio»): el sitio es un nodo,
+ * X.<lugar> (un PV o un sub-PV: 3, 3.4), con sus diez posiciones, y pulsar su interrogante (o su muñeco, en animado)
+ * abre la cruceta de ese nodo como menú de configuración. → { X, lugar, direccion, dueno, posiciones: [{ posicion,
+ * nombre, ayuda?, valor, de, accion: { id, nombre, etiqueta, valores } | null }] }: el nombre de cada posición es la
+ * regla corta de la época (0 qué es, 1 cuánto… 9 cómo); el valor, lo último que el dueño ancló exactamente ahí; la
+ * acción, la primera plantilla de configuración (PV 0, no está en el aro) cuya ancla llega a X.<lugar>.<posición> y
+ * cuya condición pasa para quien mira, con los parámetros que el sitio ya da (la caja, el lugar, la posición).
+ */
+export function sitio(eje, X, lugar, yo, opciones = {}) {
+  const ev = eventoDe(eje, X);
+  const digitos = (Array.isArray(lugar) ? lugar : String(lugar ?? '').split('.')).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 9);
+  if (!ev || typeof ev.id !== 'string' || !eje?.obtener(ev.id) || !digitos.length || digitos.length >= 9) return null;
+  const epoca = epocaDe(opciones);
+  const idioma = idiomaDe(eje, yo, opciones);
+  const ctx = contextoDe(eje, epoca, { me: yo });
+  const configurar = plantillasDeTransaccion(opciones).filter((p) => p.pv === 0).filter((p) => {
+    const condicion = texto(ultima(p.plantilla[2]));
+    return yo && esFormula(condicion) && cumple(condicion, ctx, sujetoDe(ev));
+  });
+  const dueno = ev.autor;
+  const posiciones = [];
+  for (let k = 0; k <= 9; k++) {
+    const camino = [...digitos, k];
+    const escritos = typeof eje.sobreDe === 'function' ? eje.sobreDe(ev.id, direccion(camino), new Set([dueno])) : eje.sobre(ev.id, direccion(camino)).filter((e) => e.autor === dueno);
+    const ultimo = escritos[escritos.length - 1];
+    const valor = ultimo ? (Array.isArray(ultimo.payload) ? ultimo.payload.flat(2).filter((x) => typeof x === 'string' || typeof x === 'number') : [ultimo.payload]) : [];
+    let accion = null;
+    for (const p of configurar) {
+      const ruta = hojas(p.plantilla[5])[0];
+      const dados = typeof ruta === 'string' ? encajarRuta(ruta, camino) : null;
+      if (!dados) continue;
+      const lista = parametros(p.plantilla, { idioma, epoca });
+      const valores = {};
+      for (const [nombre, ds] of Object.entries(dados)) {
+        const prm = lista.find((x) => x.nombre === nombre);
+        if (!prm) continue;
+        valores[nombre] = prm.tipo === 'number' && ds.length === 1 ? ds[0] : ds.join('.');
+      }
+      accion = { id: p.id, nombre: p.nombre, etiqueta: textoDe(eje, claves.plantilla(p.nombre), idioma, { original: p.nombre, epoca }), valores };
+      break;
+    }
+    posiciones.push({ posicion: k, nombre: etiquetaDe(eje, null, camino, { idioma, epoca }), valor, de: ultimo?.id ?? null, accion });
+  }
+  return { X: ev.id, lugar: digitos, direccion: digitos.join('.'), dueno, posiciones };
 }

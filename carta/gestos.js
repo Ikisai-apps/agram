@@ -26,6 +26,8 @@ const UMBRAL_DESLIZAR = 40;
 const UMBRAL_PELLIZCO = 30;
 /** Arrastrar desde la esquina de un PV (Mapped): cada tanto de esta fracción del lado menor de la escena es un paso. */
 const UMBRAL_ASA = 1 / 8;
+/** Cuánto hay que mover a una persona del 3 (en píxeles) para que sea arrastrarla y no un clic (encargo pv3). */
+const UMBRAL_PERSONA = 12;
 /** Arrastrar un elemento al centro (Mapped, #23): lo que hay que moverlo, en píxeles, para que cuente como arrastre. */
 const UMBRAL_ARRASTRE = 24;
 
@@ -69,6 +71,11 @@ const UMBRAL_ARRASTRE = 24;
  *   fila(pv)                 Sequenced: abrir o cerrar la fila de un PV en la tarjeta del foco (las del hilo llevan al pasado o al futuro)
  *   digito(pv)               Sequenced: la fila de dígitos de abajo; ir a la fila de ese PV y abrirla
  *   menu()                   Sequenced: abrir o cerrar el menú de la barra de una línea
+ *   filtroCaja(caja)         el 3 por tema (encargo pv3): el botón de una caja cicla todos → doy → recibo
+ *   sitio(X, lugar)          el interrogante (o el muñeco) de un sitio: abrir la cruceta del propio nodo X.<lugar> (#38)
+ *   lanzarCon(X, accion, valores)  una posición de esa cruceta: el formulario de su acción con los parámetros del sitio
+ *   reclasificar(persona, caja)  arrastrar a una persona de una caja del 3 a otra (mantener y arrastrar, en Mapped y en
+ *                            Sequenced): reclasificar la conversación (al 5, vetar)
  * En Mapped, nivel(pv, delta, X) llega también de los botoncitos de cada PV (data-tamano) y del arrastre desde su
  * esquina (data-asa: tantos pasos como umbrales recorre en la dirección que va de su esquina al centro); y foco(X, 0),
  * de arrastrar un elemento y soltarlo sobre el centro (#23).
@@ -179,6 +186,16 @@ export function instalar(raiz, m) {
     if ((el = b('[data-preferencia]'))) { e.preventDefault(); m.preferencia?.(el.dataset.preferencia, el.dataset.valor); return; }
     if ((el = b('[data-pagina]'))) { e.preventDefault(); m.pagina?.(Number(el.dataset.pagina), Number(el.dataset.delta)); return; }
     if (b('[data-asa]')) { e.preventDefault(); return; }
+    // El 3 por tema (encargo pv3): el botón que cicla de una caja, el interrogante de un sitio y una posición de su cruceta.
+    if ((el = b('[data-filtro-caja]'))) { e.preventDefault(); m.filtroCaja?.(Number(el.dataset.filtroCaja)); return; }
+    if ((el = b('[data-sitio-lanzar]'))) {
+      e.preventDefault();
+      let valores = {};
+      try { valores = JSON.parse(el.dataset.valores || '{}'); } catch { /* sin parámetros del sitio */ }
+      m.lanzarCon?.(el.dataset.x ?? xDe(el), el.dataset.sitioLanzar, valores);
+      return;
+    }
+    if ((el = b('[data-sitio]'))) { e.preventDefault(); m.sitio?.(el.dataset.sitioX ?? xDe(el), el.dataset.sitio); return; }
     if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
     if ((el = b('[data-seguir]'))) { e.preventDefault(); m.seguir?.(); return; }
@@ -267,7 +284,17 @@ export function instalar(raiz, m) {
   const punteros = new Map();
   let pellizco = null;
   let asa = null; // el arrastre desde la esquina de un PV (Mapped)
+  // Arrastrar a una persona de una caja del 3 a otra (encargo pv3): { persona, caja, x, y, el, activo }.
+  let arrastre = null;
+  /** La caja del 3 que hay bajo el puntero al soltar (lo que está debajo, si el documento lo dice; si no, donde se soltó). */
+  const cajaBajo = (e) => {
+    const bajo = documento.elementFromPoint?.(e.clientX, e.clientY) ?? e.target;
+    const caja = bajo?.closest?.('[data-caja]');
+    return caja ? Number(caja.dataset.caja) : null;
+  };
   on('pointerdown', (e) => {
+    const persona = e.target.closest?.('[data-persona]');
+    if (persona && (e.button === undefined || e.button === 0)) arrastre = { persona: persona.dataset.persona, caja: Number(persona.dataset.caja), x: e.clientX, y: e.clientY, el: persona, activo: false };
     const a = e.target.closest?.('[data-asa]');
     if (a) {
       e.preventDefault();
@@ -301,6 +328,13 @@ export function instalar(raiz, m) {
     sobreCentro?.classList?.add('soltar-aqui');
   };
   on('pointermove', (e) => {
+    if (arrastre && !arrastre.activo && Math.hypot(e.clientX - arrastre.x, e.clientY - arrastre.y) > UMBRAL_PERSONA) {
+      // Se arrastra: ni mantener (el aro) ni deslizar; la persona va marcada mientras.
+      arrastre.activo = true;
+      cancelarMantener();
+      arrastre.el?.classList?.add('arrastrando');
+    }
+    if (arrastre?.activo) { e.preventDefault?.(); return; }
     const p = punteros.get(e.pointerId);
     if (!p) return;
     if (mantener && Math.hypot(e.clientX - mantener.x, e.clientY - mantener.y) > 8) cancelarMantener();
@@ -317,6 +351,19 @@ export function instalar(raiz, m) {
     }
   });
   const soltar = (e) => {
+    if (arrastre) {
+      const a = arrastre;
+      arrastre = null;
+      a.el?.classList?.remove('arrastrando');
+      if (a.activo) {
+        punteros.delete(e.pointerId);
+        cancelarMantener();
+        arrastrado = Date.now(); // el clic que sigue no entra
+        const caja = cajaBajo(e);
+        if (Number.isInteger(caja) && caja !== a.caja) m.reclasificar?.(a.persona, caja);
+        return;
+      }
+    }
     if (asa) {
       // Lo recorrido en la dirección en que crece el PV (de su esquina o lado hacia el centro): un paso por umbral.
       const n = Math.hypot(asa.dx, asa.dy) || 1;
@@ -350,7 +397,7 @@ export function instalar(raiz, m) {
     }
   };
   on('pointerup', soltar);
-  on('pointercancel', (e) => { punteros.delete(e.pointerId); cancelarMantener(); marcarCentro(null); pellizco = null; asa = null; });
+  on('pointercancel', (e) => { punteros.delete(e.pointerId); cancelarMantener(); marcarCentro(null); pellizco = null; asa = null; arrastre?.el?.classList?.remove('arrastrando'); arrastre = null; });
 
   // ---- rueda con Ctrl: profundidad ----
   on('wheel', (e) => {

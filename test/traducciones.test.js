@@ -17,7 +17,7 @@ test('traducciones: la lista de lo pedido cubre cada tipo de texto de la época 
   const pedidas = clavesPedidas();
   const tipos = new Set(pedidas.map((c) => c.tipo));
   for (const t of ['acción', 'parámetro de acción', 'mensaje de acción', 'plantilla', 'posición de plantilla', 'plantilla de cerrado', 'estado', 'nivel de madurez', 'orden', 'tamaño', 'formato legible', 'motivo (regla)', 'motivo (acción)', 'guía', 'opción de preferencia']) assert.ok(tipos.has(t), 'sin claves de tipo «' + t + '»');
-  assert.equal(pedidas.filter((c) => c.tipo === 'acción').length, 36, 'las 36 plantillas de transacción');
+  assert.equal(pedidas.filter((c) => c.tipo === 'acción').length, 42, 'las 42 plantillas de transacción');
   assert.equal(new Set(pedidas.map((c) => c.clave)).size, pedidas.length, 'sin claves repetidas');
 });
 
@@ -44,4 +44,22 @@ test('traducciones: los motivos fijos de las acciones tienen su canónico en ing
   assert.equal(await por('en', 'apply a resource', 'f'.repeat(64)), 'apply a resource: X is not a record of the ledger');
   assert.equal(await por('es', 'apply a resource', 'f'.repeat(64)), 'apply a resource: X no es un registro del libro');
   assert.equal(await por('es', 'apply a resource', menu.id, ''), 'apply a resource: quien la lanza (yo) tiene que ser una identidad');
+});
+
+test('traducciones: lo nuevo del 3 por tema (encargo pv3): las seis plantillas (quitar, vetar, llevar a un grupo, los dos mínimos y configurar el sitio) con su canónico en inglés y su español, los mismos huecos; y los textos de la carta para las cajas, la conversación y el personaje del sitio', async () => {
+  const { t, TEXTOS } = await import('../carta/textos.js');
+  const huecos = (s) => [...String(s).matchAll(/{([^{}]+)}/g)].map((m) => m[1]).sort();
+  for (const nombre of ['remove someone', 'veto someone', 'move to group', 'set a minimum', 'set a minimum rank', 'configure a place']) {
+    const p = acciones.plantillaDeTransaccion(nombre);
+    assert.ok(p, nombre);
+    for (const clave of [contrato.claves.plantilla(nombre), contrato.claves.mensaje(nombre)]) {
+      const en = clave === contrato.claves.plantilla(nombre) ? nombre : (p.plantilla ?? p)[9].at(-1); // el canónico: su nombre y su mensaje (su 9)
+      const es = contrato.texto(null, clave, 'es');
+      assert.ok(es && es !== en, 'sin traducir: «' + clave + '»');
+      assert.deepEqual(huecos(es), huecos(en), clave + ': los mismos huecos');
+    }
+    for (const prm of acciones.parametros(p.plantilla ?? p, { idioma: 'es' })) assert.ok(prm.etiqueta && prm.ayuda && !/^the /.test(prm.ayuda), nombre + ' · ' + prm.nombre + ': su etiqueta y su ayuda en español');
+  }
+  for (const k of ['filtro_todos', 'filtro_doy', 'filtro_recibo', 'filtroTitulo', 'marcadorDoy', 'marcadorRecibo', 'personaTitulo', 'cajaVacia', 'cajaMinimo', 'cajaFuera', 'capaChat', 'capaRecursos', 'capaCriterios', 'capaFavoritos', 'capaTrabajo', 'sitioTitulo', 'sitioDe', 'conversacionCon']) assert.ok(TEXTOS.es[k] && t(k) !== k, 'la carta: ' + k);
+  assert.equal(t('marcadorDoy', { n: 2 }), '2 de mi R la tiene esta persona');
 });

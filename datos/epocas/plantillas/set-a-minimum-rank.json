@@ -1,0 +1,60 @@
+[
+  ["set a minimum rank"],
+  [
+    [
+      ["box"],
+      ["number"],
+      ["=it >= 0 and it <= 5"],
+      ["me"],
+      ["payload"],
+      ["-"],
+      ["encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum rank»"],
+      ["required"],
+      [1],
+      ["the box of the 3 (0 … 5): the node X.3.<box> whose position is set"]
+    ],
+    [
+      ["rank"],
+      ["text"],
+      ["=\"0.3\" in it or \"1.1\" in it or \"2.1\" in it or \"3.1\" in it or \"3.2\" in it or \"4.1\" in it or \"4.2\" in it or \"5.1\" in it or \"5.2\" in it or \"5.3\" in it"],
+      ["me"],
+      ["payload"],
+      ["0"],
+      ["encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum rank»"],
+      ["required"],
+      [2],
+      ["the rank (level.grade, the ten boxes of the 8) someone needs on the focus to appear in the box"]
+    ],
+    [
+      ["mode"],
+      ["text"],
+      ["=\"only\" in it or \"up\" in it or \"down\" in it"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["encargo pv3 (VG, 12-11, issue #37): parámetro de «set a minimum rank»"],
+      ["optional"],
+      [3],
+      ["up", "only that rank, or widen up or down from it"]
+    ]
+  ],
+  ["=first it.3 = me"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ]
+  ],
+  ["3.{box}.8"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el rango mínimo de una caja del 3 es su 8 (X.3.<box>.8: el rango, nivel.grado, el de las diez cajas del 8, y el modo: solo ese, ampliar hacia arriba o hacia abajo). El filtro queda preparado: la lectura del rango de una persona sobre el foco es del 8 (#39, otro encargo); mientras no la dé, no deja a nadie fuera y se dice. Acción de configuración del sitio (PV 0: la abre el interrogante)"
+  ],
+  ["epoch 0"],
+  [0, 2],
+  ["set a minimum rank: {me} sets the minimum rank of a box of its 3"]
+]
