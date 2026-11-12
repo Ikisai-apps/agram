@@ -57,8 +57,8 @@ const centroDe = (h) => {
 };
 
 const VACIOS = new Set(['img', 'br', 'input', 'meta', 'link', 'hr', 'source', 'wbr']);
-/** El HTML sin ningún nodo de clase `capa` (con todo lo que lleva dentro). */
-function sinCapas(h) {
+/** El HTML sin ningún nodo de clase `capa` (o la que se diga), con todo lo que lleva dentro. */
+function sinCapas(h, quitar = 'capa') {
   const re = /<(\/?)([a-zA-Z][\w-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
   let fuera = '';
   let desde = 0;
@@ -73,7 +73,7 @@ function sinCapas(h) {
       continue;
     }
     const clase = /\bclass="([^"]*)"/.exec(attrs)?.[1] ?? '';
-    if (!cierre && clase.split(/\s+/).includes('capa')) {
+    if (!cierre && clase.split(/\s+/).includes(quitar)) {
       fuera += h.slice(desde, m.index);
       if (VACIOS.has(tag)) desde = m.index + todo.length;
       else saltando = { tag, n: 1 };
@@ -223,7 +223,8 @@ test('las capas no ocupan sitio ni mueven nada: absolutas, sin recibir el ratón
   const regla = (sel) => new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{[^}]*position:absolute');
   for (const sel of ['.rejilla-completa>.capa-fondo', '.capa-dibujo', '.flotante-cara>.capa-etapa', '.capa-etapa-cabeza', '.rejilla-completa>.capa-personaje', '.capa-efectos', '.rejilla-completa>.capa-marco', '.cuenta-bola>.capa-ocupante', '.estrella-forma>.capa-ocupante']) assert.match(CSS, regla(sel), sel);
   assert.match(CSS, /\.capa\{pointer-events:none\}/);
-  assert.match(CSS, /\.animado \.nucleo:has\(>\.pieza-marco\)\{padding:/, 'el relleno del marco pintado entero no toca la pantalla completa ni el marco en capas');
+  assert.doesNotMatch(CSS, /:has\(>\.pieza-marco\)/, 'ningún relleno por el marco: el marco es una capa y no cambia nada de medida');
+  assert.doesNotMatch(CSS, /\.pv-pie\{margin-bottom:2%\}/, 'ni margen extra en el pie por el marco');
   assert.match(CSS, /--escala:clamp\(\.6,[^;]*,1\.4\)/, 'el dibujo escala con la cifra entre 0,6 y 1,4');
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)\{\.capa-efectos\{display:none\}\}/);
   // Lo que se cambia del sobrio en animado solo es color, fondo y sombra (nada de bordes, rellenos, tamaños ni huecos).
@@ -351,7 +352,6 @@ test('Mapped en bloque y en tarjeta (#16): el animado es el sobrio más capas; e
   // CSS: todo absoluto y sin relleno añadido; en una celda muy baja del móvil, solo la línea.
   const regla = (sel) => new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{[^}]*position:absolute');
   for (const sel of ['.pv>.capa-fondo', '.pv-cabeza .capa-etapa-pv', '.ocupante>.capa-elemento', '.pv>.capa-marco,.nucleo>.capa-marco']) assert.match(CSS, regla(sel), sel);
-  assert.match(CSS, /\.animado \.pv\.nivel-2:has\(>\.pieza-marco\),\.animado \.pv\.nivel-3:has\(>\.pieza-marco\)/, 'el relleno solo con el marco estirado (Sequenced)');
   assert.match(CSS, /@container \(max-height:90px\)\{\.pv>\.capa-marco \.marco-esquina/);
 });
 
@@ -462,6 +462,38 @@ test('Sequenced en animado (#7): la columna es la del sobrio más capas; cada fi
     const decl = l.slice(l.indexOf('{') + 1, l.lastIndexOf('}')).split(';').filter(Boolean).map((d) => d.split(':')[0].trim());
     for (const p of decl) assert.ok(['background', 'isolation', 'position'].includes(p), `${p} en ${l.slice(0, 80)}`);
     if (decl.includes('position')) assert.match(l, /position:relative/);
+  }
+});
+
+test('Sequenced, un PV abierto como foco en el móvil en vertical (todo): el marco abraza el borde de la tarjeta (sus cuatro esquinas y una línea), nunca el dibujo estirado en medio del texto; sin él (ni el escenario, que ya estaba) es el sobrio', async () => {
+  const { eje, compra } = await conCarpeta();
+  const pantallas = { 'el móvil (390 × 844)': medidasDePantalla(390, 844), 'el móvil pequeño (360 × 800)': medidasDePantalla(360, 800) };
+  const casos = Object.entries(pantallas).flatMap(([que, m]) => [1, 2, 3, 4, 8, 9].map((pv) => [`${que}, el ${pv} como foco`, m, pv]));
+  const sobrio = [];
+  for (const [que, m, pv] of casos) {
+    const a = await arbol({ foco: { X: compra.id, pv }, nuevos: new Set() }, eje, 'huesped', m);
+    assert.equal(a.apilada, true, que + ': Sequenced');
+    assert.equal(a.animado, false);
+    const h = secuenciaDe(html(a));
+    assert.match(h, /<section class="nucleo abierto/, que + ': el PV abierto como foco');
+    assert.doesNotMatch(h, /class="[^"]*capa|pieza-marco/, 'el sobrio no lleva capas');
+    sobrio.push(h);
+  }
+  await animado(eje);
+  for (const [i, [que, m, pv]] of casos.entries()) {
+    const a = await arbol({ foco: { X: compra.id, pv }, nuevos: new Set() }, eje, 'huesped', m);
+    assert.equal(a.animado, true);
+    assert.ok(a.centro.marco?.recurso, que + ': el núcleo da el marco del mundo');
+    const h = secuenciaDe(html(a));
+    assert.doesNotMatch(h, /pieza-marco/, que + ': ningún marco estirado');
+    // Un solo marco, de cuatro esquinas del dibujo del mundo y una línea, lo último de la tarjeta.
+    assert.equal((h.match(/class="capa capa-marco"/g) ?? []).length, 1, que);
+    const marco = `<img src="./${a.centro.marco.recurso}" alt="" loading="lazy" decoding="async">`;
+    assert.ok(h.includes(`<div class="capa capa-marco" aria-hidden="true">${['arriba-izquierda', 'arriba-derecha', 'abajo-izquierda', 'abajo-derecha'].map((e) => `<span class="marco-esquina ${e}">${marco}</span>`).join('')}</div>
+  </section>`), que + ': el marco del mundo, lo último del núcleo');
+    // Mismo DOM: quitar las capas da el sobrio, salvo lo que el foco abierto llevaba ya antes de las capas y no es del marco:
+    // el escenario y el icono inline de cada ocupante (pieza-elemento, que en filas y en el hilo ya es capa).
+    assert.equal(sinCapas(sinCapas(sinCapas(h), 'escenario'), 'pieza-elemento'), sobrio[i], que + ': el animado es el sobrio más capas');
   }
 });
 

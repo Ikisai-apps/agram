@@ -93,7 +93,7 @@ function htmlEscenario(n, { paso, etiqueta = '' } = {}) {
   return `<div class="escenario${n.consumido ? ' consumido' : ''}" data-escenario>${fondo}${etapa}${personaje}${efectos}</div>`;
 }
 
-/** El marco de un PV o del centro, superpuesto al borde (solo con recurso). */
+/** El marco de un PV comprimido (una celda diminuta), estirado a su caja (solo con recurso); en los demás tamaños, htmlMarcoCapa. */
 const htmlMarco = (marco) => (marco?.recurso ? htmlPieza(marco, { clase: 'pieza-marco', alt: '' }) : '');
 
 // ---------- El animado a pantalla completa: capas sobre el sobrio (VG, 11-11) ----------
@@ -691,7 +691,9 @@ function htmlLateral(n, arbol, { enFila = false } = {}) {
   const ligera = enCapas && enFila;
   const etapaEnCabeza = capas ? capaPieza(n.etapa, { clase: 'pieza-etapa capa-etapa capa-etapa-pv', alt: n.etiqueta }) : '';
   const cabeza = `<header class="pv-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">${escapar(n.etiqueta)}${etapaEnCabeza}</span>${n.medida ? htmlMedida(n.medida) : dato}</header>`;
-  const marco = capas ? htmlMarcoCapa(n.marco) : ligera ? '' : htmlMarco(n.marco);
+  // El marco, siempre como capa (las cuatro esquinas del dibujo y una línea, nunca el dibujo estirado en medio del texto):
+  // en tarjeta y bloque, en Mapped y en cualquier otro sitio; solo el comprimido (una celda de un dato) lo estira.
+  const marco = n.nivel === NIVEL.comprimido ? htmlMarco(n.marco) : ligera ? '' : htmlMarcoCapa(n.marco);
   let cuerpo = '';
   if (n.nivel === NIVEL.comprimido) cuerpo = `<div class="comprimido" title="${attr(n.etiqueta)}: ${attr(n.ayuda ?? '')}"><span class="numero">${n.pv}</span>${sello || dato}${sello ? dato : ''}${efectos}${marco}</div>`;
   else {
@@ -797,7 +799,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
     <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quienConEtapa}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
     ${c.rejilla ? '' : htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
     ${c.rejilla ? htmlRejilla(c.rejilla, { completa: true, arbol }) : htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
-    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' && !c.rejilla?.camino ? htmlGuia(arbol.guia) : ''}${c.rejilla ? '' : htmlMarco(c.marco)}
+    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' && !c.rejilla?.camino ? htmlGuia(arbol.guia) : ''}${c.rejilla ? '' : htmlMarcoCapa(c.marco)}
   </section>`;
 }
 
