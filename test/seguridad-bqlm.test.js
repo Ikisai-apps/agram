@@ -18,6 +18,9 @@ import { Libro, acunar, bloquear, transaccion } from '../src/libro.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { pagaElCoste } from './ayudas-coste.js';
+import { selloCompleto, declararExterior } from './ayudas-sello.js';
+import { Eje } from '../src/eje.js';
+import { verificado as verificadoDe } from '../src/contrato.js';
 
 const REGLA = EPOCA_0_BTML.condiciones[0];
 const uno = (src, ctx) => {
@@ -227,4 +230,24 @@ test('SEG-18 el presupuesto corta una tx o un cat desmesurados antes de procesar
   const firma = 'signed(bytes("' + '00'.repeat(64) + '"), bytes("' + '00'.repeat(32) + '"), bytes("' + '00'.repeat(32) + '"))';
   const muchas = evaluar('count (epoch.0 where ' + firma + ')', new ContextoEje(null, { epoch: [Array.from({ length: 100 }, (_, k) => 'f' + k)] }));
   assert.equal(muchas.subtipo, POR_LIMITE, muchas.motivo);
+});
+
+test('SEG-19 la regla «sealed» no acepta un sello firmado por una clave fuera de la lista de la cuenta raíz, ni la que declara otro, ni una prueba copiada en el payload', async () => {
+  const cuenta = await generarClaves();
+  const eje = await Eje.genesis({ identidad: 'vg', foco: ['mi eje'], t: '2026-11-10T10:00:00Z', clave: cuenta.publica, privada: cuenta.privada, exigirFirmas: true });
+  const declarada = await generarClaves();
+  const intrusa = await generarClaves();
+  await declararExterior(eje, { observadores: [declarada.publica], privada: cuenta.privada, t: '2026-11-10T10:01:00Z' });
+  const ev = await eje.escribir({ autor: 'vg', sobre: eje.genesisId, t: '2026-11-10T10:02:00Z', movimientos: [pagaElCoste('vg')], payload: ['uno'] }, cuenta.privada);
+  const sealed = (id) => evaluar('=first (first it.6).8.5', new ContextoEje(eje, { epoch: EPOCA_0_BTML }), { sujeto: id });
+  // Una prueba completa y coherente, pero firmada por una clave que la cuenta raíz no declaró: falso.
+  eje.marcarSello(ev.id, await selloCompleto(ev.id, { observador: intrusa }));
+  assert.deepEqual(sealed(ev.id).valor, [false]);
+  assert.equal(verificadoDe(eje, ev.id).sello, false);
+  // La lista que cuenta es la de la cuenta RAÍZ: unos ajustes del exterior de otra identidad no la amplían.
+  assert.deepEqual(evaluar('before.8.6', new ContextoEje(eje, { epoch: EPOCA_0_BTML })).valor, [declarada.publica]);
+  // Una «prueba» escrita en el payload del propio registro (su 6.8.2) no se lee: el núcleo lee el 6 implícito (first it.6).
+  const prueba = (await selloCompleto(eje.genesisId, { observador: declarada })).decupla;
+  const falso = await eje.escribir({ autor: 'vg', sobre: eje.genesisId, t: '2026-11-10T10:03:00Z', movimientos: [pagaElCoste('vg')], payload: ['dos', '-', '-', '-', '-', '-', ['-', '-', '-', '-', '-', '-', '-', '-', ['-', '-', prueba]]] }, cuenta.privada);
+  assert.equal(sealed(falso.id).estado, 'PENDIENTE', 'sin sello del eje, falta el dato; lo del payload no cuenta');
 });

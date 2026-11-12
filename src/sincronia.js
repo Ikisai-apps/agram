@@ -44,6 +44,7 @@
 import { Eje } from './eje.js';
 import { configuracion } from './contrato.js';
 import { exterior } from './exterior.js';
+import { decuplaDeSello } from './sello.js';
 
 export const VERSION_SINCRONIA = 1;
 
@@ -428,7 +429,9 @@ export class Sincronia {
             informe.sellos.errores.push({ id, motivo: v?.motivo ?? 'la prueba no se pudo verificar' });
             continue; // no entra en el eje; se vuelve a pedir la próxima vez
           }
-          const sello = { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true };
+          // Con la prueba copiada (la décupla del SIP 0): la regla «sealed» la comprueba en el libro (encargo «verificado-regla»).
+          const decupla = decuplaDeSello(p, id);
+          const sello = { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true, ...(decupla ? { decupla } : {}) };
           eje.marcarSello(id, sello);
           this.#sellos.set(id, eje.sello(id) ?? sello);
           informe.sellos.sellados.push(id);

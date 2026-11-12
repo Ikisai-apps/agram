@@ -11,6 +11,7 @@
 //   ajustesDelEje(eje)         lo mismo, leído en el registro de la cuenta RAÍZ del eje (la identidad del génesis): lo que se usa para VERIFICAR (docs/CONTRATO.md §4.4)
 
 import { configuracionDe } from './contrato.js';
+import { fijarLectorDelExterior } from './contexto-eje.js';
 
 /** El nombre de la plantilla de los ajustes del exterior y las claves de sus posiciones: el nombre y las etiquetas son de la época; las posiciones 1-3 (4, reservada a los pagos) son el contrato. */
 export const AJUSTES = Object.freeze({ plantilla: 'exterior settings', relevo: 'relay url', archivos: 'blossom url', sello: 'seal url', observadores: 'observer keys', confirmaciones: 'confirmations', guia: 'guide url' });
@@ -63,3 +64,6 @@ export function ajustesDelEje(eje, opciones = {}) {
   const raiz = eje?.obtener?.(eje.genesisId)?.autor;
   return exterior(eje, raiz, opciones);
 }
+
+// before.8 del BQL mínimo (src/contexto-eje.js) lee los ajustes del exterior de la cuenta raíz con esta función.
+fijarLectorDelExterior(ajustesDelEje);

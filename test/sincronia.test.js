@@ -312,7 +312,8 @@ test('el recibo de llegada (X.6.8.1): el servidor de prueba sirve /eventos/recib
   const r = ejeA.recibo(e1.id);
   assert.equal(r.instante, A.recibido(e1.id), 'el instante del recibo es el `recibido` del servidor');
   assert.match(r.rele, /^[0-9a-f]{64}$/);
-  assert.deepEqual(evaluar('=(first it.6).8.1', new ContextoEje(ejeA), { sujeto: e1.id }).valor, [r.instante, r.rele]);
+  // Detrás del instante y del relé, el recibo copiado (una décupla: encargo «verificado-regla»), que no tiene valor.
+  assert.deepEqual(evaluar('=((first it.6).8.1 where count it2.0 = 0 or not ("recibo de llegada" in it2.0))', new ContextoEje(ejeA), { sujeto: e1.id }).valor, [r.instante, r.rele]);
   assert.equal(ejeA.obtener(e1.id).firma, firma, 'la firma, intacta');
 
   // B baja el eje: sus recibos llegan igual.

@@ -54,6 +54,17 @@ import { pendiente, Parada, Presupuesto, SIMBOLOS, NADIE, leerRegla, posicionDeL
 /** Quien está al otro lado de una emisión o de un consumo: el símbolo de src/bqlm.js, nunca un texto (SEG-11). */
 export { NADIE };
 
+/**
+ * Quién lee los ajustes del exterior de la cuenta raíz (before.8): src/exterior.js (ajustesDelEje) se registra aquí al
+ * cargarse, para no hacer un ciclo de imports (exterior → contrato → contexto-eje). `var` sin valor a propósito: si
+ * exterior se evalúa antes que este módulo, lo que registró no se pisa.
+ */
+// eslint-disable-next-line no-var
+var lectorDelExterior;
+export function fijarLectorDelExterior(f) {
+  lectorDelExterior = typeof f === 'function' ? f : undefined;
+}
+
 /** Cuántas referencias encadenadas se siguen (como src/encaje.js). */
 const MAX_SALTOS = 20;
 
@@ -156,6 +167,8 @@ export class ContextoEje {
   #registrosDeEpoca; // id → registro (las reglas del 2 de la época, src/epocas.js): lo que alcanza una referencia del 2
   #lecturas = new Map(); // «X.6.1» → las lecturas de la época (B5) que se materializan ahí
   #leyendo = new Set(); // las lecturas en curso (regla y sujeto): una que vuelve sobre sí misma es PENDIENTE
+  #epocaCargada; // la época cargada (cargarEpocaBtml), si es lo que se dio: la que lee before.8 (sus plantillas)
+  #exterior = null; // before.8, los ajustes del exterior de la cuenta raíz, con la longitud del eje al leerlos
 
   constructor(eje = null, { ev, epoch, me, ahora } = {}) {
     this.#eje = eje ?? null;
@@ -165,6 +178,7 @@ export class ContextoEje {
     this.#epoch = epoch ? payloadDeEpoca(epoch) : null;
     this.#registrosDeEpoca = epoch?.registros instanceof Map ? epoch.registros : new Map();
     this.#idEpoca = typeof epoch?.id === 'string' ? epoch.id : null;
+    this.#epocaCargada = epoch && !Array.isArray(epoch) && Array.isArray(epoch.registro) ? epoch : undefined;
     for (const regla of Array.isArray(epoch?.lecturas) ? epoch.lecturas : []) {
       const donde = posicionDeLectura(regla);
       if (typeof donde !== 'string') continue;
@@ -455,6 +469,19 @@ export class ContextoEje {
     } else return undefined;
     pres.gastar(lista.length);
     return lista.map((a) => ({ k: 'asiento', a }));
+  }
+
+  /**
+   * `payload(X)` del BQL mínimo (Core AGRAM 13-11, H19 del SIP 0): el payload de un registro (o de la candidata) tal
+   * como se escribió, sin lo implícito (D-META, vistas, lecturas) ni lo anclado: una décupla (o el terminal, si el
+   * payload es uno). undefined si el nodo no es un registro.
+   */
+  payload(nodo) {
+    const e = nodo?.k === 'ev' ? this.#ev : this.#evento(nodo);
+    if (!e) return undefined;
+    const p = e.payload;
+    if (p === undefined || p === null) return { k: 'dec', id: null, camino: [], v: [] };
+    return Array.isArray(p) ? { k: 'dec', id: null, camino: [], v: p } : p;
   }
 
   /** El valor de un nodo: el id de un registro (o de la candidata, si lo tiene); una décupla no tiene. */
@@ -921,6 +948,9 @@ export class ContextoEje {
         if (d === 4) return this.#eje.series().map((s) => ({ k: 'serie', clave: s.clave }));
         if (d === 5) return this.#eje.genesisId ? [this.#eje.genesisId] : [];
         if (d === 6) return [{ k: 'reloj' }];
+        // 8, frente a otros: los servicios de fuera del eje, los ajustes «exterior settings» de su cuenta RAÍZ
+        // (src/exterior.js ajustesDelEje; encargo «verificado-regla», #67): con ellos verifican todos los lectores.
+        if (d === 8) return [{ k: 'exterior' }];
         // 9, cómo es este libro: «demostración» si su génesis lo marca (sin clave se actúa; R9). Para el propio
         // génesis, que aún no está, lo que diga él.
         if (d === 9) {
@@ -928,6 +958,16 @@ export class ContextoEje {
           return demo ? ['demostración'] : [];
         }
         return [];
+      case 'exterior': {
+        // before.8: 1 relay url, 2 blossom url, 3 seal url, 6 observer keys (una por ocupante, hex x-only en minúsculas),
+        // 7 confirmations, 8 guide url: las posiciones de la plantilla «exterior settings» (epoch.9.2.5), ya leídas.
+        const n = this.#eje.orden?.length ?? 0;
+        if (typeof lectorDelExterior !== 'function') throw pendiente('before.8: los ajustes del exterior no se pueden leer (no se ha cargado src/exterior.js)');
+        if (this.#exterior?.n !== n) this.#exterior = { n, a: lectorDelExterior(this.#eje, this.#epocaCargada ? { epoca: this.#epocaCargada } : {}) };
+        const { a } = this.#exterior;
+        const v = { 1: a.relevo, 2: a.archivos, 3: a.sello, 6: a.observadores, 7: a.confirmaciones, 8: a.guia }[d];
+        return v === null || v === undefined ? [] : Array.isArray(v) ? [...v] : [v];
+      }
       case 'llave':
         // Una clave pública declarada (B4): 0 su huella, 3 su titular, 4 su prueba de posesión (si la lleva).
         return d === 0 ? [huella(nodo.clave)] : d === 2 && typeof nodo.clave === 'string' ? [nodo.clave] : d === 3 ? [nodo.titular] : d === 4 && nodo.prueba !== undefined ? [nodo.prueba] : [];
@@ -982,15 +1022,23 @@ export class ContextoEje {
         if (d === 0) return nodo.e.t === undefined ? [] : [nodo.e.t];
         // 1, la marca del transporte (el recibo de llegada que firma el relé de Nostr, servidor/sim/aarpia/): su instante y la
         // clave del relé. Lo da el eje (eje.recibo), una vista del libro como el sello. Vacío hasta que el transporte lo da.
+        // Detrás, el recibo copiado para comprobarlo (encargo «verificado-regla», #67), como una décupla: 0 «recibo de
+        // llegada», 1 el instante, 2 la clave del relé, 3 su firma, 4 el id del recibo (el evento Nostr 7701) que firma; lo
+        // lee la regla «received» (X.6.8.4).
         if (d === 1) {
           const recibo = nodo.e.id ? this.#eje.recibo?.(nodo.e.id) : null;
-          return recibo ? [recibo.instante, recibo.rele] : [];
+          return recibo ? [recibo.instante, recibo.rele, { k: 'dec', id: null, camino: [], v: [['recibo de llegada'], recibo.instante, recibo.rele, recibo.firma, recibo.recibo ?? undefined] }] : [];
         }
+        // Detrás, la prueba copiada (encargo «verificado-regla», #67): la décupla del sello de tiempo del SIP 0, sin huecos
+        // (src/sello.js decuplaDeSello y POSICIONES_DEL_SELLO). La lee la regla «sealed» (X.6.8.5): todo lo que verifica
+        // está aquí, copiado; nada sale del libro.
         if (d === 2) {
           const sello = nodo.e.id ? this.#eje.sello?.(nodo.e.id) : null;
-          return sello ? [sello.instante, sello.altura, sello.hash] : [];
+          if (!sello) return [];
+          return [sello.instante, sello.altura, sello.hash, ...(Array.isArray(sello.decupla) ? [{ k: 'dec', id: null, camino: [], v: sello.decupla }] : [])];
         }
-        return [];
+        // 3-9: las lecturas de la época que se materializan aquí (X.6.8.4 «received», X.6.8.5 «sealed»).
+        return this.#lecturaEn('X.6.8.' + d, this.#sujetoDe(nodo.e));
       case 'par':
         return d === 0 ? [nodo.de ?? NADIE] : d === 1 ? [nodo.a ?? NADIE] : [];
       case 'entrada':

@@ -16,6 +16,11 @@ import { destinoDe } from '../carta/archivos.js';
 import { t } from '../carta/textos.js';
 import { ejemploCompra, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
 import { pagaElCoste } from './ayudas-coste.js';
+import { selloCompleto, observadorDePrueba, releDePrueba, reciboFirmado, declararExterior } from './ayudas-sello.js';
+
+/** verificado(…) sin `pendiente` (lo que falta para comprobar, que se mira aparte), y las lecturas que faltan. */
+const sinPendiente = (v) => { const { pendiente, pendienteDeSello, ...r } = v; return r; };
+const faltan = (v) => v.pendiente.map((p) => p.lectura);
 
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
 const minuto = (de) => pagaElCoste(de);
@@ -160,36 +165,44 @@ test('el destino del transporte y de los archivos: «relay url» y «blossom url
   assert.equal(sincronia.destinoDelLibro(e.eje, 'vg'), null);
 });
 
-test('verificado(eje, id): { ok, sello, recibo, relojes, altura, profundidad, enFirme }; ok = sello verificado y recibo (si el transporte los da) y los tres relojes en orden; se expone en leer del 5', async () => {
+test('verificado(eje, id): { ok, sello, recibo, relojes, altura, profundidad, enFirme, pendiente }; ok = «sealed» y «received» (si el transporte da recibos) verdaderos y los tres relojes en orden; se expone en leer del 5', async () => {
   const { cuenta, eje } = await cuentaDeVg();
   const e1 = await eje.escribir({ autor: 'vg', sobre: eje.genesisId, t: T(1), movimientos: [minuto('vg')], payload: ['uno'] }, cuenta.privada);
   const e2 = await eje.escribir({ autor: 'vg', sobre: e1.id, t: T(2), movimientos: [minuto('vg')], payload: ['dos'] }, cuenta.privada);
+  // La cuenta raíz declara la clave de su observador de cabeceras (de prueba): con ella verifica la regla «sealed».
+  const obs = await observadorDePrueba();
+  const rele = await releDePrueba();
+  await ajustarExterior({ cuenta, eje }, { 'observer keys': obs.publica }, 3);
   assert.equal(contrato.verificado(eje, 'no existe'), null);
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'sin transporte ni sello: el recibo no se exige, pero sin sello no hay verificado');
-  assert.deepEqual(contrato.leer(eje, e1.id, 5).verificado, { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'en leer del 5');
+  assert.deepEqual(sinPendiente(contrato.verificado(eje, e1.id)), { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'sin transporte ni sello: el recibo no se exige, pero sin sello no hay verificado');
+  assert.deepEqual(faltan(contrato.verificado(eje, e1.id)), ['sello'], 'sin sello, la regla «sealed» queda pendiente: falta el dato');
+  assert.deepEqual(sinPendiente(contrato.leer(eje, e1.id, 5).verificado), { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'en leer del 5');
   assert.equal(contrato.leer(eje, e1.id, 1).verificado, undefined, 'solo en el 5');
   assert.equal(contrato.leerRuta(eje, e1.id, [5]).verificado.ok, false);
 
-  // Un sello en un bloque pero no comprobado (`verificado` falso) no basta.
-  eje.marcarSello(e1.id, { altura: 3, hash: 'a'.repeat(64), instante: '2026-11-10T11:00:00.000Z', verificado: false });
-  assert.equal(contrato.verificado(eje, e1.id).sello, false);
-  assert.equal(contrato.verificado(eje, e1.id).ok, false);
-  eje.marcarSello(e1.id, { altura: 3, hash: 'a'.repeat(64), instante: '2026-11-10T11:00:00.000Z', verificado: true });
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: null, relojes: true, altura: 3, profundidad: 1, enFirme: false }, 'sello verificado y ningún recibo en el eje: el transporte no los da, no se exigen');
+  // Un sello en un bloque sin la prueba copiada no basta, aunque el adaptador lo diera por bueno: lo dice la regla.
+  const completo = await selloCompleto(e1.id, { altura: 3, instante: '2026-11-10T11:00:00.000Z', observador: obs });
+  const { decupla, ...sinPrueba } = completo;
+  eje.marcarSello(e1.id, sinPrueba);
+  assert.deepEqual([contrato.verificado(eje, e1.id).sello, contrato.verificado(eje, e1.id).ok, faltan(contrato.verificado(eje, e1.id))], [false, false, ['sello']]);
+  // La misma altura y el mismo hash, ahora con la prueba: la décupla se añade al sello que ya estaba.
+  assert.ok(decupla);
+  eje.marcarSello(e1.id, completo);
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: null, relojes: true, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false }, 'sello con su prueba y ningún recibo en el eje: el transporte no los da, no se exigen');
 
   // El transporte da recibos (a e2, no a e1): ahora se exige el de cada uno.
-  eje.marcarRecibo(e2.id, { instante: '2026-11-10T10:03:00.000Z', rele: 'b'.repeat(64), firma: 'c'.repeat(128) });
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: false, sello: true, recibo: false, relojes: true, altura: 3, profundidad: 1, enFirme: false }, 'el transporte los da y a este no');
+  eje.marcarRecibo(e2.id, reciboFirmado(rele, { instante: '2026-11-10T10:03:00.000Z' }));
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: false, sello: true, recibo: false, relojes: true, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false }, 'el transporte los da y a este no');
   assert.equal(contrato.verificado(eje, e2.id).recibo, true);
   assert.equal(contrato.verificado(eje, e2.id).ok, false, 'e2 tiene recibo pero no sello');
-  eje.marcarRecibo(e1.id, { instante: '2026-11-10T10:02:00.000Z', rele: 'b'.repeat(64), firma: 'c'.repeat(128) });
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: true, relojes: true, altura: 3, profundidad: 1, enFirme: false });
+  eje.marcarRecibo(e1.id, reciboFirmado(rele, { instante: '2026-11-10T10:02:00.000Z' }));
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: true, relojes: true, altura: 3, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
   assert.equal(contrato.leer(eje, e1.id, 5).verificado.ok, true);
 
   // Relojes fuera de orden («clocks out of order»): el bloque va antes que el t del libro más del margen (epoch.7.3.1).
-  eje.marcarSello(e2.id, { altura: 1, hash: 'd'.repeat(64), instante: '2026-11-10T07:00:00.000Z', verificado: true });
+  eje.marcarSello(e2.id, await selloCompleto(e2.id, { altura: 1, instante: '2026-11-10T07:00:00.000Z', observador: obs }));
   assert.equal(contrato.relojesFueraDeOrden(eje, e2.id), true);
-  assert.deepEqual(contrato.verificado(eje, e2.id), { ok: false, sello: true, recibo: true, relojes: false, altura: 1, profundidad: 3, enFirme: false }, 'la altura conocida es la del último sello (3): e2, sellado en 1, tiene 3 confirmaciones');
+  assert.deepEqual(contrato.verificado(eje, e2.id), { ok: false, sello: true, recibo: true, relojes: false, altura: 1, profundidad: 3, enFirme: false, pendiente: [], pendienteDeSello: false }, 'la altura conocida es la del último sello (3): e2, sellado en 1, tiene 3 confirmaciones');
 });
 
 test('profundidad y «en firme»: (altura del último sello verificado conocido − la de su bloque + 1) contra las «confirmations» de la cuenta RAÍZ del eje, no de quien escribe', async () => {
@@ -197,27 +210,30 @@ test('profundidad y «en firme»: (altura del último sello verificado conocido 
   const e1 = await eje.escribir({ autor: 'vg', sobre: eje.genesisId, t: T(1), movimientos: [minuto('vg')], payload: ['uno'] }, cuenta.privada);
   const e2 = await eje.escribir({ autor: 'vg', sobre: e1.id, t: T(2), movimientos: [minuto('vg')], payload: ['dos'] }, cuenta.privada);
   const e3 = await eje.escribir({ autor: 'vg', sobre: e2.id, t: T(3), movimientos: [minuto('vg')], payload: ['tres'] }, cuenta.privada);
-  const sello = (altura, h = 'a', verificado = true) => ({ altura, hash: h.repeat(64), instante: '2099-01-01T00:00:00.000Z', verificado });
+  const obs = await observadorDePrueba();
+  await ajustarExterior({ cuenta, eje }, { 'observer keys': obs.publica }, 4);
+  // Sellos con su prueba copiada (la regla «sealed» verdadera); `verificado`, lo que dijo el adaptador (la cota de alturas).
+  const marcar = async (id, altura, verificado = true) => eje.marcarSello(id, { ...(await selloCompleto(id, { altura, instante: '2099-01-01T00:00:00.000Z', observador: obs })), verificado });
   const de = (id) => { const v = contrato.verificado(eje, id); return [v.altura, v.profundidad, v.enFirme]; };
   assert.equal(eje.alturaConocida, null);
-  eje.marcarSello(e1.id, sello(100));
+  await marcar(e1.id, 100);
   assert.equal(eje.alturaConocida, 100);
   assert.deepEqual(de(e1.id), [100, 1, false], 'recién minado: 1 confirmación');
-  eje.marcarSello(e2.id, sello(104, 'b', false));
+  await marcar(e2.id, 104, false);
   assert.equal(eje.alturaConocida, 100, 'un sello sin comprobar no alarga la profundidad de nadie');
-  eje.marcarSello(e2.id, sello(104, 'b'));
+  await marcar(e2.id, 104);
   assert.equal(eje.alturaConocida, 104);
   assert.deepEqual(de(e1.id), [100, 5, false], '104 − 100 + 1: faltan confirmaciones (el defecto es 6)');
   assert.deepEqual(de(e2.id), [104, 1, false]);
   assert.deepEqual(de(e3.id), [null, null, false], 'sin sello no hay altura ni profundidad');
   // El último sello conocido puede ser de otro registro: sube la profundidad de todos.
-  eje.marcarSello(e3.id, sello(105, 'c'));
+  await marcar(e3.id, 105);
   assert.deepEqual(de(e1.id), [100, 6, true], '105 − 100 + 1 = 6');
   assert.equal(de(e2.id)[2], false);
   // Las confirmaciones que cuentan son las de la cuenta raíz del eje (la del génesis), con sus defectos si no hay registro.
-  assert.deepEqual(exterior.ajustesDelEje(eje), { relevo: null, archivos: null, sello: null, guia: null, observadores: [], confirmaciones: 6 });
-  await ajustarExterior({ cuenta, eje }, { confirmations: '3', 'observer keys': CLAVE_A }, 5);
-  assert.deepEqual(exterior.ajustesDelEje(eje).observadores, [CLAVE_A]);
+  assert.deepEqual(exterior.ajustesDelEje(eje), { relevo: null, archivos: null, sello: null, guia: null, observadores: [obs.publica], confirmaciones: 6 });
+  await ajustarExterior({ cuenta, eje }, { confirmations: '3', 'observer keys': obs.publica + ' ' + CLAVE_A }, 5);
+  assert.deepEqual(exterior.ajustesDelEje(eje).observadores, [obs.publica, CLAVE_A]);
   assert.equal(exterior.ajustesDelEje(eje).confirmaciones, 3);
   assert.equal(de(e2.id)[1], 2, '105 − 104 + 1');
   assert.equal(de(e2.id)[2], false, '2 < 3');
@@ -227,6 +243,10 @@ test('profundidad y «en firme»: (altura del último sello verificado conocido 
 test('en la carta, «verificado» es una marca discreta: en el reverso (cara 5) y en la celda de la matriz del 4, solo si lo está; la configuración trae el desplegable del exterior', async () => {
   const { eje, compra, ...resto } = await ejemploCompra();
   await ejemploFabrica(eje, { compra, ...resto }); // las ejecuciones de la matriz del 4 (pagar, servir…)
+  // La cuenta raíz (casa) declara su observador de cabeceras: los sellos con su prueba copiada pasan la regla «sealed».
+  const obs = await observadorDePrueba();
+  await declararExterior(eje, { observadores: [obs.publica] });
+  const sellar = async (id, altura) => eje.marcarSello(id, await selloCompleto(id, { altura, instante: '2099-01-01T00:00:00.000Z', observador: obs }));
   const arbol = (estado, medidas) => arbolEnIdioma(estado, eje, 'huesped', medidas, { idioma: 'es' });
   const ORDENADOR = { ancho: 1920, alto: 1080 };
   // Sin sello: ninguna marca.
@@ -238,7 +258,7 @@ test('en la carta, «verificado» es una marca discreta: en el reverso (cara 5) 
 
   // Verificar una ejecución de la matriz (sello y relojes en orden; el eje no tiene recibos de transporte): la celda la marca.
   const X = celdas(sin)[0].X;
-  eje.marcarSello(X, { altura: 1, hash: 'a'.repeat(64), instante: '2099-01-01T00:00:00.000Z', verificado: true });
+  await sellar(X, 1);
   const con = await arbol({ foco: { X: compra.id, pv: 4 } }, ORDENADOR);
   assert.deepEqual(celdas(con).filter((o) => o.verificado).map((o) => o.X), [X]);
   assert.match(html(con), /<small class="verificado" data-confirmaciones="1" title="verificado: su sello de tiempo[^"]*">◆ verificado · 1 confirmación<\/small>/, 'con la altura del sello conocida, la profundidad: recién minado, 1 confirmación');
@@ -247,7 +267,7 @@ test('en la carta, «verificado» es una marca discreta: en el reverso (cara 5) 
 
   // El reverso del propio registro: la marca va debajo del ancla.
   assert.equal((await arbol({ foco: { X: compra.id, pv: 5 } }, ORDENADOR)).centro.verificado, undefined);
-  eje.marcarSello(compra.id, { altura: 1, hash: 'b'.repeat(64), instante: '2099-01-01T00:00:00.000Z', verificado: true });
+  await sellar(compra.id, 1);
   const reverso = await arbol({ foco: { X: compra.id, pv: 5 } }, ORDENADOR);
   assert.equal(reverso.centro.cara, 'reverso');
   assert.equal(reverso.centro.verificado, true);
@@ -256,13 +276,13 @@ test('en la carta, «verificado» es una marca discreta: en el reverso (cara 5) 
 
   // Pasan los bloques: el último sello conocido sube la profundidad («verificado · N confirmaciones») y, con las 6 de los ajustes del eje, «en firme».
   const otro = celdas(sin).find((o) => o.X !== X).X;
-  eje.marcarSello(otro, { altura: 3, hash: 'c'.repeat(64), instante: '2099-01-01T00:00:00.000Z', verificado: true });
+  await sellar(otro, 3);
   const tres = await arbol({ foco: { X: compra.id, pv: 5 } }, ORDENADOR);
   assert.equal(tres.centro.confirmaciones, 3, '3 − 1 + 1');
   assert.equal(tres.centro.enFirme, undefined);
   assert.match(html(tres), /class="verificado-linea"><small class="verificado" data-confirmaciones="3"[^>]*>◆ verificado · 3 confirmaciones<\/small>/);
   const ultimo = celdas(sin).find((o) => o.X !== X && o.X !== otro).X;
-  eje.marcarSello(ultimo, { altura: 6, hash: 'd'.repeat(64), instante: '2099-01-01T00:00:00.000Z', verificado: true });
+  await sellar(ultimo, 6);
   const firme = await arbol({ foco: { X: compra.id, pv: 5 } }, ORDENADOR);
   assert.deepEqual([firme.centro.confirmaciones, firme.centro.enFirme, firme.centro.minimas], [6, true, 6], '6 − 1 + 1');
   assert.match(html(firme), /class="verificado-linea"><small class="verificado" data-en-firme data-confirmaciones="6" title="en firme: [^"]*\(6 de 6;[^"]*">◆ en firme<\/small>/);

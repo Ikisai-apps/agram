@@ -21,6 +21,8 @@
 
 import { esId, sha256, sha256Texto, aBytes } from './hash.js';
 import { canonico, huella, hashEtiquetado } from './canon.js';
+import { politicaCandado } from './miniscript.js';
+import { madurez } from './madurez.js';
 
 export const ESQUEMA_INSTRUCCION = 'stateark.payment-instruction@1';
 export const ESQUEMA_PLAN = 'stateark.payment-plan@1';
@@ -173,6 +175,7 @@ export class Carril {
       if (!esId(d.valor)) throw rechazo('destination_invalid', 'el candado necesita el hash H (64 hex)');
       if (!/^simbc1[0-9a-f]{40}$/.test(d.cobra ?? '')) throw rechazo('destination_invalid', 'el candado necesita la dirección de quien cobra');
       if (!Number.isSafeInteger(d.vence) || d.vence <= this.cadena.altura + 1) throw rechazo('destination_invalid', 'el candado vence a una altura futura, más allá del próximo bloque');
+      if (d.claves !== undefined && (!esId(d.claves?.cobra) || !esId(d.claves?.reembolso) || d.claves.cobra === d.claves.reembolso)) throw rechazo('destination_invalid', 'las claves del candado son dos x-only distintas: cobra y reembolso');
     }
     const ven = ins.vencimiento;
     if (ven) {
@@ -207,6 +210,8 @@ export class Carril {
       c.reembolso = (c.reembolso ?? 0) + 1;
       const reembolso = await this.#derivar(nombre, `reembolso/${c.reembolso}`);
       candado = { hash: d.valor, cobra: d.cobra, reembolso, vence: d.vence };
+      // Con las claves, la política de Miniscript y su Script (BTML → Miniscript → Script, VG #69).
+      if (d.claves) candado.politica = await politicaCandado({ cobra: d.claves.cobra, reembolso: d.claves.reembolso, hash: d.valor, vence: d.vence });
       destino = `simhtlc1${(await huella(candado)).slice(0, 40)}`;
     }
 
@@ -481,6 +486,13 @@ export class Carril {
   }
 
   // ── Verificar sin fiarse de quien pagó ─────────────────────────────────────────────────────────
+
+  /** La profundidad y la madurez de un pago (H11): pendiente, con fondos en sats o en firme (N, 6 por defecto). */
+  madurezDe(txid, n) {
+    const r = this.txs.get(txid);
+    if (!r) return null;
+    return madurez(this.cadena.altura, r.altura, n);
+  }
 
   /** Comprueba un recibo contra la cadena. Opción `confirmaciones` mínimas (por defecto 1). */
   async verificarRecibo(recibo, { confirmaciones = 1 } = {}) {

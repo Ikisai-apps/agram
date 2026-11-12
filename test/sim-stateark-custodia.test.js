@@ -21,7 +21,7 @@ test('crear claves: una raíz por clave, la privada no sale, dominios cerrados',
   assert.notEqual(a.publica, b.publica); // mismo nombre, otro dominio: otra clave
   assert.equal(JSON.stringify(k.listar()).includes('privada'), false);
   assert.deepEqual(Object.keys(a).sort(), ['dominio', 'nombre', 'publica']);
-  await assert.rejects(k.crearClave('nostr', 'vg'), codigo('domain_unknown'));
+  await assert.rejects(k.crearClave('bitcoin', 'vg'), codigo('domain_unknown'));
   await assert.rejects(k.crearClave('agram', 'vg'), codigo('key_exists'));
   assert.throws(() => k.publica('agram', 'nadie'), codigo('key_unknown'));
   // Ni una sola función pública firma bytes sueltos.

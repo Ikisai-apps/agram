@@ -12,12 +12,17 @@
 import { Sellador } from './sello.js';
 import { Carril } from './pagos.js';
 
-export { Sellador, VIA } from './sello.js';
-export { Cadena, RED } from './cadena.js';
+export { Sellador, VIA, selloComoDecupla, caminoDePasos } from './sello.js';
+export { Cadena, RED, leerCabecera, aplicarOts, raizMerkleBitcoin, alturaLe } from './cadena.js';
 export { esId } from './hash.js';
 export { Carril, RechazoPago, firmaSimulada, mensajeAutorizacion, nuevoSecreto, hashDePreimagen, USO, UNIVERSO } from './pagos.js';
 
-export { Custodia, RechazoCustodia, esquemaSimulado, esquemaNoble, verificarVinculo, mensajeVinculo, DOMINIOS, USO_VINCULO } from './custodia.js';
+export { profundidad, madurez, CONFIRMACIONES_POR_DEFECTO } from './madurez.js';
+export { politicaCandado, salidaTaproot, NUMS, numero, pk, vpk, sha256Frag, hash160Frag, after, older, andV, multiA, hoja, rama, ErrorMiniscript } from './miniscript.js';
+export { ESQUEMA_RECIBO_COMUN, CLASES_DE_RECIBO, ErrorRecibo, decuplaDeRecibo, camposDeRecibo, idDeRecibo, sobreDeRecibo, verificarReciboComun } from './recibo.js';
+export { ESQUEMA_EQUIVOCACION, CLASES_DE_EQUIVOCACION, ErrorEquivocacion, claseDe, construirEquivocacion, verificarEquivocacion } from './equivocacion.js';
+export { verificarObservacion, USO_OBSERVADOR } from './custodia.js';
+export { Custodia, RechazoCustodia, esquemaSimulado, esquemaNoble, verificarVinculo, mensajeVinculo, verificarSesion, firmaDeWebhook, DOMINIOS, USO_VINCULO, USO_SESION, TIPOS_DE_CANAL } from './custodia.js';
 
 export const SIMULADO = true;
 

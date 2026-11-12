@@ -30,7 +30,8 @@
 //   franjaDeEntrada(eje, id, pv)           la franja de una entrada en el 6 o el 7 (el primer paso de la fila que da valor) y si sus tres
 //                                          relojes van fuera de orden (`rara`, X.6.9)
 //   relojesFueraDeOrden(eje, id)           si los tres relojes de un registro (X.6.8) van fuera de orden: la lectura «clocks out of order»
-//   verificado(eje, id)                    { ok, sello, recibo, relojes, altura, profundidad, enFirme }: sello verificado, recibo (si el transporte los da), relojes en orden, y cuántas confirmaciones tiene (§4.4)
+//   verificado(eje, id)                    { ok, sello, recibo, relojes, altura, profundidad, enFirme, pendiente, pendienteDeSello }: lo que dicen las reglas «sealed» y «received»
+//                                          de la época, relojes en orden, cuántas confirmaciones tiene y lo que falta para comprobarlo (§4.4)
 //   cohorteDe(eje, X, { cohorte })         la cohorte del 8: contra quién se compara X, sus comparables por caja y quién escribió la base
 //   yo(eje, identidad)                     mi alta y sus posiciones: cartera, criterio, atención, tiempo
 //   configuracion(eje, yo)                 mis preferencias (el registro en el 9 de mi alta) o los defectos de la plantilla
@@ -1741,31 +1742,63 @@ export function relojesFueraDeOrden(eje, id, opciones = {}) {
 }
 
 /**
- * ¿Está verificado un registro? (VG 12-11, #49.8 y #60; docs/CONTRATO.md §4.4): una LECTURA de los tres relojes, no un dato.
- * → { ok, sello, recibo, relojes, altura, profundidad, enFirme } o null si el registro no está en el eje:
- *   sello    true si su sello de tiempo (X.6.8.2) está en un bloque y `verificar` de src/sello.js lo dio por bueno
- *            (`eje.sello(id).verificado`: el gancho de la estación «verificado»);
- *   recibo   true si el transporte dio su recibo de llegada (X.6.8.1); false si el transporte los da (el eje tiene alguno)
- *            pero no el de este; null si en este eje el transporte no da ninguno (no se exige);
+ * Dónde materializa la época las dos lecturas que comprueban los relojes de fuera (encargo «verificado-regla», #67):
+ * X.6.8.5 la prueba del sello de tiempo copiada en X.6.8.2 («sealed») y X.6.8.4 el recibo de llegada copiado en X.6.8.1
+ * («received»). Los nombres y las fórmulas son de la época; aquí solo las posiciones, como «clocks out of order» en X.6.9.
+ */
+const COMPRUEBA = Object.freeze({ sello: '=first (first it.6).8.5', recibo: '=first (first it.6).8.4' });
+
+/** Lo que da una lectura de verdadero o falso sobre un registro: { valor: true | false } o { pendiente: motivo } si falta el dato. */
+function comprobar(expr, ctx, id) {
+  const r = evaluar(expr, ctx, { sujeto: id });
+  if (r.estado === 'RESUELTO') return { valor: r.valor?.length === 1 && r.valor[0] === true };
+  return { pendiente: r.motivo ?? r.estado };
+}
+
+/**
+ * ¿Está verificado un registro? (VG 12-11, #49.8, #60, #64 d y #67; docs/CONTRATO.md §4.4): una LECTURA de los tres
+ * relojes, no un dato. Desde el encargo «verificado-regla» es una FACHADA sin lógica propia de verificación: evalúa las
+ * reglas de la época que comprueban lo copiado en el registro y da la profundidad.
+ * → { ok, sello, recibo, relojes, altura, profundidad, enFirme, pendiente, pendienteDeSello } o null si el registro no está en el eje:
+ *   sello    true si la regla «sealed» (X.6.8.5) da verdadero: la prueba del sello de tiempo copiada en X.6.8.2 (la décupla
+ *            del SIP 0) cuadra y la firmó un observador declarado por la cuenta raíz. Sin prueba, o sin cabecera, firma o
+ *            clave, la regla queda PENDIENTE y esto es false (y va en `pendiente`);
+ *   recibo   lo que da la regla «received» (X.6.8.4) si el registro tiene recibo de llegada (X.6.8.1): true o false (false
+ *            también si queda PENDIENTE, y va en `pendiente`); sin recibo, false si el transporte los da (el eje tiene
+ *            alguno) y null si en este eje no da ninguno (no se exige);
  *   relojes  true si los tres relojes van en orden («clocks out of order», X.6.9, es falso);
  *   ok       sello && recibo !== false && relojes;
- *   altura   la del bloque que lo sella (8.3 del sello) o null si no tiene sello;
+ *   altura   la del bloque que lo sella (el 1 del sello) o null si no tiene sello;
  *   profundidad  las confirmaciones: (altura del último sello conocido en el eje − altura de su bloque + 1), como en Bitcoin
  *            (un bloque recién minado ya tiene 1); null si no hay alturas;
- *   enFirme  sello verificado y profundidad >= las «confirmations» de los ajustes del exterior de la cuenta RAÍZ del eje
- *            (src/exterior.js ajustesDelEje: todos los lectores cuentan con las mismas; 6 por defecto).
+ *   enFirme  sello y profundidad >= las «confirmations» de los ajustes del exterior de la cuenta RAÍZ del eje
+ *            (src/exterior.js ajustesDelEje: todos los lectores cuentan con las mismas; 6 por defecto);
+ *   pendiente  [{ lectura: 'sello' | 'recibo', motivo }]: lo que no se pudo comprobar porque falta un dato (el motivo de
+ *            la regla, que dice cuál), nunca verdadero;
+ *   pendienteDeSello  true si el eje tiene sello configurado (la «seal url» de la cuenta raíz, before.8.3) y la regla del
+ *            sello queda pendiente: «sin verificar no se ejecuta» (#50), lo que la carta enseña como «pendiente de sello».
  * Sin sello verificado nunca es ok: sin Bitcoin no hay «verificado».
  */
 export function verificado(eje, id, opciones = {}) {
   if (typeof id !== 'string' || !eje?.obtener?.(id)) return null;
-  const sello = eje.sello?.(id)?.verificado === true;
-  const recibo = eje.recibo?.(id) ? true : (eje.totalRecibos ?? 0) > 0 ? false : null;
+  const ctx = new ContextoEje(eje, { epoch: epocaDe(opciones) });
+  const pendiente = [];
+  const s = comprobar(COMPRUEBA.sello, ctx, id);
+  if (s.pendiente) pendiente.push({ lectura: 'sello', motivo: s.pendiente });
+  const sello = s.valor === true;
+  let recibo = null;
+  if (eje.recibo?.(id)) {
+    const r = comprobar(COMPRUEBA.recibo, ctx, id);
+    if (r.pendiente) pendiente.push({ lectura: 'recibo', motivo: r.pendiente });
+    recibo = r.valor === true;
+  } else if ((eje.totalRecibos ?? 0) > 0) recibo = false;
   const relojes = !relojesFueraDeOrden(eje, id, opciones);
   const altura = Number.isSafeInteger(eje.sello?.(id)?.altura) ? eje.sello(id).altura : null;
   const conocida = Number.isSafeInteger(eje.alturaConocida) ? eje.alturaConocida : null;
   const profundidad = altura === null || conocida === null ? null : Math.max(1, conocida - altura + 1);
   const enFirme = sello && profundidad !== null && profundidad >= ajustesDelEje(eje, opciones).confirmaciones;
-  return { ok: sello && recibo !== false && relojes, sello, recibo, relojes, altura, profundidad, enFirme };
+  const pendienteDeSello = Boolean(s.pendiente) && ajustesDelEje(eje, opciones).sello !== null;
+  return { ok: sello && recibo !== false && relojes, sello, recibo, relojes, altura, profundidad, enFirme, pendiente, pendienteDeSello };
 }
 
 /** La plantilla de transacción que cambia la cohorte (epoch.9.6) y su parámetro: se leen de la época. */

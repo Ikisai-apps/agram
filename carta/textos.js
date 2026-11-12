@@ -379,6 +379,8 @@ export const TEXTOS = Object.freeze({
     enFirme: 'en firme',
     enFirmeTitulo: 'en firme: está verificado y su bloque ya tiene las confirmaciones que pide el eje ({n} de {minimas}; los ajustes del exterior de la cuenta raíz)',
     verificadoTitulo: 'verificado: su sello de tiempo está en un bloque comprobado, el transporte dio su recibo de llegada y los tres relojes van en orden',
+    pendienteDeSello: 'pendiente de sello',
+    pendienteDeSelloTitulo: 'movido, pero sin verificar: el eje tiene sello de tiempo y a lo que lo cumple aún le falta su sello comprobado; se queda en autorizado hasta que lo tenga (no se rechaza nada)',
     // el contexto que se manda con cada pregunta
     ctxModo: 'pantalla: {ancho}×{alto} px · modo {modo} ({forma}) · render {render} · idioma {idioma}',
     ctxApilada: 'franjas apiladas',

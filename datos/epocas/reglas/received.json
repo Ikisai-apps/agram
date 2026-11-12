@@ -1,0 +1,34 @@
+[
+  [
+    "received"
+  ],
+  [
+    "X.6.8.1"
+  ],
+  [
+    "=signed(bytes(first (first ((first it.6).8.1 where \"recibo de llegada\" in it2.0)).3), bytes(first (first ((first it.6).8.1 where \"recibo de llegada\" in it2.0)).4), bytes(first (first ((first it.6).8.1 where \"recibo de llegada\" in it2.0)).2))"
+  ],
+  [
+    "X.6.8.4"
+  ],
+  [
+    "read"
+  ],
+  [
+    "*"
+  ],
+  [
+    "VG 12-11 (#64 d, #67; encargo «verificado-regla»): el recibo de llegada del transporte (el segundo reloj, X.6.8.1) se comprueba con una regla de la época, como el sello",
+    "X.6.8.1 trae copiado el recibo del relé de Nostr (servidor/sim/aarpia, kind 7701): su instante y la clave del relé y, detrás, la décupla del recibo (0 «recibo de llegada», 1 el instante, 2 la clave del relé, 3 su firma, 4 el id del recibo, el evento 7701). La regla comprueba que la firma BIP-340 del relé vale sobre ese id, como en servidor/sim/aarpia (src/nostr.js verificar)",
+    "Sin recibo, o sin el id del recibo, queda PENDIENTE (falta el dato). Core AGRAM 12-11: falta, y queda abierto, comprobar que el recibo es de X (el id de X va en la etiqueta «g» del 7701, dentro de la serialización de NIP-01 que la firma cubre: hace falta copiarla) y una lista de claves de relé declaradas, como las del observador; hasta entonces el recibo dice que un relé lo firmó, no cuál. Se materializa en X.6.8.4, junto al reloj que comprueba (6.8.1)"
+  ],
+  [
+    "epoch 0"
+  ],
+  [
+    "after sealed"
+  ],
+  [
+    "received: the arrival receipt copied into 6.8.1 of the record is not signed by its relay"
+  ]
+]

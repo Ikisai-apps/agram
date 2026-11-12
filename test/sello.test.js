@@ -20,6 +20,7 @@ import { relojesFueraDeOrden } from '../src/contrato.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
 import * as agram from '../src/index.js';
 import { pagaElCoste } from './ayudas-coste.js';
+import { declararExterior } from './ayudas-sello.js';
 
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
 const minuto = (de) => pagaElCoste(de);
@@ -87,9 +88,11 @@ test('profundidad: la simulación da la altura de cada bloque; con los bloques q
     await sello.minar();
     const p = await sello.prueba(e.id);
     assert.equal((await sello.verificar(e, p)).ok, true);
-    eje.marcarSello(e.id, { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true });
+    eje.marcarSello(e.id, { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true, decupla: agram.sello.decuplaDeSello(p, e.id) });
     return p.altura;
   };
+  // La cuenta raíz declara la clave del observador de la simulación: la regla «sealed» comprueba la prueba copiada.
+  await declararExterior(eje, { observadores: [await sello.claveObservador()], privada: cuenta.privada, t: T(3) });
   assert.equal(eje.alturaConocida, null);
   assert.equal(agram.contrato.verificado(eje, ev.id).profundidad, null, 'sin sello, sin profundidad');
   const alturaDeEv = await sellar(ev);
@@ -101,10 +104,12 @@ test('profundidad: la simulación da la altura de cada bloque; con los bloques q
   assert.equal(agram.contrato.verificado(eje, ev.id).profundidad, 6);
   assert.equal(agram.contrato.verificado(eje, ev.id).enFirme, true, '6 confirmaciones: en firme');
   assert.equal(agram.contrato.verificado(eje, ev2.id).enFirme, false, 'el último sello tiene 1');
-  // El sello de la simulación trae altura; la cabecera y la firma del observador (8.0, 8.2) no: la lectura queda preparada para cuando las traiga.
+  // Desde el commit 8fe065f de la simulación, la prueba trae la cabecera, los pasos y el observador (cf1c387: en el 7 del sello):
+  // la regla «sealed» la da por buena (test/verificado-regla.test.js).
   const p = await sello.prueba(ev2.id);
   assert.equal(Number.isSafeInteger(p.altura), true);
-  assert.equal(p.cabecera, undefined);
+  assert.match(p.prueba.cabecera, /^[0-9a-f]{160}$/);
+  assert.equal(agram.contrato.verificado(eje, ev2.id).sello, true);
 });
 
 test('«clocks out of order» (X.6.9): falso con los instantes en orden y dentro del margen; verdadero con un bloque anterior al t del libro más allá de epoch.7.3', async () => {
@@ -233,7 +238,8 @@ test('la sincronía sella lo que sube y lo que baja: pendiente hasta el bloque, 
   informe = await A.sincronizar(ejeA);
   assert.deepEqual(informe.sellos.sellados.sort(), [ejeA.genesisId, e1.id].sort());
   assert.equal(informe.sellos.pendientes, 0);
-  assert.deepEqual(conSujeto('=count (first it.6).8.2', ctxDe(ejeA), e1.id).valor, [3]);
+  assert.deepEqual(conSujeto('=count (first it.6).8.2', ctxDe(ejeA), e1.id).valor, [4], 'instante, altura, hash y la prueba copiada (la décupla del SIP 0)');
+  assert.equal(ejeA.sello(e1.id).decupla[4], e1.id, 'la sincronía guarda la prueba copiada con el sello (su 4, la hoja)');
   assert.equal(ejeA.sello(e1.id).verificado, true, 'el gancho de «verificado»: lo que dio verificar');
   assert.equal(canonico(ejeA.obtener(e1.id)), cuerpo1, 'el evento, intacto');
   assert.equal(await verificarFirma(ejeA.obtener(e1.id), cuenta.publica), true);

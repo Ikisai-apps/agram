@@ -122,6 +122,9 @@ const dirCorta = (dir) => {
  */
 function marcaDeVerificado(eje, X, opciones) {
   const v = contrato.verificado(eje, X, opciones);
+  // «pendiente de sello» (encargo «verificado-regla», #50 y #67): el eje tiene sello configurado y la regla del sello aún
+  // no lo da por bueno porque le falta el dato (contrato.verificado, pendienteDeSello); nada se rechaza.
+  if (v?.pendienteDeSello) return { pendienteDeSello: true };
   if (!v?.ok) return {};
   return { verificado: true, ...(v.profundidad !== null ? { confirmaciones: v.profundidad } : {}), ...(v.enFirme ? { enFirme: true, minimas: exterior.ajustesDelEje(eje, opciones).confirmaciones } : {}) };
 }
@@ -1419,7 +1422,7 @@ function estadosDeEstaciones(eje, R, ctx) {
   const estados = new Map();
   for (const e of acciones.estaciones(eje, R, ctx.opciones)) {
     for (const id of e.pendientes) estados.set(id, (e.autorizados ?? []).includes(id) ? 'autorizada' : 'propuesta');
-    for (const id of e.hechos) estados.set(id, 'ejecutada');
+    for (const id of e.hechos) estados.set(id, (e.pendientesDeSello ?? []).includes(id) ? e.estacionDe?.[id] ?? 'autorizada' : 'ejecutada');
   }
   return estados;
 }
@@ -1475,7 +1478,12 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
       const n = nodos[i];
       n.estado = x.estacion;
       n.accion = x.accion;
-      if (n.X) Object.assign(n, marcaDeVerificado(eje, n.X, ctx.opciones));
+      if (n.X) {
+        // En la matriz, «pendiente de sello» solo lo movido que su estación deja en autorizada (acciones.ejecuciones), no todo lo que aún no tiene sello.
+        const { pendienteDeSello: _sinSello, ...marca } = marcaDeVerificado(eje, n.X, ctx.opciones);
+        Object.assign(n, marca);
+      }
+      if (x.pendienteDeSello) n.pendienteDeSello = true;
       const [fila, columna] = conEjes ? [x.oficio, x.ejecucion] : [x.posicion, x.pv];
       const celda = fila === null || fila === undefined || columna === null || columna === undefined ? null : celdas.find((c) => c.fila === fila && c.columna === columna);
       if (celda) celda.ocupantes.push(n);

@@ -54,8 +54,28 @@ import { Libro, EMISION, acunar, transferir, bloquear, liberar, quemar, transacc
 import { CONDICIONES, CONDICIONES_GENESIS, CONDICIONES_GENESIS_GUARDADO, SIN_CAPACIDAD, contratoE } from './condiciones/index.js';
 import { ContextoEje } from './contexto-eje.js';
 import { quemaDelCoste } from './escritura.js';
+import { validarPayload } from './btml.js';
 
 export { reglasDelTope, SIN_CAPACIDAD } from './condiciones/tope.js';
+
+/**
+ * La décupla del sello de tiempo del SIP 0 que se guarda con un sello (marcarSello), copiada y congelada, o null si no
+ * vale: BTML válido (validarPayload), de una a diez posiciones, «sello de tiempo» en su 0 y, en su primer nivel, el id del
+ * registro, la altura y el hash del sello (dónde va cada cosa lo dice src/sello.js, POSICIONES_DEL_SELLO: aquí no se fija,
+ * para que cambiar la forma del sello sea tocar un sitio). No comprueba la prueba: eso es de la regla «sealed».
+ */
+function decuplaDeSelloValida(d, id, altura, hash) {
+  if (!Array.isArray(d) || d.length < 1 || d.length > 10) return null;
+  try {
+    if (!validarPayload(d).ok) return null;
+  } catch {
+    return null;
+  }
+  const cero = Array.isArray(d[0]) ? d[0] : [d[0]];
+  if (!cero.includes('sello de tiempo') || !d.includes(id) || !d.includes(altura) || !d.includes(hash)) return null;
+  const congelar = (x) => (Array.isArray(x) ? Object.freeze(x.map(congelar)) : x);
+  return congelar(JSON.parse(JSON.stringify(d)));
+}
 
 /** Caracteres del id por los que conPrefijo agrupa los ids (16⁴ grupos: con 20.000 registros, casi uno por grupo). */
 const PREFIJO = 4;
@@ -305,19 +325,29 @@ export class Eje {
    * (la forma que da `prueba(id)` de src/sello.js; `verificado`, opcional, si `verificar` la dio por buena: el gancho
    * de la estación «verificado»). Se queda con el sello más antiguo (el de menor instante). Devuelve si lo anotó;
    * un registro que el eje no tiene, o un sello mal formado, se ignoran.
+   *
+   * `decupla` (encargo «verificado-regla», #67), opcional: la PRUEBA COPIADA, la décupla del sello de tiempo del SIP 0
+   * (src/sello.js decuplaDeSello y POSICIONES_DEL_SELLO: la altura, el hash, la raíz del lote, el id, el instante, la vía,
+   * lo observado — cabecera, firma del observador, altura LE, clave, pasos — y el camino). Va en X.6.8.2 detrás de lo de siempre y la
+   * comprueba la regla «sealed» de la época (X.6.8.5): esa regla, no `verificado`, dice si el registro está sellado.
+   * Una décupla que no es BTML, no es de un sello de tiempo, no lleva este id o no es de esta altura y este
+   * hash, no se guarda (el sello sí).
    */
   marcarSello(id, sello) {
     if (!this.eventos.has(id) || !sello || typeof sello !== 'object') return false;
     const { altura, hash, instante, verificado } = sello;
     if (!Number.isSafeInteger(altura) || altura < 0 || typeof hash !== 'string' || !/^[0-9a-f]{64}$/.test(hash) || !esInstante(instante)) return false;
+    const decupla = decuplaDeSelloValida(sello.decupla, id, altura, hash);
     // La altura del último sello conocido sube aunque este sello no sea el más antiguo del registro, pero solo con sellos que `verificar` dio por buenos: una altura sin comprobar no alarga la profundidad de nadie.
     if (verificado === true && (this.#cota.altura === null || altura > this.#cota.altura)) this.#cota.altura = altura;
     const antes = this.#sellos.get(id);
     if (antes && msUTC(antes.instante) <= msUTC(instante)) {
-      if (verificado !== undefined && antes.altura === altura && antes.hash === hash) this.#sellos.set(id, Object.freeze({ ...antes, verificado: verificado === true }));
+      if (antes.altura === altura && antes.hash === hash && (verificado !== undefined || (decupla && !antes.decupla))) {
+        this.#sellos.set(id, Object.freeze({ ...antes, ...(verificado !== undefined ? { verificado: verificado === true } : {}), ...(decupla && !antes.decupla ? { decupla } : {}) }));
+      }
       return false;
     }
-    this.#sellos.set(id, Object.freeze({ altura, hash, instante, verificado: verificado === true }));
+    this.#sellos.set(id, Object.freeze({ altura, hash, instante, verificado: verificado === true, ...(decupla ? { decupla } : {}) }));
     return true;
   }
 
