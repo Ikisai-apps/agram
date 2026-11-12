@@ -129,7 +129,7 @@ test('leerEvento: cabecera, payload y los ocupantes anclados bajo su posición, 
   assert.match(leerEvento(eje, compra.id, { camino: [8] }), /posición 8\n\(posición vacía\)$/);
   // El génesis: sin «sobre», y su payload terminal en una línea. Encargo 3b: la casa invita a la huésped en el 3 de su
   // alta (el génesis) y su emisión inicial es una transacción suya sobre él.
-  assert.match(leerEvento(eje, eje.genesisId), /^[0-9a-f]{8} · casa · 2026-11-07T09:00:00Z · génesis\nCasa de ejemplo\n3 · comunicación:\n {2}↳ ocupante 1 · casa · invitation\n↳ ocupante 1 · casa · Emisión inicial de casa\n↳ ocupante 2 · casa · Altas del fin de semana$/);
+  assert.match(leerEvento(eje, eje.genesisId), /^[0-9a-f]{8} · casa · 2026-11-07T09:00:00Z · génesis\nCasa de ejemplo\n3 · comunicación:\n {2}↳ ocupante 1 · casa · invitation\n↳ ocupante 1 · casa · Emisión inicial de casa\n↳ ocupante 2 · casa · cocina$/);
   assert.throws(() => leerEvento(eje, 'f'.repeat(64)), /registro desconocido/);
 });
 
