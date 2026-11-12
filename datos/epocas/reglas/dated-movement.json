@@ -1,0 +1,16 @@
+[
+  ["dated movement"],
+  ["X.1", "epoch.1.3.1", "epoch.7.4"],
+  ["=first (moves it where T in it2.0.0.0 and epoch.1.3.1.(it2.0.0.1).0 = \"futuro\" and count (first it2.7.1).0 > 0 or lock in it2.4 and count it2.7.2 > 0 or mint in it2.4 and E in it2.0.0.0 and count (first it2.7.0).0 > 0 or burn in it2.4 and E in it2.0.0.0 and it2.3.0 = first it2.0.0.1)"],
+  ["X.7.9"],
+  ["read"],
+  ["*"],
+  [
+    "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+    "El primer asiento del registro que lo refiere a una fecha, el que da su estado del futuro (los estados, epoch.7.4): el T futuro declarado (la escala «futuro» de epoch.1.3.1) con la fecha a la que se refiere (7.1); lo bloqueado hasta una fecha (7.2, lo que hace «commit time»); la emisión de E con caducidad (7.0); la quema de E propia (lo que hace «expire something mine»: su fecha es la del registro, 6.0)",
+    "Antes lo buscaba contrato.estadoDeEntrada en JavaScript entre los movimientos declarados; ahora se lee del libro con moves. Se materializa en X.7.9 (el 7, cómo: por qué movimiento tiene fecha; Core, pendiente de revisar VG)"
+  ],
+  ["epoch 0"],
+  ["after stage"],
+  ["dated movement: the first movement of the record that refers to a date: the future T declared, what is locked until a date, an issue of E that expires, or the burn of one's own E"]
+]

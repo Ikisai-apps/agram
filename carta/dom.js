@@ -254,6 +254,7 @@ const htmlMedida = (m) => (m ? `<span class="medida" title="${attr(m.nombre)} ${
 
 /** Un elemento de una banda: un ocupante (como siempre) o una entrada del diario (su hora y lo que movió). */
 function htmlElementoDeBanda(o) {
+  if (o.arriba) return htmlCuenta(o); // el hilo hacia arriba del 6 (#45), con su marca, también sin franja
   if (o.tipo !== 'entrada') return htmlOcupanteSolo(o);
   return `<button type="button" class="ocupante ocupante-ref ocupante-entrada"${nodo('ocupante')} data-pv="${o.pv}" data-abrir="${attr(o.ref)}" data-x="${attr(o.ref)}" title="${attr(o.t)}"><span class="texto">${escapar(o.texto)}</span><small class="quien">${escapar(o.t.replace('T', ' ').replace('Z', ''))}</small></button>`;
 }
@@ -286,8 +287,9 @@ function htmlFilaDeTabla(o) {
   return `<tr${marcaDerivado(o)}><td colspan="10">${htmlOcupanteDeCelda(o)}</td></tr>`;
 }
 
-/** Lo derivado del libro en una celda (encargo «lecturas»): solo una clase y el porqué en el title, sin cambiar la forma. */
-const marcaDerivado = (o) => (o?.derivado ? ` class="derivado" title="${attr(t('derivadoPor', { por: o.por ?? '' }))}"` : '');
+/** Lo derivado del libro en una celda (encargo «lecturas»): solo una clase y el porqué en el title, sin cambiar la forma; con su relación (VG 12-11: directo, heredado o del hilo), otra clase y su texto. */
+const RELACION_DERIVADA = Object.freeze({ arriba: 'derivadoArriba', directo: 'derivadoDirecto', heredado: 'derivadoHeredado' });
+const marcaDerivado = (o) => (o?.derivado ? ` class="derivado${RELACION_DERIVADA[o.relacion] ? ' ' + o.relacion : ''}" title="${attr([t('derivadoPor', { por: o.por ?? '' }), RELACION_DERIVADA[o.relacion] ? t(RELACION_DERIVADA[o.relacion]) : ''].filter(Boolean).join(' · '))}"` : '');
 
 /** Un mensaje de la conversación: el ocupante con su autor y su hora (como una entrada del diario, ocupante-entrada); si se puede entrar, baja un nivel. */
 function htmlMensaje(o) {
@@ -474,16 +476,33 @@ function htmlSinPosicion(r) {
 /** La cifra de una celda de la matriz: su estación si todas dicen la misma; si no, cuántas ejecuciones tiene. */
 const cifraDeCelda = (c) => (c.estado ? textoEstacion(c.estado) : (c.ocupantes?.length ?? 0) > 1 ? String(c.ocupantes.length) : '');
 
-/** La matriz del 4: la esquina, los diez tipos de interacción arriba, y cada fila con su posición delante; la diagonal marcada; cada celda con ocupante, una estación con su estado (y su sello si está ejecutada, solo CSS); debajo, lo que no tiene celda. */
+/** El rótulo de un peldaño de la escalera dulce en su celda de la matriz del 4 (encargo «el4»): «3.2». */
+const htmlEscalon = (e) => (e ? `<small class="matriz-escalon" title="${attr(t('matrizEscalonTitulo', { nivel: `${e.nivel}.${e.grado}`, nombre: e.nombre ?? '', direccion: e.direccion ?? '' }))}">${escapar(`${e.nivel}.${e.grado}`)}</small>` : '');
+
+/**
+ * La celda abierta de la matriz del 4 (encargo «el4», VG 12-11, #49.8): encima de la matriz, su oficio y su ejecución
+ * (y su peldaño si es de la escalera), la lista de sus movimientos hasta diez, cada uno con el color de su estación y su
+ * nombre, y cuántos más; ✕ (o pulsar la celda otra vez, o Esc) la cierra.
+ */
+function htmlCeldaAbierta(a) {
+  if (!a) return '';
+  const titulo = t('matrizCelda', { oficio: a.oficio ?? a.fila, ejecucion: a.ejecucion ?? a.columna });
+  const items = a.lista.map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}" title="${attr(textoEstacion(o.estado))}"` : ''}>${htmlOcupanteSolo(o)}${o.estado ? `<small class="estacion-nombre">${escapar(textoEstacion(o.estado))}</small>` : ''}</li>`).join('');
+  const mas = a.mas ? `<li class="ejecucion-mas">${escapar(t('matrizMas', { n: a.mas }))}</li>` : '';
+  return `<section class="matriz-abierta" data-color="${a.columna}" data-fila="${a.fila}" data-columna="${a.columna}" role="dialog" aria-label="${attr(titulo)}"><header class="matriz-abierta-cabeza"><b>${escapar(titulo)}</b>${htmlEscalon(a.escalon)}<button type="button" class="cerrar"${nodo('control')} data-celda-matriz-cerrar title="${attr(t('cerrar'))}" aria-label="${attr(t('cerrar'))}">✕</button></header><ol class="ejecuciones abiertas">${items}${mas}</ol></section>`;
+}
+
+/** La matriz del 4: la esquina, la ejecución arriba (o los diez tipos de interacción), y cada fila con su oficio (o su posición) delante; la diagonal (la escalera) marcada con su peldaño; cada celda con ocupante, una estación con su estado (y su sello si está ejecutada, solo CSS), que se abre al pulsarla; encima, la abierta; debajo, lo que no tiene celda. */
 function htmlMatriz(r) {
-  const celda = (c) => `<div class="rejilla-celda hijo${c.ocupante ? ' estacion' : ' vacia'}${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><span class="hijo-nombre"></span><span class="hijo-cifra">${escapar(cifraDeCelda(c))}</span><div class="hijo-cuerpo">${htmlEjecuciones(c.ocupantes ?? (c.ocupante ? [c.ocupante] : []))}${htmlDibujo(c.capa)}</div></div>`;
+  const celda = (c) => `<div class="rejilla-celda hijo${c.ocupante ? ' estacion' : ' vacia'}${c.diagonal ? ' diagonal' : ''}${r.abierta && r.abierta.fila === c.fila && r.abierta.columna === c.columna ? ' abierta' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}${c.abrir ? ` data-celda-matriz="${attr(c.abrir)}" title="${attr(t('matrizAbrir'))}"` : ''}${c.escalon ? ` data-peldano="${c.escalon.peldano}"` : ''}><span class="hijo-nombre">${htmlEscalon(c.escalon)}</span><span class="hijo-cifra">${escapar(cifraDeCelda(c))}</span><div class="hijo-cuerpo">${htmlEjecuciones(c.ocupantes ?? (c.ocupante ? [c.ocupante] : []))}${htmlDibujo(c.capa)}</div></div>`;
   const ejes = r.ejes ?? { columnas: [], filas: [] };
-  const cabeza = `<span class="matriz-esquina" title="${attr(t('matrizEjesTitulo'))}">${escapar(t('matrizEsquina'))}</span>` + ejes.columnas.map((c) => `<span class="matriz-eje matriz-columna" data-color="${c.pv}" title="${attr(c.pv + ' · ' + (c.etiqueta ?? ''))}"><b>${c.pv}</b> ${escapar(c.etiqueta ?? '')}</span>`).join('');
+  const esquina = ejes.oficios ? ['matrizEsquinaOficios', 'matrizEjesTituloOficios'] : ['matrizEsquina', 'matrizEjesTitulo'];
+  const cabeza = `<span class="matriz-esquina" title="${attr(t(esquina[1]))}">${escapar(t(esquina[0]))}</span>` + ejes.columnas.map((c) => `<span class="matriz-eje matriz-columna" data-color="${c.pv}" title="${attr(c.pv + ' · ' + (c.etiqueta ?? ''))}"><b>${c.pv}</b> ${escapar(c.etiqueta ?? '')}</span>`).join('');
   const filas = Array.from({ length: r.filas }, (_, i) => {
     const f = ejes.filas[i];
     return `<span class="matriz-eje matriz-fila" title="${attr(f ? f.digito + ' · ' + (f.nombre ?? '') : '')}">${f ? `<b>${f.digito}</b> ${escapar(f.nombre ?? '')}` : ''}</span>` + r.celdas.filter((c) => c.fila === i).map(celda).join('');
   }).join('');
-  return `<div class="rejilla-celdas rejilla-matriz" style="--columnas:${r.columnas};--filas:${r.filas}">${cabeza}${filas}</div>${htmlSinPosicion(r)}`;
+  return `<div class="rejilla-celdas rejilla-matriz${ejes.oficios ? ' por-oficios' : ''}" style="--columnas:${r.columnas};--filas:${r.filas}">${cabeza}${filas}</div>${htmlCeldaAbierta(r.abierta)}${htmlSinPosicion(r)}`;
 }
 
 /**
@@ -509,9 +528,9 @@ function htmlCuenta(o) {
   const cuando = o.t ? fecha(o.t) : '';
   const destino = o.tipo === 'entrada' ? o.ref : o.X;
   const estado = o.estado ? t(ESTADOS_DE_CUENTA[o.estado.tipo] ?? 'estadoPrevisto', { fecha: o.estado.fecha ? fecha(o.estado.fecha) : '' }) : '';
-  const rara = o.incongruente ? t('incongruente', o.incongruente) : '';
-  const titulo = [o.texto, cuando, estado, rara, o.hiloSupuesto ? t('hiloSupuesto') : ''].filter(Boolean).join(' · ');
-  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}${o.incongruente ? ' cuenta-rara' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${o.estado ? ` data-estado="${attr(o.estado.tipo)}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true">${htmlDibujoDeOcupante(o)}</span><span class="cuenta-texto">${estado ? `<small class="cuenta-estado">${escapar(estado)}</small> ` : cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
+  const rara = o.rara ? t('cuentaRara') : '';
+  const titulo = [o.texto, cuando, estado, rara, o.hiloSupuesto ? t('hiloSupuesto') : '', o.arriba ? t('derivadoArriba') : ''].filter(Boolean).join(' · ');
+  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}${o.rara ? ' cuenta-rara' : ''}${o.arriba ? ' cuenta-arriba' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${o.estado ? ` data-estado="${attr(o.estado.tipo)}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true">${htmlDibujoDeOcupante(o)}</span><span class="cuenta-texto">${estado ? `<small class="cuenta-estado">${escapar(estado)}</small> ` : cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
 }
 
 /** El texto de cada estado del futuro de una cuenta (contrato.estadoDeEntrada), por su nombre. */
@@ -538,12 +557,12 @@ function htmlFranjas(r) {
 }
 
 /** Una caja nivel.grado (el cielo del 8 y las posiciones del camino del 9): su rótulo y su nombre arriba; dentro, `cuerpo`. */
-const htmlCaja = (b, clase, cuerpo, cifra = '', dibujo = '') => `<div class="rejilla-banda hijo ${clase}" data-banda="${b.indice}" data-nivel="${b.nivel}" data-grado="${b.grado}" style="--nivel:${Number(b.nivel) || 0}"><header class="hijo-cabeza"><span class="hijo-nombre"><b class="rotulo">${escapar(b.nivel + '.' + b.grado)}</b> ${escapar(b.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpo}${dibujo}</div></div>`;
+const htmlCaja = (b, clase, cuerpo, cifra = '', dibujo = '', atributos = '') => `<div class="rejilla-banda hijo ${clase}" data-banda="${b.indice}" data-nivel="${b.nivel}" data-grado="${b.grado}"${b.direccion ? ` data-direccion="${attr(b.direccion)}"` : ''}${atributos} style="--nivel:${Number(b.nivel) || 0}"><header class="hijo-cabeza"><span class="hijo-nombre"><b class="rotulo">${escapar(b.nivel + '.' + b.grado)}</b> ${escapar(b.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpo}${dibujo}</div></div>`;
 
 /** Un comparable en el cielo: su estrella (intensidad por el nivel de la caja, borde con el grado 2, halo con el 3: solo CSS) y su nombre. */
 function htmlEstrella(o) {
   const destino = o.tipo === 'entrada' ? o.ref : o.X;
-  return `<button type="button" class="ocupante estrella${o.foco ? ' foco' : ''}"${nodo('ocupante', { x0: o.texto })}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(o.texto)}"><span class="estrella-forma" aria-hidden="true">★${htmlDibujoDeOcupante(o)}</span><span class="texto">${escapar(o.texto)}</span></button>`;
+  return `<button type="button" class="ocupante estrella${o.foco ? ' foco' : ''}"${nodo('ocupante', { x0: o.texto })}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''}${typeof o.rango === 'number' ? ` data-rango="${o.rango}"` : ''} title="${attr(o.texto)}"><span class="estrella-forma" aria-hidden="true">★${htmlDibujoDeOcupante(o)}</span><span class="texto">${escapar(o.texto)}</span></button>`;
 }
 
 /**
@@ -561,6 +580,7 @@ function htmlCielo(r) {
     partes.push(`${escapar(t('cohorte'))} ${elegir}`);
   } else partes.push(escapar(t('sinCohorte')));
   if (r.base) partes.push(`<span class="cielo-base">${escapar(r.base.escrita ? t('baseEscritaPor', { autor: r.base.autor ?? '', cuando: r.base.t ? fecha(r.base.t) : '' }) : t('sinBaseEscrita'))}</span>`);
+  if (r.rango) partes.push(`<b class="cielo-rango">${escapar(t('rangoDelFoco', { nivel: `${r.rango.nivel}.${r.rango.grado}`, nombre: r.rango.nombre ?? '' }))}</b>`);
   if (r.cuota) { const c = cajaDe(r.cuota.k); partes.push(escapar(t('cieloCuota', { paso: r.cuota.nombre, k: c ? `${c.nivel}.${c.grado}` : r.cuota.k }))); }
   if (r.enElFoco?.length) partes.push(escapar(t('enElFoco', { posiciones: r.enElFoco.join(' ') })));
   const panel = partes.length ? `<p class="cielo-panel">${partes.join(' · ')}</p>` : '';
@@ -578,8 +598,12 @@ function htmlCielo(r) {
  * (los de siempre: htmlCamino y htmlGuia, reorganizados aquí).
  */
 function htmlCaminoDeRejilla(r, arbol) {
-  const madurez = r.madurez ? `<p class="camino-madurez">${escapar(t('madurezDelFoco', r.madurez))}</p>` : '';
-  const posiciones = r.bandas.map((b) => htmlCaja(b, `posicion${b.items.length ? '' : ' vacia'}`, b.items.length ? b.items.map(htmlElementoDeBanda).join('') : htmlEscribir(b.escribir), '', htmlDibujo(b.capa, b.items.map((o) => o.dibujo)))).join('');
+  // Encargo «el4» (#39): el rango del foco (el del 8) y, en cada posición, si la deja disponible (y cuál es la suya).
+  const rango = r.rango ? `<span class="camino-rango">${escapar(t('rangoDelFoco', { nivel: `${r.rango.nivel}.${r.rango.grado}`, nombre: r.rango.nombre ?? '' }))} · ${escapar(t('caminoDisponibles', { n: r.rango.disponibles.length }))}</span>` : '';
+  const madurez = r.madurez || rango ? `<p class="camino-madurez">${r.madurez ? escapar(t('madurezDelFoco', r.madurez)) : ''}${r.madurez && rango ? ' · ' : ''}${rango}</p>` : '';
+  const marca = (b) => (b.disponible === undefined ? '' : b.actual ? ' disponible actual' : b.disponible ? ' disponible' : ' no-disponible');
+  const atributos = (b) => (b.disponible === undefined ? '' : ` data-disponible="${b.disponible ? 'si' : 'no'}"${b.actual ? ` data-actual title="${attr(t('caminoActual'))}"` : ''}`);
+  const posiciones = r.bandas.map((b) => htmlCaja(b, `posicion${b.items.length ? '' : ' vacia'}${marca(b)}`, b.items.length ? b.items.map(htmlElementoDeBanda).join('') : b.actual ? `<span class="camino-aqui">${escapar(t('caminoActual'))}</span>` : htmlEscribir(b.escribir), '', htmlDibujo(b.capa, b.items.map((o) => o.dibujo)), atributos(b))).join('');
   const mensajes = arbol
     ? `<div class="camino-mensajes"><details class="plegable" open><summary>${escapar(t('caminoPasos', { n: arbol.camino?.pasos?.length ?? 0 }))}</summary>${htmlCamino(arbol.camino, { X: arbol.X })}</details>${arbol.guia ? `<details class="plegable" open><summary>${t('guia')}</summary>${htmlGuia(arbol.guia)}</details>` : ''}</div>`
     : '';

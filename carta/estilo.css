@@ -450,6 +450,8 @@ html.mapped body{padding:0}
 .hijo[data-vacio] .hijo-cabeza{border-bottom:0}
 /* Lo derivado del libro en una celda (encargo «lecturas»): una marca discreta, sin cambiar la forma; bajar por el dígito de la celda; la dirección en la cabecera */
 .hijo .derivado{opacity:.85;font-style:italic}
+.hijo .derivado.heredado{opacity:.65}
+.hijo .derivado.arriba{font-style:normal}
 .hijo .derivado>td,.hijo li.derivado{box-shadow:inset 2px 0 0 color-mix(in oklab,var(--c,var(--rule)) 45%,transparent)}
 .hijo>.bajar{position:absolute;right:4px;bottom:4px;padding:0 6px;font-size:12px;line-height:18px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 40%,transparent);border-radius:9px;background:var(--panel2);color:var(--muted);cursor:pointer}
 .direccion-rejilla{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
@@ -575,6 +577,30 @@ html.mapped body{padding:0}
 .ejecucion-mas{font-size:9px;color:var(--muted);text-align:center}
 .matriz-sin-posicion{flex:none;display:flex;align-items:center;gap:6px;min-width:0;padding-top:4px;border-top:1px dashed var(--rule);font-size:11px;color:var(--muted);overflow:hidden}
 .matriz-sin-posicion .matriz-eje{flex:none}
+/* La matriz del 4 por oficios y ejecución (encargo «el4»): la escalera marcada con su peldaño; la celda que se abre */
+.rejilla-matriz.por-oficios .matriz-columna,.rejilla-matriz.por-oficios .matriz-fila{font-size:10px;line-height:1.15}
+.rejilla-matriz>.hijo.diagonal[data-peldano]{border-color:color-mix(in oklab,#c9a227 70%,var(--rule))}
+.rejilla-matriz .hijo-nombre:has(>.matriz-escalon){position:absolute;left:3px;top:1px;display:block}
+.matriz-escalon{font-size:9px;font-weight:700;color:color-mix(in oklab,#c9a227 80%,var(--fg));letter-spacing:.02em}
+.rejilla-matriz>.hijo[data-celda-matriz]{cursor:pointer}
+.rejilla-matriz>.hijo[data-celda-matriz]:hover{box-shadow:inset 0 0 0 2px color-mix(in oklab,var(--estado,var(--rule)) 70%,var(--fg))}
+.rejilla-matriz>.hijo.abierta{box-shadow:inset 0 0 0 3px var(--fg)}
+.matriz-abierta{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(30rem,86%);max-height:80%;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:2px solid var(--borde);border-radius:8px;background:var(--panel);box-shadow:0 10px 32px rgba(0,0,0,.28)}
+.matriz-abierta-cabeza{display:flex;align-items:baseline;gap:8px}
+.matriz-abierta-cabeza>b{flex:1;min-width:0}
+.matriz-abierta-cabeza .cerrar{flex:none}
+.ejecuciones.abiertas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.ejecuciones.abiertas>.ejecucion{display:flex;align-items:center;gap:8px;padding:3px 22px 3px 6px;border:1px solid color-mix(in oklab,var(--estado,var(--rule)) 70%,var(--fg));border-radius:4px;background:color-mix(in oklab,var(--estado,var(--rule)) 22%,var(--bg))}
+.ejecuciones.abiertas .estacion-nombre{margin-left:auto;font-size:11px;color:var(--muted)}
+/* El rango (encargo «el4»): en el cielo del 8, el del foco; en el camino del 9, las posiciones que deja disponibles */
+.cielo-rango{font-weight:700}
+.posicion.disponible{border-style:solid;opacity:1}
+.posicion.no-disponible{opacity:.42}
+.posicion.actual{box-shadow:inset 0 0 0 3px color-mix(in oklab,var(--c,var(--rule)) 70%,var(--fg))}
+.camino-aqui{font-weight:700}
+.camino-rango{font-weight:600}
+/* Arrastrar al centro = foco (#23, solo Mapped): el centro bajo lo que se arrastra */
+.carta-matriz [data-centro].soltar-aqui{outline:3px dashed var(--fg);outline-offset:-6px}
 .ejecuciones.en-fila{list-style:none;margin:0;padding:0;display:flex;flex-direction:row;flex-wrap:nowrap;gap:4px;min-width:0;overflow:hidden}
 .ejecuciones.en-fila .ejecucion{flex:0 1 auto;max-width:12rem;padding-right:3px}
 /* las franjas (el 6 y el 7): franjas verticales por escala y cuatro hilos horizontales que las atraviesan */
@@ -594,7 +620,9 @@ html.mapped body{padding:0}
 .cuenta-texto{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cuenta-texto small{color:var(--muted)}
 .cuenta.supuesta{border-style:dashed}
-/* encargo «datos3»: la cuenta rara (incongruente: su escala declarada no es la de su fecha) y la cuenta con estado del futuro */
+/* la cuenta rara (VG 12-11, #42: sus tres relojes, libro, Nostr y Bitcoin, van fuera de orden) y la cuenta con estado del futuro;
+   la del hilo hacia arriba en el 6 (#45), con el borde a trazos */
+.cuenta.cuenta-arriba{border-style:dashed}
 .cuenta.cuenta-rara{border-color:var(--warn);border-width:2px;box-shadow:inset 0 0 0 1px var(--warnbg)}
 .cuenta-estado{color:var(--muted);font-style:italic}
 .cuenta[data-estado="bloqueado"] .cuenta-bola{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--c,var(--muted))}

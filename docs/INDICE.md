@@ -9,7 +9,7 @@ Qué leer para qué. Todo lo que hay aquí describe `main` (03dbf34, con la inte
 | alguien que llega y quiere saber qué es AGRAM | `README.md` → `docs/FUNDAMENTOS.md` |
 | un programa o un agente que va a escribir registros y fórmulas | `docs/BTML.md` → `docs/BQL.md` → `docs/MOTOR.md` (es lo que leyó «el extranjero», `docs/notas/PRUEBA_DEL_EXTRANJERO.md`) |
 | quien toca la pantalla | `docs/MODOS.md` → `docs/EFECTOS.md` (cada animación sale de un efecto) → `docs/MOTOR.md` §7 → `carta/` (la carta) y, la web antigua, `antigua/app.js`, `antigua/ui/` y `antigua/mundos/` |
-| quien va a decidir (VG) | `docs/FUNDAMENTOS.md` («Las decisiones del mapa §12, una a una») → las notas de `docs/notas/` → las «Dudas para VG» de `docs/REGLAS_CORTAS.md` |
+| quien va a decidir (VG) | `docs/FUNDAMENTOS.md` («Las decisiones del mapa §12, una a una») → `docs/notas/DECISIONES_2026-11-12.md` (lo decidido en noviembre) → las notas de `docs/notas/` → las «Dudas para VG» de `docs/REGLAS_CORTAS.md` |
 
 ## Para qué sirve cada documento
 
@@ -48,6 +48,7 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | `FIRMAS_BIP340.md` | Por qué las firmas son Schnorr BIP-340 (secp256k1) y no ECDSA P-256: formato, librería vendorizada, sin compatibilidad | decidida por VG el 11-11; rama `beta-schnorr` (`src/autoridad.js`, `src/vendor/`) |
 | `CORE_IDENTIDAD.md` | Core como identidad que escribe: una cosa de VG (alta con «register a thing» y petición), sus órdenes en Be y la regla general de lo ajeno | encargo core-escribe (VG, 11-11); rama `beta-core` (`be.mjs`, `src/acciones.js`) |
 | `CAPA_CERO.md` | La capa cero: el libro de transacciones, la correspondencia evento ↔ transacción y las condiciones envueltas con su fila del inventario | paso 1 del mapa §16 (VG, 9-11); en `src/libro.js` y `src/condiciones/` |
+| `DECISIONES_2026-11-12.md` | Lo decidido con VG el 11 y el 12-11 (issues 29 a 50 del catálogo de Core, diseño 8.7 por modo, estudio BQL con transacciones §6), una nota por decisión y agrupadas por temas: lecturas y profundidad, el 3, el 4 y la escalera, BQL con transacciones, tiempo y tres relojes, pantalla; con lo que sigue abierto y lo que las fuentes dicen distinto | registro de decisiones (12-11); el código y los datos que las aplican van en las ramas de la beta (`beta-pv3`, `beta-el4`, `beta-bqllee`) |
 
 ## Dónde está cada cosa en el código
 

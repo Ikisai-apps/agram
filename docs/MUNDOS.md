@@ -18,6 +18,16 @@ Orden decidido por VG (mapa §12, [D] «Orden de los mundos animados»): primero
 
 Todo es función pura que devuelve texto (SVG o HTML), sin DOM ni librerías; las pruebas están en `test/cielo.test.js`, `test/camino.test.js`, `test/cruz.test.js`, `test/cruz-ui.test.js` y `test/mundos-x.test.js`. Los nombres de los efectos salen del catálogo (`src/efectos.js`, PR #45); lo que el corpus no nombra lleva `data-decision="[X] decidir VG…"`.
 
+## La carta de hoy: el 4, la escalera y el rango (encargo «el4», VG 12-11)
+
+Los mundos a pantalla completa de la carta (`carta/carta.js`, `rejillaDe`; `docs/CONTRATO.md` §4.2 y §4.2 bis) ya no son los de `mundos/` de esta página: son las formas de la fila `epoch.8.7`. Desde VG 12-11:
+
+- **El 4** es la matriz de los diez **oficios** (filas: mostrar, gestionar, administrar, coordinar, hacer, verificar, registrar, planear, medir, guiar) por la **ejecución** (columnas: contenido que se muestra, E, P, R, T, verificación sin token propio, adjudicación al pasado, proyección al futuro, crecimiento que genera rangos, contenido que guía), nombres de la época; cada ejecución en la celda de su oficio y de lo que mueve (`contrato.celdaDeEjecucion`); pulsar una celda la abre con su lista de hasta diez movimientos, cada uno con el color de su estación.
+- **La escalera dulce** es la diagonal marcada de esa matriz, la fila k con la columna k+1 (1000000000 → 0.3 … 5555500000 → 3.2, el punto dulce … 0000000000 → 5.3), dato de la época en el enlace de la fila del 8.
+- **Un solo rango**, el del 8 (`contrato.rango`): el peldaño por la celda de la escalera cubierta y su profundidad; un desajuste puntúa hacia arriba. El **cielo del 8** pone cada comparable en la caja de su rango; el **camino del 9** enciende las posiciones que ese rango deja disponibles para situarse (sin rango declarado).
+- **Los hilos del 6 y el 7** van en el orden de ver, 1 2 3 4 de arriba abajo.
+- **Arrastrar al centro = foco**, solo en Mapped (el doble clic, en los dos modos).
+
 ## Cielo (8)
 
 Las bases del 8 como constelaciones: **una por medida** del 8 (`bases.MEDIDAS`: posiciones, terminales, escritos, movimientos, identidades, profundidad, fórmulas resueltas y pendientes) y **una por serie de token** (T:hora, E:casa/EUR…), cada una con **diez estrellas, una por caja**, en el orden de los valores sobre una bóveda simétrica. El **brillo** de cada estrella (área y opacidad) es proporcional a su recuento: cuántos registros de la cohorte caen en esa caja. El **foco** lleva un anillo en su caja en cada constelación; las líneas unen las estrellas encendidas. Además, **la décupla**: diez estrellas, una por posición 0–9, cuántos de la cohorte la tienen desarrollada, con un anillo en cada posición que tiene el foco. Las posiciones son puntos de vista, no un orden: van en línea recta, sin trazo, y el rótulo dice cuáles tiene el foco («en el foco: 0 1 2 3 4»), nunca «cuántas de diez».

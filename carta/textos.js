@@ -119,6 +119,9 @@ export const TEXTOS = Object.freeze({
     entrarEnCelda: 'entrar en {que} (un nivel más adentro)',
     bajarTitulo: 'bajar al {d}: la celda se divide (un dígito más en la dirección)',
     derivadoPor: 'derivado del libro: {por}',
+    derivadoArriba: 'de su hilo, hacia arriba',
+    derivadoDirecto: 'directo: cuelga de aquí',
+    derivadoHeredado: 'heredado: de más abajo',
     abrirEnCelda: 'abrir {que}',
     sinBandaTitulo: 'sin una medida con la que ponerlo en una banda',
     masEnBanda: '+{n}',
@@ -140,6 +143,15 @@ export const TEXTOS = Object.freeze({
     matrizSinPosicion: 'sin posición',
     matrizSinPosicionTitulo: 'lo que el núcleo no sabe colocar: sin tipo de interacción o sin posición modificada',
     matrizMas: '+{n} más',
+    // la matriz del 4 con oficios y ejecución, la escalera y el rango (encargo «el4», VG 12-11, #39, #41)
+    matrizEsquinaOficios: 'oficio ↓ · ejecución →',
+    matrizEjesTituloOficios: 'filas: el oficio (el tipo de acción); columnas: la ejecución (lo que se mueve); la diagonal marcada es la escalera: la fila k con la columna k+1',
+    matrizAbrir: 'abrir la celda: sus movimientos',
+    matrizCelda: '{oficio} · {ejecucion}',
+    matrizEscalonTitulo: 'peldaño {nivel} {nombre} de la escalera ({direccion})',
+    rangoDelFoco: 'rango {nivel} {nombre}',
+    caminoDisponibles: 'posiciones disponibles: {n}',
+    caminoActual: 'aquí está, por su rango',
     // lo que el núcleo mide de cada hijo (encargo «datos», issue #11)
     hijoUmbral: 'umbral {umbral} · faltan {faltan}',
     hijoVotos: 'P {comprometidos} comprometido · {reposicionables} reposicionable',
@@ -181,13 +193,13 @@ export const TEXTOS = Object.freeze({
     sitioDe: 'sitio {lugar} de {que}',
     reclasificado: '{que} a la caja {caja}',
     hiloSupuesto: 'no se sabe de qué hilo cuelga: va en el primero',
-    // el futuro de una cuenta (contrato.estadoDeEntrada) y su incongruencia (contrato.franjaDeEntrada)
+    // el futuro de una cuenta (contrato.estadoDeEntrada) y sus tres relojes fuera de orden (contrato.franjaDeEntrada, X.6.9)
     estadoPrevisto: 'previsto {fecha}',
     estadoBloqueado: 'bloqueado hasta {fecha}',
     estadoLiberado: 'liberado (era hasta {fecha})',
     estadoCaduca: 'caduca el {fecha}',
     estadoCaducado: 'caducado {fecha}',
-    incongruente: 'incongruente: declara {declarada} y por su fecha le toca {franja}',
+    cuentaRara: 'sus relojes no van en orden (libro, Nostr, Bitcoin)',
     // el cielo del 8: la cohorte y la base
     cohorte: 'cohorte',
     cohorteElegir: 'compararse con {cohorte}',

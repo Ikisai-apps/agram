@@ -69,13 +69,14 @@ test('epoch.8.7 «world division» es un dato de la época con su procedencia: u
   // cajas numeradas 0-5 como los PV (3.d = «con quién» sobre d), y dentro de una persona, la conversación
   assert.deepEqual(d(2).hijos, [...d(1).hijos, 5]);
   assert.deepEqual([d(3).hijos, d(3).mide], [[0, 1, 2, 3, 4, 5], ['groups', 'attended']]);
-  // los hilos horizontales del 6 y el 7, y solo ellos
-  assert.deepEqual(d(6).hilos, [1, 3, 2, 4]);
-  assert.deepEqual(d(7).hilos, [2, 4, 1, 3]);
+  // los hilos horizontales del 6 y el 7, y solo ellos: el orden de ver, 1 2 3 4 de arriba abajo (VG 12-11, #40)
+  assert.deepEqual(d(6).hilos, [1, 2, 3, 4]);
+  assert.deepEqual(d(7).hilos, [1, 2, 3, 4]);
   assert.equal([1, 2, 3, 4, 8, 9].some((pv) => 'hilos' in d(pv)), false);
   assert.deepEqual([d(6).orden, d(7).orden], ['latest', 'soonest']);
   assert.equal([1, 2, 3, 4, 8, 9, 0, 5].some((pv) => 'orden' in d(pv)), false);
-  // el 4 mide epoch.5 y el pv; la franja del 6 y el 7, las escalas de T que el calendario mide (epoch.1.3 ∩ epoch.7), no un número escrito
+  // el 4 mide el oficio y la ejecución (encargo «el4»); la franja del 6 y el 7, las escalas de T que el calendario mide (epoch.1.3 ∩ epoch.7), no un número escrito
+  assert.deepEqual(d(4).mide, ['office', 'execution']);
   const medidas = EPOCA_0_BTML.registro[7][0].map((r) => r[0][0]);
   const escalas = EPOCA_0_BTML.registro[1][3][1].map((r, escala) => ({ escala, nombre: r[0][0] })).filter((e) => medidas.includes(e.nombre));
   for (const pv of [6, 7]) {
@@ -84,8 +85,9 @@ test('epoch.8.7 «world division» es un dato de la época con su procedencia: u
     assert.deepEqual(d(pv).bandas.map((b) => [b.escala, b.nombre]), escalas.map((e) => [e.escala, e.nombre]));
   }
   assert.ok(escalas.length < EPOCA_0_BTML.registro[1][3][1].length, 'hay escalas de T que el calendario no mide (pasado, futuro, inventado)');
-  // el 8 y el 9: las diez cajas nivel.grado de HITOS (src/bases.js)
-  const cajas = HITOS.map((h) => ({ indice: h.indice, nivel: Number(h.nivel.split('.')[0]), grado: Number(h.nivel.split('.')[1]), nombre: h.nombre }));
+  // el 8 y el 9: las diez cajas nivel.grado de HITOS (src/bases.js), cada una con la dirección de su peldaño de la escalera (encargo «el4»)
+  const escalera = ['1000000000', '2200000000', '3330000000', '4444000000', '5555500000', '6666660000', '7777777000', '8888888800', '9999999990', '0000000000'];
+  const cajas = HITOS.map((h) => ({ indice: h.indice, nivel: Number(h.nivel.split('.')[0]), grado: Number(h.nivel.split('.')[1]), nombre: h.nombre, direccion: escalera[h.indice] }));
   assert.deepEqual([d(8).forma, d(9).forma], ['cielo', 'camino']);
   assert.deepEqual(d(8).bandas, cajas);
   assert.deepEqual(d(9).bandas, cajas);
@@ -266,9 +268,12 @@ test('el 6 y el 7: una franja por escala de T que el calendario mide; el 6 con l
   assert.deepEqual(r6.bandas.map((b) => b.escala), [...r7.bandas.map((b) => b.escala)].reverse(), 'el 6: al revés, la más cercana a ahora a la derecha');
   assert.deepEqual(r7.bandas.map((b) => b.nombre), escalas.map((e) => e.nombre));
   // El diario de la compra (el pasado, el 6) quema horas: su entrada está en la franja «hora» y en ninguna otra.
-  const conEntradas = r6.bandas.filter((b) => b.items.length);
+  const conEntradas = r6.bandas.filter((b) => b.items.some((o) => o.tipo === 'entrada'));
   assert.deepEqual(conEntradas.map((b) => b.nombre), ['hora']);
   assert.equal(conEntradas[0].items[0].tipo, 'entrada');
+  // Lo demás del 6 es su hilo hacia arriba (#45, VG 12-11: el 6 lee el hilo y el diario), en la franja de lo que quema.
+  const otras = r6.bandas.flatMap((b) => b.items).filter((o) => o.tipo !== 'entrada');
+  assert.ok(otras.length > 0 && otras.every((o) => o.arriba && !o.hiloSupuesto), 'el hilo de la compra (el menú y lo de arriba)');
   const h = html(await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE));
   assert.equal((h.match(/class="rejilla-banda hijo[ "]/g) ?? []).length, escalas.length);
 });
@@ -289,7 +294,7 @@ test('el 8 da las diez cajas nivel.grado de HITOS; el 9, primero esas diez posic
   assert.deepEqual(r9.bandas.map((b) => b.nombre), HITOS.map((h) => h.nombre), 'primero las diez posiciones para situarse');
   assert.deepEqual(r9.bandas.map((b) => `${b.nivel}.${b.grado}`), HITOS.map((h) => h.nivel));
   const m = C.madurez(eje, compra.id);
-  assert.deepEqual([r9.madurez.nivel, r9.madurez.de], [m.nivel, m.de], 'la madurez del foco, del núcleo (ninguna caja se enciende: nada asigna nivel ni grado al foco)');
+  assert.deepEqual([r9.madurez.nivel, r9.madurez.de], [m.nivel, m.de], 'la madurez del foco, del núcleo');
   const h = html(a9);
   assert.equal((h.match(/class="rejilla-banda hijo[ "]/g) ?? []).length, 10);
   // Debajo, los pasos del camino y la guía de siempre (htmlCamino), plegables; la guía no se repite fuera de la rejilla.
@@ -443,25 +448,95 @@ test('el nivel 2 del 2 son cinco columnas con el nivel siguiente dentro (contrat
   assert.equal((h.match(/class="siguiente-hijo vacia"[^>]*data-vacio/g) ?? []).length, 4);
 });
 
-test('la matriz del 4 trae sus dos ejes nombrados (columnas: los diez PV como tipo de interacción; filas: la posición modificada) y la diagonal marcada', async () => {
+test('la matriz del 4 trae sus dos ejes nombrados por la época (filas: los diez oficios; columnas: la ejecución), en el idioma, y la diagonal marcada es la escalera (fila k, columna k+1) con su peldaño', async () => {
   const { eje, compra } = await ejemploCompra();
   const a = await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE);
   const r = a.centro.rejilla;
-  const opts = { idioma: a.idioma };
   const diez = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-  assert.deepEqual(r.ejes.columnas.map((c) => c.pv), diez);
-  assert.deepEqual(r.ejes.columnas.map((c) => c.etiqueta), diez.map((k) => C.etiqueta(eje, null, k, opts)));
-  assert.deepEqual(r.ejes.filas.map((f) => f.nombre), diez.map((k) => C.etiqueta(eje, null, [0, k], opts)));
-  assert.deepEqual(r.ejes.filas.slice(0, 3).map((f) => f.nombre), ['qué es', 'cuánto', 'con qué condición']);
-  assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => [c.fila, c.columna]), diez.map((k) => [k, k]));
+  assert.deepEqual(r.ejes.filas.map((f) => [f.digito, f.nombre]), diez.map((k) => [k, ['mostrar', 'gestionar', 'administrar', 'coordinar', 'hacer', 'verificar', 'registrar', 'planear', 'medir', 'guiar'][k]]));
+  assert.deepEqual(r.ejes.columnas.map((c) => [c.pv, c.etiqueta]), diez.map((k) => [k, ['contenido que se muestra', 'E', 'P', 'R', 'T', 'verificación sin token propio', 'adjudicación al pasado', 'proyección al futuro', 'crecimiento que genera rangos', 'contenido que guía'][k]]));
+  // los nombres son datos de la época (el enlace de la fila del 4, epoch.8.7), en inglés canónico, con su texto en epoch.9.4
+  const ejes = C.ejesDeLaMatriz();
+  assert.deepEqual(ejes.filas.map((f) => f.nombre), ['show', 'manage', 'administer', 'coordinate', 'do', 'verify', 'record', 'plan', 'measure', 'guide']);
+  assert.deepEqual(ejes.columnas.map((c) => c.nombre).slice(0, 5), ['content shown', 'E', 'P', 'R', 'T']);
+  assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => [c.fila, c.columna]), diez.map((k) => [k, (k + 1) % 10]), 'la escalera: la fila k con la columna k+1; la 9 vuelve a la 0');
+  assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => `${c.escalon.nivel}.${c.escalon.grado}`), HITOS.map((x) => x.nivel));
   const h = rejillaHtml(html(a));
   assert.equal((h.match(/class="matriz-eje matriz-columna"/g) ?? []).length, 10);
   assert.equal((h.match(/class="matriz-eje matriz-fila"/g) ?? []).length, 10);
   assert.equal((h.match(/class="rejilla-celda hijo[^"]* diagonal"/g) ?? []).length, 10);
+  assert.ok(h.includes(`<span class="matriz-esquina" title="${t('matrizEjesTituloOficios')}">${t('matrizEsquinaOficios')}</span>`));
+  assert.match(h, /data-fila="4" data-columna="5"[^>]* data-peldano="4"><span class="hijo-nombre"><small class="matriz-escalon"[^>]*>3\.2<\/small>/, 'el punto dulce, 3.2, en hacer · verificación');
+  assert.match(h, /<span class="matriz-eje matriz-fila" title="4 · hacer"><b>4<\/b> hacer<\/span>/);
   assert.equal((h.match(/class="rejilla-celda hijo estacion/g) ?? []).length, r.celdas.filter((c) => c.ocupante).length, 'cada celda con ocupante, una estación');
-  // lo propio del 4 de la compra (pagar, servir) no dice tipo de interacción ni posición: va aparte, no en una celda inventada (encargo «datos2»)
+  // lo propio del 4 de la compra (pagar, servir) no tiene oficio ni ejecución: va aparte, no en una celda inventada
   assert.equal(r.sinPosicion.length, C.ocupantes(eje, compra.id, 4).total);
   assert.ok(h.includes('class="matriz-sin-posicion"'));
+  // los nombres salen de la época: cambiarlos en una copia cambia los ejes
+  const otra = epocaCon((e) => { filaDe(e, 4)[8][0][4] = 'build'; filaDe(e, 4)[8][1][1] = ['money', 'token E']; });
+  const b = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE, { epoca: otra })).centro.rejilla;
+  assert.deepEqual([b.ejes.filas[4].nombre, b.ejes.columnas[1].etiqueta], ['build', 'money']);
+});
+
+test('el 9 a pantalla completa lee el rango del 8: las posiciones disponibles (del primer peldaño al suyo) encendidas, la suya marcada, las demás apagadas; sin rango declarado', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const T6 = (k) => [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }, { token: 'T', escala: 'futuro', cantidad: 1, de: 'cocina', a: null, refiere: '2026-12-0' + (k + 1) + 'T10:00:00Z' }];
+  // sin nada de la escalera cubierto: el primer peldaño, solo él disponible
+  const a0 = await arbol(completa(compra.id, 9), eje, 'huesped', GRANDE);
+  assert.deepEqual(a0.centro.rejilla.bandas.map((b) => [b.disponible, b.actual]), HITOS.map((h) => [h.indice === 0, h.indice === 0]));
+  // registrar con T futuro (a mano, en el 6 de la compra): la celda 6 · 7 cubierta, el peldaño 6 (4.2)
+  await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '6000000000', t: '2026-11-08T10:00:00Z', movimientos: T6(0), payload: [['Plan']] });
+  const a = await arbol(completa(compra.id, 9), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  const rango = C.rango(eje, compra.id);
+  assert.deepEqual([r.rango.peldano, r.rango.disponibles, r.rango.medida], [6, [0, 1, 2, 3, 4, 5, 6], '7000000000']);
+  assert.deepEqual(r.bandas.filter((b) => b.disponible).map((b) => b.indice), rango.disponibles);
+  assert.deepEqual(r.bandas.filter((b) => b.actual).map((b) => b.indice), [6]);
+  assert.deepEqual(r.bandas.map((b) => b.disponible), C.hijosDe(eje, compra.id, 9).map((x) => x.disponible), 'lo mismo que el núcleo da como hijos del 9');
+  const h = rejillaHtml(html(a));
+  assert.equal((h.match(/data-disponible="si"/g) ?? []).length, 7);
+  assert.equal((h.match(/data-disponible="no"/g) ?? []).length, 3);
+  assert.match(h, /class="rejilla-banda hijo posicion vacia disponible actual" data-banda="6" data-nivel="4" data-grado="2" data-direccion="7777777000" data-disponible="si" data-actual/);
+  assert.ok(h.includes(`<span class="camino-rango">${t('rangoDelFoco', { nivel: '4.2', nombre: HITOS[6].nombre })} · ${t('caminoDisponibles', { n: 7 })}</span>`));
+  // en el cielo del 8, la compra va en la caja de su rango
+  const r8 = (await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE)).centro.rejilla;
+  assert.deepEqual(r8.bandas.filter((b) => b.foco).map((b) => b.indice), [6]);
+  // y en su matriz del 4, la celda 6 · 7 de la escalera tiene la ejecución
+  const r4 = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE)).centro.rejilla;
+  const escalon = r4.celdas.find((c) => c.fila === 6 && c.columna === 7);
+  assert.deepEqual([escalon.diagonal, escalon.escalon.peldano, escalon.total], [true, 6, 1]);
+});
+
+test('#40, el orden de ver: los cuatro hilos de las franjas del 6 y del 7 son los PV 1 2 3 4 de arriba abajo (dato de la fila 8.7)', async () => {
+  const { eje, compra } = await ejemploCompra();
+  for (const pv of [6, 7]) {
+    assert.deepEqual(C.divisionDelMundo(eje, pv).hilos, [1, 2, 3, 4]);
+    const r = (await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE)).centro.rejilla;
+    assert.deepEqual(r.hilos.map((x) => x.pv), [1, 2, 3, 4], 'el ' + pv);
+    assert.deepEqual(r.bandas[0].cruces.map((x) => x.hilo), [1, 2, 3, 4]);
+  }
+  // es un dato: cambiarlo en una copia cambia el orden
+  const otra = epocaCon((e) => { filaDe(e, 6)[7] = [4, 3, 2, 1]; });
+  assert.deepEqual(C.divisionDelMundo(eje, 6, { epoca: otra }).hilos, [4, 3, 2, 1]);
+});
+
+test('la escalera dulce es un dato de la época (el enlace de la fila del 8): la fila k ↔ el dígito k+1 repetido k+1 veces, enlazada con los HITOS; el 9 la lee por la misma fila', () => {
+  const e = C.escalera();
+  assert.deepEqual(e.map((p) => p.direccion), ['1000000000', '2200000000', '3330000000', '4444000000', '5555500000', '6666660000', '7777777000', '8888888800', '9999999990', '0000000000']);
+  for (const p of e) {
+    assert.equal(p.direccion, String((p.indice + 1) % 10).repeat(p.indice + 1).padEnd(10, '0'), 'fila ' + p.indice);
+    assert.deepEqual([p.fila, p.columna, p.profundidad], [p.indice, (p.indice + 1) % 10, p.indice + 1]);
+    assert.equal(`${p.nivel}.${p.grado}`, HITOS[p.indice].nivel, 'enlazada con su hito');
+    assert.equal(p.nombre, HITOS[p.indice].nombre);
+  }
+  assert.deepEqual([e[4].direccion, `${e[4].nivel}.${e[4].grado}`], ['5555500000', '3.2'], '555 → 3.2, el punto dulce');
+  assert.deepEqual([e[9].direccion, `${e[9].nivel}.${e[9].grado}`, e[9].profundidad], ['0000000000', '5.3', 10], 'diez ceros: el ciclo da la vuelta');
+  assert.deepEqual(C.divisionDelMundo(null, 8).escalera, e);
+  assert.deepEqual(C.divisionDelMundo(null, 9).escalera, e, 'el 9 se sitúa por la misma escalera');
+  assert.equal(C.divisionDelMundo(null, 9).paso, null, 'el rango no es un paso de epoch.9.8');
+  // es un dato: quitarla de la época la quita
+  const sin = epocaCon((x) => { filaDe(x, 8)[8] = ['-']; });
+  assert.deepEqual(C.escalera({ epoca: sin }), []);
 });
 
 test('las franjas del 6 y el 7 son verticales y traen cuatro hilos horizontales en el orden de d.hilos; cada cuenta en su franja y en un hilo', async () => {
@@ -499,7 +574,7 @@ test('más cuentas de las que caben en un cruce: una cuenta mayor con el número
   assert.match(html(a), new RegExp(`class="cuenta cuenta-mayor"[^>]*>${cruce.mas}</span>`));
 });
 
-test('el cielo del 8 trae las diez cajas nivel.grado en dos filas (arriba 0.3 1.1 2.1 3.1 3.2, abajo 4.1 4.2 5.1 5.2 5.3), la caja del foco por su cuota y las vacías con su paso del camino', async () => {
+test('el cielo del 8 trae las diez cajas nivel.grado en dos filas (arriba 0.3 1.1 2.1 3.1 3.2, abajo 4.1 4.2 5.1 5.2 5.3), la caja del foco por su rango (la cuota, como medida) y las vacías con su paso del camino', async () => {
   const { eje, compra } = await ejemploCompra();
   const a = await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE);
   const r = a.centro.rejilla;
@@ -511,7 +586,11 @@ test('el cielo del 8 trae las diez cajas nivel.grado en dos filas (arriba 0.3 1.
   assert.match(h, /<div class="rejilla-bandas rejilla-cielo( sin-base)?" style="--columnas:5;--filas:2">/);
   const cuota = pasos(eje, compra.id).cuota;
   assert.deepEqual(r.cuota, { nombre: 'cuota', k: cuota.k, de: cuota.de });
-  assert.deepEqual(r.bandas.filter((b) => b.foco).map((b) => b.indice), [cuota.k]);
+  // un solo rango, el del 8 (encargo «el4», #39): la caja del foco es la de su rango
+  const rango = C.rango(eje, compra.id);
+  assert.deepEqual([r.rango.peldano, r.rango.nivel, r.rango.grado, r.rango.disponibles], [rango.peldano, rango.nivel, rango.grado, rango.disponibles]);
+  assert.deepEqual(r.bandas.filter((b) => b.foco).map((b) => b.indice), [rango.peldano]);
+  assert.ok(h.includes(`<b class="cielo-rango">${t('rangoDelFoco', { nivel: `${rango.nivel}.${rango.grado}`, nombre: rango.nombre })}</b>`));
   assert.deepEqual(r.enElFoco, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter((k) => C.ocupantes(eje, compra.id, k, 0, 0).total > 0));
   const medir = A.acciones(eje, compra.id, 8, 'huesped', { idioma: a.idioma }).find((x) => x.porDefecto);
   const vacias = r.bandas.filter((x) => !x.items.length && !x.foco);
@@ -692,27 +771,50 @@ test('el 1 a pantalla completa: el pie de cada esquina con lo que mide su hijo (
   for (const sel of ['.hijo-flujo{', '.hijo-barra[data-de="capacidad"]>span{', '.rejilla-cruceta>.hijo[data-columna="0"] .hijo-pie{']) assert.ok(css.includes(sel), sel);
 });
 
-test('la matriz del 4: cada ejecución en su celda (columna = el PV de su plantilla, fila = la posición que modifica), con su estación; las tres estaciones en (4, 4) y lo que no se sabe colocar, aparte', async () => {
+test('la matriz del 4: cada ejecución en la celda de su oficio (la fila) y de lo que mueve (la columna), con su estación; lo que no se sabe colocar, aparte', async () => {
   const { eje, compra, pagar, servir, atender, capacidad, nota } = await conFabrica();
   const a = await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE);
   const r = a.centro.rejilla;
   const celda = (fila, columna) => r.celdas.find((x) => x.fila === fila && x.columna === columna);
-  assert.deepEqual(celda(4, 4).ocupantes.map((o) => [o.X, o.estado]), [[pagar.id, 'ejecutada'], [servir.id, 'autorizada'], [atender.id, 'propuesta']]);
-  assert.equal(celda(4, 4).estado, null, 'mezcladas: cada ejecución lleva la suya');
-  assert.deepEqual(celda(2, 2).ocupantes.map((o) => o.X), [capacidad.id]);
-  assert.deepEqual([celda(0, 6).ocupantes.map((o) => o.X), celda(0, 6).diagonal], [[nota.id], false]);
+  // los tres movimientos anunciados: el oficio de la plantilla de su estación (pay, deliver: hacer) y la familia de la serie anunciada
+  assert.deepEqual(celda(4, 1).ocupantes.map((o) => [o.X, o.estado]), [[pagar.id, 'ejecutada']], 'pagar 12 EUR: hacer · E');
+  assert.deepEqual(celda(4, 4).ocupantes.map((o) => [o.X, o.estado]), [[servir.id, 'autorizada']], 'servir una hora: hacer · T');
+  assert.deepEqual(celda(4, 3).ocupantes.map((o) => [o.X, o.estado]), [[atender.id, 'propuesta']], 'atender con R: hacer · R');
+  // «declare capacity or threshold» (el 2 de su plantilla, administrar) y «anchor here» (el 6, registrar) no mueven nada: contenido
+  assert.deepEqual(celda(2, 0).ocupantes.map((o) => o.X), [capacidad.id]);
+  assert.deepEqual([celda(6, 0).ocupantes.map((o) => o.X), celda(6, 0).diagonal], [[nota.id], false]);
   assert.equal(r.celdas.reduce((s, c) => s + c.ocupantes.length, 0) + r.sinPosicion.length, A.ejecuciones(eje, compra.id).length, 'ni se pierde ni se inventa ninguna');
   assert.ok(r.sinPosicion.every((o) => !o.X), 'aparte, lo propio del 4 (pagar, servir)');
   const h = rejillaHtml(html(a));
   for (const e of ['ejecutada', 'autorizada', 'propuesta']) assert.ok(h.includes(`<li class="ejecucion" data-estado="${e}" title="${t(e === 'ejecutada' ? 'estadoEjecutada' : e === 'autorizada' ? 'estadoAutorizada' : 'estadoPropuesta')}">`), e);
   assert.ok(h.includes(`<span class="matriz-eje">${t('matrizSinPosicion')}</span>`));
   const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
-  for (const sel of ['.ejecucion[data-estado="autorizada"]{', '.ejecucion[data-estado="ejecutada"]::after{', '.matriz-sin-posicion{']) assert.ok(css.includes(sel), sel);
-  // sin «pv» en lo que mide la fila del 4 (epoch.8.7), los ocupantes del 4 por orden, como antes
+  for (const sel of ['.ejecucion[data-estado="autorizada"]{', '.ejecucion[data-estado="ejecutada"]::after{', '.matriz-sin-posicion{', '.matriz-abierta{']) assert.ok(css.includes(sel), sel);
+  // sin «execution» ni «pv» en lo que mide la fila del 4 (epoch.8.7), los ocupantes del 4 por orden, como antes
   const sinPv = epocaCon((e) => { filaDe(e, 4)[4] = ['epoch.5']; });
   const b = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE, { epoca: sinPv })).centro.rejilla;
   assert.equal('sinPosicion' in b, false);
   assert.equal(b.celdas.filter((x) => x.ocupante).length, C.ocupantes(eje, compra.id, 4).total);
+});
+
+test('celdaDeEjecucion: el oficio por la plantilla, la estación o la posición; la ejecución por el tiempo, lo que mueve o, sin mover nada, la posición en que escribe; el T propio que quema al escribir no cuenta', async () => {
+  const c = await conFuturo();
+  const celda = (r) => { const x = C.celdaDeEjecucion(c.eje, r.id); return [x.oficio, x.ejecucion, x.por.oficio, x.por.ejecucion]; };
+  assert.deepEqual(celda(c.pagar), [4, 1, 'estacion', 'token E']);
+  assert.deepEqual(celda(c.respaldo), [2, 2, 'plantilla', 'token P'], '«commit P» bloquea P: administrar · P');
+  assert.deepEqual(celda(c.capacidad), [2, 0, 'plantilla', 'content']);
+  assert.deepEqual(celda(c.manana), [7, 7, 'plantilla', 'scale futuro'], '«declare future T»: planear · proyección al futuro');
+  assert.deepEqual(celda(c.plazo), [7, 7, 'plantilla', 'dated'], '«commit time» bloquea hasta una fecha');
+  assert.deepEqual(celda(c.cohorte), [8, 8, 'plantilla', 'content at 8'], '«change cohort» escribe en el 8 sin mover nada');
+  assert.deepEqual(celda(c.nochebuena), [4, 7, 'posicion', 'scale futuro'], 'a mano, sin plantilla: el oficio es la posición que modifica');
+  assert.deepEqual(celda(c.vales), [1, 7, 'posicion', 'dated'], 'emite E que caduca: el tiempo va antes que lo que mueve');
+  // a mano en la raíz, solo con el T de escribir: contenido que se muestra
+  const hoja = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, t: '2026-11-08T09:00:00Z', movimientos: T, payload: [['Hoja']] });
+  assert.deepEqual(celda(hoja), [0, 0, 'posicion', 'content']);
+  assert.equal(C.celdaDeEjecucion(c.eje, 'no-existe'), null);
+  // los criterios son datos: sin «dated» en la columna 7, lo que bloquea hasta una fecha cae por lo que mueve
+  const sinFecha = epocaCon((e) => { filaDe(e, 4)[8][1][7] = ['projection to the future', 'scale futuro', 'content at 7']; });
+  assert.deepEqual(C.celdaDeEjecucion(c.eje, c.plazo.id, { epoca: sinFecha }).ejecucion, 1);
 });
 
 // ---------- encargo «datos3» (issue #11, tercera parte): el 6/7 por hilos y fechas, el 8 con su cohorte, el 9 con previsualizar ----------
@@ -724,7 +826,7 @@ async function conFuturo() {
   return { ...c, ...fabrica, ...(await ejemploFuturoYCohorte(c.eje, c)) };
 }
 
-test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del PV del que cuelga (pvDeEntrada), con su estado y la marca de incongruencia; el 6, en los hilos de su diario', async () => {
+test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del PV del que cuelga (pvDeEntrada), con su estado y sin incongruencia de escala (#42); el 6, en los hilos de su diario', async () => {
   const c = await conFuturo();
   const a7 = await arbol(completa(c.compra.id, 7), c.eje, 'huesped', GRANDE);
   const r7 = a7.centro.rejilla;
@@ -738,13 +840,15 @@ test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del 
   assert.deepEqual([donde(c.nochebuena.id).hilo, donde(c.vales.id).hilo], [4, 1]);
   assert.deepEqual([donde(c.manana.id).hilo, donde(c.manana.id).o.hiloSupuesto], [r7.hilos[0].pv, true]);
   assert.ok(new Set(r7.bandas.flatMap((b) => b.cruces.filter((x) => x.items.length).map((x) => x.hilo))).size > 1, 'en más de un hilo');
-  // el estado del futuro y la incongruencia (declara un minuto; por su fecha, otra franja)
+  // el estado del futuro; la «incongruencia de escala» (declara un minuto y por su fecha le toca otra franja) se retiró
+  // (VG 12-11, #42): ninguna cuenta es rara mientras no haya más reloj que el del libro (X.6.8)
   assert.deepEqual([donde(c.manana.id).o.estado.tipo, donde(c.plazo.id).o.estado.tipo, donde(c.vales.id).o.estado.tipo], ['previsto', 'bloqueado', 'caduca']);
-  assert.deepEqual(donde(c.semana.id).o.incongruente, { declarada: 'minuto', franja: 'semana' });
+  assert.equal(donde(c.semana.id).o.incongruente, undefined);
+  assert.equal(r7.bandas.some((b) => b.items.some((o) => o.rara)), false);
   const h7 = rejillaHtml(html(a7));
-  assert.match(h7, /class="ocupante cuenta supuesta cuenta-rara"[^>]*data-estado="previsto"/);
+  assert.match(h7, /class="ocupante cuenta supuesta"[^>]*data-estado="previsto"/);
+  assert.ok(!h7.includes('cuenta-rara') && !h7.includes('incongruente'));
   assert.match(h7, new RegExp(`<small class="cuenta-estado">${t('estadoBloqueado', { fecha: '' }).replace(/\s+$/, '')}`));
-  assert.ok(h7.includes('incongruente: declara minuto y por su fecha le toca semana'));
   // el 6: cada entrada del diario en el hilo de la posición que modificó (la fábrica en el 4, los recursos en el 1…)
   const r6 = (await arbol(completa(c.compra.id, 6), c.eje, 'huesped', GRANDE)).centro.rejilla;
   const hilos6 = new Set(r6.bandas.flatMap((b) => b.cruces.filter((x) => x.items.some((o) => !o.hiloSupuesto)).map((x) => x.hilo)));
@@ -760,9 +864,10 @@ test('el cielo del 8: las estrellas con nombre de la cohorte elegida (el proyect
   const co = C.cohorteDe(c.eje, c.compra.id);
   assert.deepEqual([r.cohorte.valor, r.cohorte.elegida, r.cohorte.opciones.map((x) => [x.valor, x.texto, x.actual])], ['project', 'project', [['siblings', 'hermanos', false], ['project', 'proyecto', true], ['genesis', 'general', false]]]);
   assert.deepEqual(r.base, { escrita: false, autor: null, t: null });
-  for (const b of r.bandas) assert.equal(b.items.length + b.mas, co.comparables.filter((x) => x.caja === b.indice).length, 'cada caja, sus comparables');
+  for (const b of r.bandas) assert.equal(b.items.length + b.mas, co.comparables.filter((x) => x.rango === b.indice).length, 'cada caja, los comparables de su rango');
   const foco = r.bandas.find((b) => b.foco);
-  assert.equal(foco.indice, co.caja);
+  assert.equal(foco.indice, co.rango);
+  assert.ok(co.comparables.every((x) => x.rango === C.rango(c.eje, x.ref).peldano), 'el rango de cada comparable es el de contrato.rango');
   assert.equal(foco.items[0].foco, true, 'la estrella del foco, la primera de su caja');
   const h = rejillaHtml(html(a));
   assert.ok(h.includes(`<span class="cielo-base">${t('sinBaseEscrita')}</span>`));
@@ -770,9 +875,9 @@ test('el cielo del 8: las estrellas con nombre de la cohorte elegida (el proyect
   assert.match(h, /<button type="button" class="cohorte actual" data-nodo="control" data-cohorte="project" aria-pressed="true"/);
   assert.match(h, /class="ocupante estrella foco"[^>]*title="Compra del menú del día"/);
   assert.match(h, /<span class="texto">Menú del día<\/span>/, 'las estrellas, con su nombre');
-  // mirar con los hermanos: solo la compra (la cuota entera, la caja 9)
+  // mirar con los hermanos: solo la compra, en la caja de su rango (nada de la escalera cubierto: el primer peldaño, 0.3)
   const r2 = (await arbol({ ...completa(c.compra.id, 8), cohorte: 'siblings' }, c.eje, 'huesped', GRANDE)).centro.rejilla;
-  assert.deepEqual([r2.cohorte.valor, r2.bandas.map((b) => b.items.length)], ['siblings', [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]]);
+  assert.deepEqual([r2.cohorte.valor, r2.bandas.map((b) => b.items.length)], ['siblings', [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]]);
 });
 
 test('el camino del 9: cada paso mío con «previsualizar» junto a ejecutar; previsualizar construye y valida sin escribir y la carta lo enseña bajo el paso', async () => {

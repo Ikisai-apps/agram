@@ -924,3 +924,82 @@ test('arrastrar a alguien de una caja del 3 a otra reclasifica la conversación 
   const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
   assert.match(css, /\.persona\{[^}]*touch-action:none/, 'mantener y arrastrar en el móvil: el navegador no se lleva el gesto');
 });
+
+// ---------- encargo «el4»: la celda de la matriz del 4 que se abre y arrastrar al centro (VG 12-11, #41, #49.8, #23) ----------
+
+test('la matriz del 4 a pantalla completa: pulsar una celda la abre y enseña su lista de movimientos (hasta diez) con el color de su estación; pulsarla otra vez, ✕ o Esc la cierran', async () => {
+  const { ejemploFabrica } = await import('../ejemplos/ikisai/compra-food.mjs');
+  const { eje, compra, ...c } = await ejemploCompra();
+  const f = await ejemploFabrica(eje, { compra, ...c });
+  // doce anuncios más de T (hacer · T): la celda 4 · 4 con trece movimientos
+  for (let k = 0; k < 12; k++) await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '4100000000', t: '2026-11-07T17:' + String(k).padStart(2, '0') + ':00Z', movimientos: [minuto('huesped')], payload: [['T:hora'], [1], ['servir ' + k], [['huesped'], ['cocina']]] });
+  const estado = { foco: { X: compra.id, pv: 4 } };
+  const cerrada = (await arbol(estado, eje, 'huesped', GRANDE)).centro.rejilla;
+  const llenas = cerrada.celdas.filter((x) => x.total);
+  assert.ok(llenas.length && llenas.every((x) => x.abrir === `${x.fila}.${x.columna}`), 'cada celda con algo se puede abrir');
+  assert.equal('abierta' in cerrada, false);
+  const a = await arbol({ ...estado, celdaMatriz: { X: compra.id, celda: '4.4' } }, eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  assert.deepEqual([r.abierta.fila, r.abierta.columna, r.abierta.oficio, r.abierta.ejecucion], [4, 4, 'hacer', 'T']);
+  assert.equal(r.abierta.lista.length, 10, 'hasta diez');
+  assert.equal(r.abierta.mas, 3);
+  assert.deepEqual(r.abierta.lista[0].X, f.servir.id);
+  assert.deepEqual(r.abierta.lista.map((o) => o.estado), ['autorizada', ...Array(9).fill('propuesta')], 'la estación de cada uno, del núcleo (acciones.estaciones)');
+  const h = html(a);
+  assert.match(h, /<section class="matriz-abierta" data-color="4" data-fila="4" data-columna="4" role="dialog" aria-label="hacer · T">/);
+  assert.equal((h.match(/<ol class="ejecuciones abiertas">/g) ?? []).length, 1);
+  const lista = h.slice(h.indexOf('<ol class="ejecuciones abiertas">'), h.indexOf('</ol>', h.indexOf('<ol class="ejecuciones abiertas">')));
+  assert.equal((lista.match(/<li class="ejecucion" data-estado="propuesta"/g) ?? []).length, 9);
+  assert.equal((lista.match(/<li class="ejecucion" data-estado="autorizada"/g) ?? []).length, 1);
+  assert.ok(lista.includes('<li class="ejecucion-mas">+3 más</li>'));
+  assert.match(h, /class="rejilla-celda hijo estacion abierta" data-color="4" data-pv="4" data-fila="4" data-columna="4" data-celda-matriz="4\.4"/);
+  assert.match(h, /data-celda-matriz-cerrar/);
+  // otra X: la celda abierta es de su registro, no se arrastra a otro
+  assert.equal('abierta' in (await arbol({ ...estado, celdaMatriz: { X: f.pagar.id, celda: '4.4' } }, eje, 'huesped', GRANDE)).centro.rejilla, false);
+  // los gestos: pulsar la celda (o algo dentro de ella) la abre; ✕ la cierra; dentro de la abierta, lo de dentro se abre como siempre
+  const g = gestosDeMentira();
+  const rejilla = { dataset: { rejilla: '4', huecoX: compra.id } };
+  const celda = { dataset: { celdaMatriz: '4.4' }, closest: (sel) => (sel === '[data-rejilla]' ? rejilla : null) };
+  g.disparar('click', { target: objetivo({ '[data-celda-matriz]': celda, '[data-abrir]': { dataset: { abrir: 'R1' } } }), preventDefault() {} });
+  g.disparar('click', { target: objetivo({ '[data-celda-matriz-cerrar]': { closest: () => rejilla } }), preventDefault() {} });
+  g.disparar('click', { target: objetivo({ '.matriz-abierta': {}, '[data-celda-matriz]': celda, '[data-abrir]': { dataset: { abrir: 'R1' } } }), preventDefault() {} });
+  assert.deepEqual(g.llamadas, [['celdaMatriz', compra.id, '4.4'], ['celdaMatriz', compra.id, null], ['foco', 'R1', 0]]);
+  // la app: abrir, volver a pulsar la misma cierra, Esc cierra antes de subir de nivel
+  const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
+  assert.match(app, /celdaMatriz\(X, celda\) \{\n    const misma = /);
+  assert.match(app, /else if \(estado\.celdaMatriz\) estado\.celdaMatriz = null;/);
+});
+
+test('gestos: arrastrar un elemento y soltarlo sobre el centro lo pone como foco (#23), solo en Mapped; en Sequenced, sobre el propio foco o sin llegar al centro, nada; el clic que sigue no cuenta', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 30_000_000 });
+  try {
+    const elemento = objetivo({ '[data-x]': { dataset: { x: 'R1' } } });
+    const centroEn = (modo, x = 'F') => objetivo({ '[data-centro]': { dataset: { x, centro: '0' }, closest: (sel) => (sel === '.carta-matriz' && modo === 'mapped' ? {} : null) } });
+    const arrastrar = (g, hasta, { dx = 200, dy = 120 } = {}) => {
+      g.disparar('pointerdown', { pointerId: 1, clientX: 100, clientY: 100, button: 0, target: elemento });
+      g.disparar('pointermove', { pointerId: 1, clientX: 100 + dx / 2, clientY: 100 + dy / 2, target: elemento });
+      g.disparar('pointerup', { pointerId: 1, clientX: 100 + dx, clientY: 100 + dy, target: hasta });
+      g.disparar('click', { target: hasta, preventDefault() {} });
+    };
+    const g = gestosDeMentira();
+    arrastrar(g, centroEn('mapped'));
+    assert.deepEqual(g.llamadas, [['foco', 'R1', 0]], 'soltado sobre el centro: foco; el clic de soltar no cuenta');
+    mock.timers.tick(1000);
+    const s = gestosDeMentira();
+    arrastrar(s, centroEn('sequenced'));
+    assert.equal(s.llamadas.some((l) => l[0] === 'foco' && l[1] === 'R1'), false, 'en Sequenced no');
+    mock.timers.tick(1000);
+    const mismo = gestosDeMentira();
+    arrastrar(mismo, centroEn('mapped', 'R1'));
+    assert.equal(mismo.llamadas.some((l) => l[0] === 'foco'), false, 'sobre sí mismo (ya es el foco), nada');
+    mock.timers.tick(1000);
+    const corto = gestosDeMentira();
+    arrastrar(corto, centroEn('mapped'), { dx: 10, dy: 5 });
+    assert.equal(corto.llamadas.filter((l) => l[0] === 'foco').length, 0, 'sin moverse lo bastante no es arrastrar');
+    // el CSS marca el centro bajo lo arrastrado
+    const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+    assert.ok(css.includes('.carta-matriz [data-centro].soltar-aqui{'));
+  } finally {
+    mock.timers.reset();
+  }
+});
