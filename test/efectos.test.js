@@ -283,11 +283,12 @@ test('el ciclo del motor: la propuesta es la única fase, sin leer su payload co
   assert.deepEqual([fase(c).tipo, fase(c).fase, fase(c).mundo, fase(c).celda, fase(c).clase, fase(c).nombre], ['fase', 'consolidado', 4, FABRICA, 0, 'consolidar']);
   assert.ok(fase(c).decisiones.includes(MARCAS_EFECTO.claseFase));
   // Antes, la autorización y la ejecución eran fases del motor. Encargo 3b (N6): el anuncio es un registro anclado en
-  // el 4.1 de la propuesta, que se lee celda a celda, y el pago, un registro en su raíz con sus movimientos. Ninguno
-  // es una fase; que la propuesta esté cerrada es una lectura (motor.cerrado).
+  // el 4.1 de la propuesta, que se lee celda a celda, y el pago, un registro anclado en el 4 del anuncio que cumple (VG
+  // 12-11, decisión 8; #48) con sus movimientos. Ninguno es una fase; que la propuesta esté cerrada es una lectura
+  // (motor.cerrado).
   assert.ok(![a, e].some((ev) => efectosDe(eje, ev).some((x) => x.tipo === 'fase' || x.tipo === 'ruido')));
   assert.deepEqual([fase(a).tipo, fase(a).celda, fase(a).nombre], ['anclado', ANUNCIO, 'anclar']);
-  assert.deepEqual(deMotor(e).map((x) => [x.tipo, x.celda, x.nombre]), [['sustituir', '0000000000', 'mostrar']]);
+  assert.deepEqual([e.sobre, deMotor(e).map((x) => [x.tipo, x.celda, x.nombre])], [a.id, [['anclado', FABRICA, 'anclar']]]);
   assert.equal(cerrado(eje, c.id).cerrado, true);
   // La consolidación dice qué fijó en cada posición del foco, sin animarlo aparte.
   assert.deepEqual(fase(c).elecciones.map((x) => [x.posicion, x.celda, x.desde]), [

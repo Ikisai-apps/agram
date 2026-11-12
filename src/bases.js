@@ -44,7 +44,7 @@
 
 import { ARIDAD, esReferencia, indicesDe } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
-import { AMBITO_GENESIS, ESCALAS_T, claveToken, cantidadBase, partirClave } from './tokens.js';
+import { AMBITO_GENESIS, ESCALAS_T, claveToken, cantidadBase, partirClave, movimientosReales } from './tokens.js';
 import { ocupantes } from './encaje.js';
 // bql.js importa este módulo (BASES, CAJA, FRESCURA): la importación es
 // circular, así que de bql.js solo se usa dentro de funciones, nunca al cargar.
@@ -411,7 +411,7 @@ export function posicionesDe(eje, id) {
 /** Tokens movidos por un evento, por serie (T:escala, E:emisor/denominación, P:ámbito, R:emisor), en su unidad de saldo. */
 export function clavesDe(ev) {
   const porClave = {};
-  for (const mov of ev.movimientos) {
+  for (const mov of movimientosReales(ev)) { // lo anunciado no se ha movido (VG 12-11, decisión 8)
     const k = claveToken(mov);
     porClave[k] = (porClave[k] ?? 0) + cantidadBase(mov);
   }
@@ -457,7 +457,7 @@ export function medir(eje, id) {
     const contar = (p) => (Array.isArray(p) ? p.reduce((n, h) => n + contar(h), 0) : 1);
     const p = posicionesDe(eje, id);
     const identidades = new Set();
-    for (const mov of ev.movimientos) {
+    for (const mov of movimientosReales(ev)) {
       if (mov.de) identidades.add(mov.de);
       if (mov.a) identidades.add(mov.a);
     }
@@ -465,7 +465,7 @@ export function medir(eje, id) {
       posiciones: p.desarrolladas,
       terminales: contar(ev.payload),
       escritos: hijos(eje, id).length,
-      movimientos: ev.movimientos.length,
+      movimientos: movimientosReales(ev).length,
       identidades: identidades.size,
       profundidadHilo: eje.hilo(id).length - 1,
       formulasResueltas: 0,

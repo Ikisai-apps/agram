@@ -64,8 +64,9 @@ test('ciclo: consolidar registra la propuesta; cada parte registra su movimiento
   assert.equal(eje.saldo('cocina', 'E:casa/EUR'), antesCocina + 14);
   assert.equal(cerrado(eje, c.id).cerrado, true);
   assert.deepEqual(siguiente(eje, c.id, 'huesped'), { cerrado: true, faltaDeMi: [], espera: [] });
-  // La cadena es el hilo: pago → propuesta → compra → menú → …
-  assert.deepEqual(eje.hilo(pago.id).slice(0, 3).map((x) => x.id), [pago.id, c.id, compra.id]);
+  // La cadena es el hilo: pago → su anuncio (VG 12-11, decisión 8: lo cumple lo que se ancla sobre él) → propuesta → compra → …
+  assert.deepEqual(eje.hilo(pago.id).slice(0, 4).map((x) => x.id), [pago.id, tx.sobre, c.id, compra.id]);
+  assert.deepEqual(eje.sobre(c.id, ANUNCIO).map((a) => a.id), [tx.sobre]);
 });
 
 // VG, 8-11 (mapa §15 [D]): «el consentimiento no necesita paso de autorizar, porque cada uno solo mueve lo suyo». Lo que

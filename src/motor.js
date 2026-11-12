@@ -22,7 +22,7 @@ import { evaluar, consultar } from './bql.js';
 import { evaluar as evaluarBqlm, leerRegla } from './bqlm.js';
 import { ocupantesElegibles } from './elegibles.js';
 import { escribirDesde } from './escritura.js';
-import { partirClave, raizDeAmbito } from './tokens.js';
+import { partirClave, raizDeAmbito, esAnunciado, claveToken, movimientosReales } from './tokens.js';
 import { ContextoEje } from './contexto-eje.js';
 import { EPOCA_0_BTML } from './epocas.js';
 
@@ -266,7 +266,12 @@ function delCriterio(eje, X, d) {
  */
 export function cierre(eje, X) {
   if (cerrado(eje, X).cerrado !== true) return null;
-  const mueven = eje.sobre(X).filter((r) => (r.movimientos ?? []).some((m) => m && m.token !== 'T' && m.de !== null && m.a !== null && m.estado === undefined));
+  // Lo escrito sobre X y, desde que el anuncio lo cumple lo que se ancla sobre él (VG 12-11, decisión 8), lo escrito
+  // sobre sus anuncios (su 4.1), por llegada.
+  const anuncios = eje.sobre(X, ANUNCIO).map((a) => a.id);
+  const orden = new Map(eje.orden.map((id, i) => [id, i]));
+  const escritos = [...eje.sobre(X), ...anuncios.flatMap((a) => eje.sobre(a))].sort((a, b) => orden.get(a.id) - orden.get(b.id));
+  const mueven = escritos.filter((r) => (r.movimientos ?? []).some((m) => m && m.token !== 'T' && m.de !== null && m.a !== null && m.estado === undefined));
   return mueven[mueven.length - 1] ?? null;
 }
 
@@ -282,9 +287,31 @@ export function cerrado(eje, X) {
   return { cerrado: v === true, plantilla, estado: 'RESUELTO', motivo: null };
 }
 
-/** Un movimiento anunciado (un registro anclado en ANUNCIO de X por su dueño) como movimiento: { token, …, cantidad, de, a }. */
-function movimientoAnunciado(registro) {
-  const p = registro.payload;
+/**
+ * Lo que anuncia un registro anclado en ANUNCIO de X por su dueño, como el movimiento que lo cumple: { token, …,
+ * cantidad, de, a }, o null. El anuncio es un movimiento anunciado del libro (VG 12-11, decisión 8: estado «anunciado»,
+ * sin tocar saldos); mientras los ejemplos lo escriban como antes, también un payload que imita un movimiento,
+ * [[serie], [cuánto], [para qué], [[de], [a]]]. Lo cumple el registro que se ancla sobre él moviéndolo (#48).
+ */
+export function movimientoAnunciado(registro) {
+  return movimientosAnunciados(registro)[0] ?? null;
+}
+
+/**
+ * Todo lo que anuncia un registro del 4.1, como los movimientos que lo cumplen (sin su estado ni su fecha): los
+ * movimientos anunciados del registro (uno o varios: un anuncio puede ser un conjunto, como las noches de una reserva,
+ * y se cumple cuando lo que se ancla sobre él los mueve todos) o, en la forma de antes, el que imita su payload.
+ */
+export function movimientosAnunciados(registro) {
+  const anunciados = (Array.isArray(registro?.movimientos) ? registro.movimientos : []).filter(esAnunciado);
+  if (anunciados.length) return anunciados.map(({ estado: _estado, refiere: _refiere, ...m }) => m);
+  const legado = movimientoDelPayload(registro);
+  return legado ? [legado] : [];
+}
+
+/** El movimiento que imita el payload de un anuncio de antes, [[serie], [cuánto], [para qué], [[de], [a]]], o null. */
+function movimientoDelPayload(registro) {
+  const p = registro?.payload;
   const hoja = (x) => (Array.isArray(x) ? x[x.length - 1] : x);
   const clave = hoja(p?.[0]);
   const cantidad = hoja(p?.[1]);
@@ -316,12 +343,18 @@ export function siguiente(eje, X, yo) {
   const r = leer(eje, porNombre.get('what is missing'), id);
   const pendientes = r.estado === 'RESUELTO' ? r.valor.map((o) => (o && typeof o === 'object' && o.k === 'reg' ? eje.obtener(o.id) : null)).filter(Boolean) : [];
   for (const anuncio of pendientes) {
-    const m = movimientoAnunciado(anuncio);
-    if (!m) continue;
-    const que = 'mover ' + m.cantidad + ' ' + anuncio.payload[0][0] + ' de ' + m.de + ' a ' + m.a;
-    if (m.de === yo) {
-      faltaDeMi.push({ que, anuncio: anuncio.id, plantilla: 'move what was announced', transaccion: { autor: yo, sobre: id, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: yo, a: null }, m], payload: [que] } });
-    } else espera.push({ que, anuncio: anuncio.id, de: m.de });
+    const todos = movimientosAnunciados(anuncio);
+    const texto = (m) => 'mover ' + m.cantidad + ' ' + claveToken(m) + ' de ' + m.de + ' a ' + m.a;
+    // Lo mío, en un registro anclado sobre el anuncio (VG 12-11, decisión 8; #48): así cumple ese y solo ese; lo que
+    // ya movió un registro anclado sobre él no vuelve a faltar.
+    const hecho = eje.sobre(anuncio.id).flatMap((r) => movimientosReales(r));
+    const falta = todos.filter((m) => !hecho.some((h) => claveToken(h) === claveToken(m) && h.de === m.de && h.a === m.a && h.cantidad >= m.cantidad));
+    const mios = falta.filter((m) => m.de === yo);
+    if (mios.length) {
+      const que = mios.map(texto).join('; ');
+      faltaDeMi.push({ que, anuncio: anuncio.id, plantilla: 'move what was announced', transaccion: { autor: yo, sobre: anuncio.id, en: FABRICA, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: yo, a: null }, ...mios], payload: [que] } });
+    }
+    for (const m of falta.filter((x) => x.de !== yo)) espera.push({ que: texto(m), anuncio: anuncio.id, de: m.de });
   }
   // El recuento del dueño, si lo declara en su criterio.
   if (delCriterio(eje, id, 2).some((x) => plantillas(0).porNombre.has(x))) {

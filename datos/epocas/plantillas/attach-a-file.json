@@ -76,19 +76,13 @@
   ],
   ["=not (first it.3 != me and count (first it.3).6 > 0 and first (first it.3).6 = first it.5)"],
   ["me"],
-  [
-    [
-      ["T:minuto"],
-      [1],
-      ["burn"],
-      [["=me"], ["nobody"]]
-    ]
-  ],
+  ["write"],
   ["0"],
   [
     "Encargo pv0 (issues #21, #22, #24; VG 11-11): adjuntar un archivo es una acción del aro en el sitio 2 del elemento (el documento, el recurso), no preferente pero en la lista; dónde viven los archivos lo decide Core por ahora (lo definirá AARPIA): la función «archivos» del libro compartido, un bucket privado, y el registro guarda solo la referencia archivo:<sha256>",
     "Molde: el de las acciones del aro (encargo 3c-2a). Un parámetro cuyo 4 es «file» sale de subir un archivo: «file ref» es su referencia, «file format» el formato de la época con que se representa; los dos van al payload como cualquier otro",
-    "El registro que escribe es una representación rica de X (epoch.9.5): anclado en la raíz de X (colisiona con su 0), su 0 el mensaje (el texto alternativo), su 1 [tamaño mínimo, formato] y su 5 el recurso, la referencia al archivo; el HTML se pinta solo dentro de un iframe aislado, sin scripts (SEG-14)"
+    "El registro que escribe es una representación rica de X (epoch.9.5): anclado en la raíz de X (colisiona con su 0), su 0 el mensaje (el texto alternativo), su 1 [tamaño mínimo, formato] y su 5 el recurso, la referencia al archivo; el HTML se pinta solo dentro de un iframe aislado, sin scripts (SEG-14)",
+    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
   ],
   ["epoch 0"],
   [2, 5],

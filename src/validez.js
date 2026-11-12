@@ -427,6 +427,8 @@ function capaAcreditacion(eje, ev, libro) {
     if (validarMovimiento(m).length) return mal('falla', 'mal formado (capa 1): su respaldo no se puede comprobar');
     const k = claveToken(m);
     fila.clave = k;
+    // Lo anunciado (VG 12-11, decisión 8) no toca saldos: no hay respaldo que comprobar todavía.
+    if (m.estado === 'anunciado') { fila.motivo = 'anunciado: no toca saldos'; return undefined; }
     if (m.de === null) {
       // Emisión (VG, 7-11 noche). La respalda la persona que la emite: T, con
       // su asignación diaria (fuera del génesis no se emite); P, sobre un registro que existe; E y R, a su nombre
@@ -505,7 +507,7 @@ function permisoDelLibro(eje, ev, libro) {
   const r = motivos();
   const esGenesis = ev.contexto?.genesis === true;
   lista(ev.movimientos).forEach((m, i) => {
-    if (validarMovimiento(m).length) return; // capa 1
+    if (validarMovimiento(m).length || m.estado === 'anunciado') return; // capa 1; lo anunciado no mueve todavía
     if (m.de === null) {
       if (esGenesis && libro.reglas !== 2) r.falla('movimiento ' + i + ': el génesis no mueve nada: es la época 0 (encargo 3b)');
       else if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');

@@ -19,6 +19,15 @@
 //   comparación     = != < <= > >=
 //   lógica          and or not in
 //   literales       números, "texto", y los símbolos mint transfer lock release burn y E P R T (valen su nombre)
+//   series          la serie como posición de su familia (VG 12-11, decisión 5 del estudio BQL-transacciones):
+//                   T.d (la escala d: T.1 el minuto, T.8 el futuro) · R.(emisor) · E.(emisor).(denominación)[.(registro)]
+//                   · P.(ámbito)[.(origen)]; vale la clave de la serie (el contexto la da como serie, D-SERIE)
+//   mover           (solo en una plantilla de transacción: invariante del núcleo, decisión 6) los cinco símbolos como
+//                   verbos: mint q S to A [price Pr] [when F] · transfer q S from A to B [exit E] [when F]
+//                   · lock q S from A exit E · release q S from A exit E · burn q S from A [when F]; y en una
+//                   plantilla, put v at A.1.(S).1 (el nivel en mano: acuña lo que falte). Cada verbo vale verdadero
+//                   (el condicional es «cond and verbo», con and perezoso); lo que vale cero o nada no se mueve.
+//                   memo es el payload de la candidata, sin movimientos ni metadatos
 // Cualquier otro nombre es ERROR «no es BQL mínimo».
 //
 // Semántica: toda expresión vale una LISTA de ocupantes. Una posición da sus
@@ -47,6 +56,15 @@
 //   contexto.valor(nodo)            el escalar de un nodo que no es número ni texto (el id de un registro),
 //                                   o undefined (una décupla no tiene valor)
 //   contexto.texto(nodo)            (opcional) cómo se escribe el nodo en un mensaje
+//   contexto.serie(familia, partes) (opcional) la serie que nombran T.d, R.(x), E.(x).(y)[.(z)] y P.(x)[.(y)]: un nodo
+//                                   cuyo valor es su clave, o undefined si las partes no hacen una serie. Sin él,
+//                                   construir una serie es ERROR
+//
+// Mover (VG 12-11, decisiones 5 y 6): un verbo solo se evalúa con opciones.mover (evaluarPlantilla: las sentencias del
+// 4 de una plantilla de transacción, que construye la candidata y que firma quien la lanza); en cualquier otra
+// evaluación (una condición, una lectura, una regla que escribe, el 2 de una plantilla) una fórmula con un verbo es
+// ERROR aunque el verbo no se llegue a evaluar. `put` solo vale en una regla que escribe (opciones.escribir: el libro
+// acuña por su cuenta hasta un nivel, solo en los destinos de DESTINOS_DE_PUT) o en una plantilla (el nivel en mano).
 //
 // Los ocupantes son números, textos o nodos opacos del contexto. Hay una
 // implementación sobre el eje en src/contexto-eje.js.
@@ -64,14 +82,35 @@ export const SIMBOLOS_FAMILIA = Object.freeze(['E', 'P', 'R', 'T']);
  * desde el encargo 3c-2a (las acciones del aro), `me`: la identidad que mira (sus vistas: me.1 la cartera, me.2 el
  * criterio, me.3 los grupos de atención…), lo que una plantilla de transacción lee en su 2 para decidir si se ofrece.
  */
-export const NOMBRES = Object.freeze(['ev', 'epoch', 'before', 'me']);
+export const NOMBRES = Object.freeze(['ev', 'epoch', 'before', 'me', 'memo']);
+
+/** Las palabras de enlace de un verbo (VG 12-11, decisión 5): de quién, a quién, la salida, la fecha y el precio. */
+export const ENLACES = Object.freeze(['from', 'to', 'exit', 'when', 'price']);
 
 /**
  * Las palabras del léxico (sin los nombres, los símbolos ni it, it2…). `put v at X.d.(k)` es colocar (mapa §16 [D]:
  * «put v at X.d, colocar, solo reglas que escriben»; encargo 3b): vale verdadero y anota una escritura, que solo
- * evalúa una regla con «put» en su 4 (evaluarEscritura).
+ * evalúa una regla con «put» en su 4 (evaluarEscritura) o, el nivel en mano, una plantilla (evaluarPlantilla).
  */
-export const PALABRAS = Object.freeze(['first', 'last', 'nth', 'each', 'where', 'by', 'up', 'down', 'path', 'under', 'moves', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
+export const PALABRAS = Object.freeze(['first', 'last', 'nth', 'each', 'where', 'by', 'up', 'down', 'path', 'under', 'moves', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at', ...ENLACES]);
+
+/**
+ * Invariante del núcleo (VG 12-11, decisión 6): los destinos de un `put` en una regla que escribe, lista cerrada.
+ * El libro, por su cuenta (sin firma), solo acuña hasta un nivel aquí: hoy, `A.2.1` (el P posicionado, la obtención).
+ */
+export const DESTINOS_DE_PUT = Object.freeze([Object.freeze([2, 1])]);
+
+/** Cuántas partes lleva la serie de cada familia: [mínimo, máximo] (T.d · R.(emisor) · E.(emisor).(denominación)[.(registro)] · P.(ámbito)[.(origen)]). */
+const PARTES_DE_FAMILIA = Object.freeze({ T: [1, 1], R: [1, 1], E: [2, 3], P: [1, 2] });
+
+/** Cómo se escribe cada verbo (los mensajes de sintaxis). */
+const FORMAS = Object.freeze({
+  mint: 'mint q S to A [price Pr] [when F]',
+  transfer: 'transfer q S from A to B [exit E] [when F]',
+  lock: 'lock q S from A exit E',
+  release: 'release q S from A exit E',
+  burn: 'burn q S from A [when F]',
+});
 
 /**
  * Límites de cálculo: pasos de una evaluación, ocupantes que el contexto puede
@@ -141,6 +180,9 @@ export class Presupuesto {
 const PREFIJAS = new Set(['first', 'last', 'count', 'sum', 'max', 'min', 'floor', 'up', 'down', 'path', 'under', 'moves']);
 const COMPARACIONES = new Set(['=', '!=', '<', '<=', '>', '>=']);
 const RESERVADAS = new Set([...PALABRAS, ...NOMBRES, ...PRIMITIVAS, ...SIMBOLOS_FAMILIA]);
+// Tras un símbolo de primitiva, ¿empieza un operando? Entonces es un verbo (mint 3 R.(me) to me); si no, el símbolo
+// (burn in it.4, it.4 = burn).
+const EMPIEZA_OPERANDO = new Set([...NOMBRES, ...PREFIJAS, 'nth', ...SIMBOLOS_FAMILIA]);
 
 // ---------- léxico ----------
 
@@ -324,9 +366,32 @@ export function analizar(src, { sujeto = false } = {}) {
       return lista;
     }
   }
+  /** La serie como posición de su familia (VG 12-11, decisión 5): T.d, R.(x), E.(x).(y)[.(z)], P.(x)[.(y)]. */
+  function serieDeFamilia(familia) {
+    const partes = [];
+    while (es('op', '.')) {
+      i++;
+      if (es('op', '(')) {
+        i++;
+        partes.push(expresion());
+        esperar('op', ')');
+      } else if (es('dig')) {
+        for (const d of digitos()) partes.push({ n: 'lit', v: d });
+      } else throw fallo('sintaxis: la serie de ' + familia + ' se escribe con sus partes, ' + familia + '.d o ' + familia + '.(…) ' + donde());
+    }
+    const [min, max] = PARTES_DE_FAMILIA[familia];
+    if (partes.length < min || partes.length > max) {
+      throw fallo('sintaxis: la serie de ' + familia + ' lleva ' + (min === max ? min : min + ' o ' + max) + (max === 1 ? ' parte' : ' partes') + ' (T.d · R.(emisor) · E.(emisor).(denominación)[.(registro)] · P.(ámbito)[.(origen)]), no ' + partes.length);
+    }
+    return { n: 'serie', familia, partes };
+  }
   function posfija() {
     let base = primaria();
     for (;;) {
+      if (base.familia && es('op', '.')) {
+        base = serieDeFamilia(base.familia);
+        continue;
+      }
       if (es('op', '.')) {
         if (!base.posicionable) throw fallo('sintaxis: una posición se lee de ev, epoch, before, it… o de una expresión entre paréntesis ' + donde());
         i++;
@@ -356,7 +421,9 @@ export function analizar(src, { sujeto = false } = {}) {
     if (tk.t === 'id') {
       i++;
       if (NOMBRES.includes(tk.v)) return { n: 'nombre', v: tk.v, posicionable: true };
-      if (PRIMITIVAS.includes(tk.v) || SIMBOLOS_FAMILIA.includes(tk.v)) return { n: 'lit', v: SIMBOLOS[tk.v] };
+      if (PRIMITIVAS.includes(tk.v) && empiezaOperando()) return verbo(tk.v);
+      if (PRIMITIVAS.includes(tk.v)) return { n: 'lit', v: SIMBOLOS[tk.v] };
+      if (SIMBOLOS_FAMILIA.includes(tk.v)) return { n: 'lit', v: SIMBOLOS[tk.v], familia: tk.v };
       const it = NIVEL_IT.exec(tk.v);
       if (it) {
         const nivel = it[1] ? Number(it[1]) : 1;
@@ -370,6 +437,37 @@ export function analizar(src, { sujeto = false } = {}) {
       throw fallo('no es BQL mínimo: «' + tk.v + '»' + llamada);
     }
     throw fallo('sintaxis: «' + tk.v + '» inesperado en ' + tk.pos);
+  }
+  /** ¿Empieza un operando en el token de ahora? (tras un símbolo de primitiva: entonces es un verbo). */
+  function empiezaOperando() {
+    const tk = ver();
+    if (!tk) return false;
+    if (tk.t === 'num' || tk.t === 'txt') return true;
+    if (tk.t === 'op') return tk.v === '(';
+    return tk.t === 'id' && (EMPIEZA_OPERANDO.has(tk.v) || NIVEL_IT.test(tk.v));
+  }
+  /**
+   * Un verbo (VG 12-11, decisión 5): «v q S» y sus enlaces (from to exit when price), en cualquier orden y una vez
+   * cada uno. q es una suma; S, una expresión prefija (la serie: T.1, R.(me), before.4.(…), (first …)).
+   */
+  function verbo(v) {
+    entrar();
+    const q = suma();
+    if (!empiezaOperando()) throw fallo('sintaxis: ' + v + ' q S…: falta la serie ' + donde());
+    const s = prefija();
+    const enlaces = {};
+    while (es('id') && ENLACES.includes(ver().v)) {
+      const k = ver().v;
+      i++;
+      if (enlaces[k]) throw fallo('sintaxis: «' + k + '» dos veces en un ' + v);
+      enlaces[k] = suma();
+    }
+    salir();
+    const pide = { mint: ['to'], transfer: ['from', 'to'], lock: ['from', 'exit'], release: ['from', 'exit'], burn: ['from'] }[v];
+    const admite = { mint: ['to', 'price', 'when'], transfer: ['from', 'to', 'exit', 'when'], lock: ['from', 'exit'], release: ['from', 'exit'], burn: ['from', 'when'] }[v];
+    for (const k of pide) if (!enlaces[k]) throw fallo('sintaxis: ' + v + ' lleva «' + k + '»: ' + FORMAS[v]);
+    for (const k of Object.keys(enlaces)) if (!admite.includes(k)) throw fallo('sintaxis: ' + v + ' no lleva «' + k + '»: ' + FORMAS[v]);
+    return { n: 'verbo', v, q, s, ...enlaces };
   }
 
   if (!tokens.length) throw fallo('sintaxis: expresión vacía');
@@ -393,13 +491,47 @@ export function evaluar(src, contexto, opciones = {}) {
   try {
     const conSujeto = Object.hasOwn(opciones, 'sujeto');
     const arbol = typeof src === 'string' ? analizar(src, { sujeto: conSujeto }) : src;
-    const st = { ctx: contexto, its: conSujeto ? [opciones.sujeto] : [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes), escrituras: opciones.escribir ? [] : null };
+    // Invariante del núcleo (VG 12-11, decisión 6): mover es de las plantillas; las reglas solo leen. Se mira el árbol
+    // entero, no lo que se llega a evaluar: un verbo detrás de un and que da falso también es ERROR.
+    const { verbo, put } = queMueve(arbol);
+    if (verbo && !opciones.mover) throw fallo(verbo + ': solo una plantilla de transacción mueve (la firma quien la lanza); una regla solo lee (invariante del núcleo)');
+    if (put && !opciones.mover && !opciones.escribir) throw fallo('put: solo en una regla que escribe (put en su 4) o en una plantilla de transacción');
+    const st = {
+      ctx: contexto, its: conSujeto ? [opciones.sujeto] : [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: opciones.presupuesto instanceof Presupuesto ? opciones.presupuesto : new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes),
+      escrituras: opciones.escribir && !opciones.mover ? [] : null, movimientos: opciones.mover ? [] : null,
+    };
     const valor = calcular(arbol, st);
-    return { estado: 'RESUELTO', valor, texto: textoDe(valor, contexto), ...(st.escrituras ? { escrituras: st.escrituras } : {}) };
+    return { estado: 'RESUELTO', valor, texto: textoDe(valor, contexto), ...(st.escrituras ? { escrituras: st.escrituras } : {}), ...(st.movimientos ? { movimientos: st.movimientos } : {}) };
   } catch (e) {
     if (e instanceof Parada) return { estado: e.estado, ...(e.subtipo ? { subtipo: e.subtipo } : {}), motivo: e.message };
     return { estado: 'ERROR', motivo: 'fallo al evaluar: ' + e.message };
   }
+}
+
+const MUEVE = new WeakMap();
+/**
+ * Lo que mueve una expresión (su árbol de analizar): { verbo: el primer verbo que lleva, o null; put: si lleva un put }.
+ * Mira el árbol entero, también lo que no se llegaría a evaluar. Es la prueba del invariante (decisión 6).
+ */
+export function queMueve(arbol) {
+  if (typeof arbol === 'string') arbol = analizar(arbol, { sujeto: true });
+  if (!arbol || typeof arbol !== 'object') return { verbo: null, put: false };
+  if (MUEVE.has(arbol)) return MUEVE.get(arbol);
+  const fuera = { verbo: null, put: false };
+  const pila = [arbol];
+  while (pila.length) {
+    const n = pila.pop();
+    if (!n || typeof n !== 'object' || esSimbolo(n)) continue;
+    if (n.n === 'verbo' && !fuera.verbo) fuera.verbo = n.v;
+    if (n.n === 'put') fuera.put = true;
+    for (const k of Object.keys(n)) {
+      const x = n[k];
+      if (Array.isArray(x)) pila.push(...x);
+      else if (x && typeof x === 'object' && typeof x.n === 'string') pila.push(x);
+    }
+  }
+  MUEVE.set(arbol, fuera);
+  return fuera;
 }
 
 function paso(st, n = 1) {
@@ -567,10 +699,31 @@ function calcular(nodo, st) {
       return [booleano(calcular(nodo.b, st), 'or', ctx)];
     case 'not':
       return [!booleano(calcular(nodo.a, st), 'not', ctx)];
+    case 'serie': {
+      // La serie como posición de su familia (VG 12-11, decisión 5): una parte vacía no hace serie (nada); la serie la
+      // da el contexto (D-SERIE), exista ya o no: construir su clave no concede nada (lo deciden las reglas).
+      const partes = [];
+      for (const p of nodo.partes) {
+        const l = calcular(p, st);
+        if (!l.length) return [];
+        partes.push(valorDe(uno(l, nodo.familia + '.(…)', ctx), ctx));
+      }
+      if (typeof ctx.serie !== 'function') throw fallo(nodo.familia + '.…: este contexto no construye series');
+      const s = ctx.serie(nodo.familia, partes);
+      return s === undefined || s === null ? [] : [s];
+    }
+    case 'verbo':
+      return mover(nodo, st);
     case 'put': {
+      // En una plantilla (evaluarPlantilla): el nivel en mano, put v at A.1.(S).1 acuña lo que falte.
+      if (st.movimientos) return nivelEnMano(nodo, st);
       // Colocar (mapa §16 [D]): anota { sujeto, camino, clave, valor } por cada sujeto de la base del destino y vale
-      // verdadero. El destino no se lee: es dónde se escribe. Solo en una regla que escribe (evaluarEscritura).
+      // verdadero. El destino no se lee: es dónde se escribe. Solo en una regla que escribe (evaluarEscritura), y solo
+      // en los destinos de la lista cerrada (invariante del núcleo, decisión 6): el libro acuña sin firma.
       if (!st.escrituras) throw fallo('put: solo en una regla que escribe (put en su 4)');
+      if (!DESTINOS_DE_PUT.some((d) => d.length === nodo.t.base.digitos.length && d.every((x, k) => x === nodo.t.base.digitos[k]))) {
+        throw fallo('put: una regla que escribe solo coloca en ' + DESTINOS_DE_PUT.map((d) => 'A.' + d.join('.')).join(', ') + ' (el libro, por su cuenta, solo acuña hasta un nivel en una lista cerrada), no en X.' + nodo.t.base.digitos.join('.'));
+      }
       const valor = numero(calcular(nodo.v, st), 'put', ctx);
       const sujetos = calcular(nodo.t.base.base, st);
       const clave = valorDe(uno(calcular(nodo.t.expr, st), 'put: la clave', ctx), ctx);
@@ -675,6 +828,106 @@ function numeroDe(o, donde, ctx) {
   const v = valorDe(o, ctx);
   if (typeof v !== 'number') throw fallo(donde + ' espera números, no «' + leer(o, ctx) + '»');
   return v;
+}
+
+// ---------- mover (solo en una plantilla) ----------
+
+/** Lo que vale una expresión que puede quedar PENDIENTE (falta un valor): la lista, o [] si queda pendiente sin ser por límite. */
+function oNada(nodo, st) {
+  try {
+    return calcular(nodo, st);
+  } catch (e) {
+    if (e instanceof Parada && e.estado === 'PENDIENTE' && !e.subtipo) return [];
+    throw e;
+  }
+}
+
+/**
+ * La serie de un verbo: un nodo del contexto (o una serie de su familia) cuyo valor es su clave; null si no hay
+ * ninguna (se mueve con serie null: quien construye dice «no series»). Un texto o un número no la fabrican (SEG-09).
+ */
+function serieDeVerbo(lista, v, ctx) {
+  if (!lista.length) return null;
+  if (lista.length > 1) throw fallo(v + ': la serie es una lista de ' + lista.length + ' (' + textoDe(lista.slice(0, 3), ctx) + '); usa first o last');
+  const o = lista[0];
+  if (typeof o === 'string' || typeof o === 'number' || typeof o === 'boolean' || esSimbolo(o)) {
+    throw fallo(v + ': la serie se nombra por su familia (R.(me), T.8, E.(me).("EUR")…) o se lee del libro (before.4.(…), me.1 each 0), no con «' + leer(o, ctx) + '»: un texto no fabrica una serie');
+  }
+  const clave = valorDe(o, ctx);
+  if (typeof clave !== 'string') throw fallo(v + ': «' + leer(o, ctx) + '» no es una serie');
+  return clave;
+}
+
+/** Una identidad de un enlace (from, to): su valor; «nadie» es null. */
+function identidadDe(nodo, k, v, st) {
+  const x = valorDe(uno(calcular(nodo, st), v + ' ' + k, st.ctx), st.ctx);
+  if (x === NADIE) return null;
+  if (typeof x !== 'string' || !x) throw fallo(v + ' ' + k + ': espera una identidad, no «' + leer(x, st.ctx) + '»');
+  return x;
+}
+
+/**
+ * Un verbo (VG 12-11, decisión 5) en una plantilla: anota el movimiento { verbo, serie, cantidad, de, a, salida?,
+ * cuando?, precio? } y vale verdadero. Lo que vale cero o nada (una cantidad que falta) no se mueve: no anota nada y
+ * vale verdadero igual. `precio` es el ocupante tal cual (una décupla [[serie], [cuánto]]); lo demás, valores.
+ */
+function mover(nodo, st) {
+  const { ctx } = st;
+  const v = nodo.v;
+  if (!st.movimientos) throw fallo(v + ': solo una plantilla de transacción mueve (la firma quien la lanza); una regla solo lee (invariante del núcleo)');
+  const q = oNada(nodo.q, st);
+  if (!q.length) return [true];
+  const cantidad = numero(q, v, ctx);
+  if (!(cantidad > 1e-12)) return [true];
+  const serie = serieDeVerbo(calcular(nodo.s, st), v, ctx);
+  const m = { verbo: v, serie, cantidad, de: v === 'mint' ? null : identidadDe(nodo.from, 'from', v, st), a: v === 'burn' ? null : v === 'lock' || v === 'release' ? undefined : identidadDe(nodo.to, 'to', v, st) };
+  if (m.a === undefined) m.a = m.de;
+  if (nodo.exit) {
+    const e = calcular(nodo.exit, st);
+    if (e.length) {
+      const x = valorDe(uno(e, v + ' exit', ctx), ctx);
+      if (x === undefined || esSimbolo(x)) throw fallo(v + ' exit: la salida es un valor (un id, una identidad o un instante)');
+      m.salida = String(x);
+    }
+  }
+  if (nodo.when) {
+    const w = calcular(nodo.when, st);
+    if (w.length) {
+      const x = valorDe(uno(w, v + ' when', ctx), ctx);
+      if (typeof x !== 'string') throw fallo(v + ' when: la fecha es un instante, no «' + leer(x, ctx) + '»');
+      m.cuando = x;
+    }
+  }
+  if (nodo.price) {
+    const p = calcular(nodo.price, st);
+    if (p.length) m.precio = uno(p, v + ' price', ctx);
+  }
+  paso(st);
+  st.movimientos.push(m);
+  return [true];
+}
+
+/**
+ * put v at A.1.(S).1 en una plantilla: el nivel en mano (estudio §4b). Lo que A tiene disponible de S ha de llegar al
+ * menos a v: se acuña lo que falte (mint a A). Si ya llega, nada. Solo ese destino: la cartera, el disponible.
+ */
+function nivelEnMano(nodo, st) {
+  const { ctx } = st;
+  const destino = nodo.t;
+  if (destino.base.digitos.length !== 1 || destino.base.digitos[0] !== 1 || !nodo.sub || nodo.sub.length !== 1 || nodo.sub[0] !== 1) {
+    throw fallo('put: en una plantilla solo coloca el nivel en mano, put v at A.1.(S).1');
+  }
+  const v = oNada(nodo.v, st);
+  if (!v.length) return [true];
+  const nivel = numero(v, 'put', ctx);
+  const A = identidadDe(destino.base.base, 'at', 'put', st);
+  const serie = serieDeVerbo(calcular(destino.expr, st), 'put', ctx);
+  const hay = serie === null ? 0 : calcular({ n: 'paso', base: destino, digitos: [1] }, st).reduce((s, o) => s + numeroDe(o, 'put', ctx), 0);
+  const falta = nivel - hay;
+  if (!(falta > 1e-12)) return [true];
+  paso(st);
+  st.movimientos.push({ verbo: 'mint', serie, cantidad: falta, de: null, a: A });
+  return [true];
 }
 
 // ---------- reglas ----------
@@ -808,6 +1061,32 @@ export function evaluarEscritura(regla, contexto, opciones = {}) {
   const r = evaluar(arbol, contexto, { ...opciones, escribir: true });
   if (r.estado !== 'RESUELTO') return { estado: r.estado, escrituras: [], motivo: nombre + ': ' + r.estado + ': ' + r.motivo };
   return { estado: 'RESUELTO', escrituras: r.escrituras, motivo: null };
+}
+
+/**
+ * Las sentencias del 4 de una plantilla de transacción (VG 12-11, decisiones 5 y 6): cada una, una fórmula «=…» con
+ * it = X (el sujeto), me = quien la lanza, ev y memo = la candidata; se evalúan en orden, con los verbos y el nivel en
+ * mano (put v at A.1.(S).1), y gastan del mismo presupuesto (SEG-10). Devuelve { estado, movimientos, motivo }: los
+ * movimientos que anotan, en orden ([{ verbo, serie, cantidad, de, a, salida?, cuando?, precio? }]), si todas se
+ * resuelven; si una no, ninguno y su motivo. Lo que valen las sentencias no cuenta: cuenta lo que mueven. Es la única
+ * evaluación que mueve: la candidata la firma quien la lanza, y después la validan las reglas, que solo leen.
+ */
+export function evaluarPlantilla(sentencias, contexto, opciones = {}) {
+  const presupuesto = new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes);
+  const movimientos = [];
+  for (const src of Array.isArray(sentencias) ? sentencias : [sentencias]) {
+    if (typeof src !== 'string' || !src.startsWith('=') || src.startsWith('==')) return { estado: 'ERROR', movimientos: [], motivo: 'una sentencia de plantilla es una fórmula «=…»' };
+    let arbol;
+    try {
+      arbol = analizada(src, true);
+    } catch (e) {
+      return { estado: e.estado ?? 'ERROR', movimientos: [], motivo: e.message };
+    }
+    const r = evaluar(arbol, contexto, { ...opciones, mover: true, presupuesto });
+    if (r.estado !== 'RESUELTO') return { estado: r.estado, ...(r.subtipo ? { subtipo: r.subtipo } : {}), movimientos: [], motivo: r.motivo };
+    movimientos.push(...r.movimientos);
+  }
+  return { estado: 'RESUELTO', movimientos, motivo: null };
 }
 
 /** Rellena cada {expresión} de un mensaje con lo que vale en el contexto (o con su estado, si no se resuelve). */

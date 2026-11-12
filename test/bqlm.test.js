@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analizar, evaluar, evaluarRegla, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, LIMITES, SIMBOLOS, NADIE, esSimbolo } from '../src/bqlm.js';
+import { analizar, evaluar, evaluarRegla, evaluarEscritura, evaluarPlantilla, leerRegla, queMueve, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, NOMBRES, ENLACES, DESTINOS_DE_PUT, LIMITES, SIMBOLOS, NADIE, esSimbolo } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 
 /** Un payload de prueba, leído como `epoch` (datos inventados). */
@@ -58,7 +58,9 @@ test('léxico: tres estados, las palabras cortas y las cinco primitivas', () => 
   assert.deepEqual(ESTADOS, ['RESUELTO', 'PENDIENTE', 'ERROR']);
   // Encargo 3b: put … at … (colocar, mapa §16 [D]: «put v at X.d, solo reglas que escriben») entra en el léxico.
   // VG 12-11 (estudio BQL-transacciones, decisiones 1 y 2): moves (leer el libro), under (todo lo que cuelga) y by (ordenar).
-  assert.deepEqual(PALABRAS, ['first', 'last', 'nth', 'each', 'where', 'by', 'up', 'down', 'path', 'under', 'moves', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
+  assert.deepEqual(PALABRAS, ['first', 'last', 'nth', 'each', 'where', 'by', 'up', 'down', 'path', 'under', 'moves', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at', 'from', 'to', 'exit', 'when', 'price']);
+  // VG 12-11 (decisión 5): los enlaces de los verbos y el nombre memo.
+  assert.deepEqual([ENLACES, NOMBRES], [['from', 'to', 'exit', 'when', 'price'], ['ev', 'epoch', 'before', 'me', 'memo']]);
   assert.deepEqual(PRIMITIVAS, ['mint', 'transfer', 'lock', 'release', 'burn']);
   assert.equal(LIMITES.hilo, 10);
 });
@@ -230,4 +232,85 @@ test('evaluarRegla: la condición del 2; si no se cumple, el mensaje del 9 con s
   assert.match(evaluarRegla(regla('=count epoch.1'), ctx).motivo, /no da verdadero o falso/);
   assert.match(evaluarRegla(regla('count epoch.1 >= 3'), ctx).motivo, /su 2 no es una condición/);
   assert.match(evaluarRegla(regla('=FOO'), ctx).motivo, /prueba: ERROR: no es BQL mínimo/);
+});
+
+// ---------- mover (VG 12-11, estudio BQL-transacciones, decisiones 5 y 6) ----------
+
+/** Una candidata con payload, para las sentencias de una plantilla (it = el sujeto, me = ana). */
+const CANDIDATA = { autor: 'ana', sobre: null, t: '2026-11-09T10:30:00Z', movimientos: [], payload: ['hola', [5], [['P:raiz/ana'], [3], ['2026-12-01T00:00:00Z']], ['ana', 'bea']] };
+const enPlantilla = new ContextoEje(null, { ev: CANDIDATA, me: 'ana', epoch: P });
+const mueve = (sentencias) => {
+  const r = evaluarPlantilla(sentencias, enPlantilla, { sujeto: 'x' });
+  assert.equal(r.estado, 'RESUELTO', String(r.motivo));
+  return r.movimientos;
+};
+
+test('verbos: mint transfer lock release burn con from to exit when price, en una plantilla; cada uno vale verdadero y anota su movimiento', () => {
+  assert.deepEqual(mueve(['=transfer memo.1 R.(me) from me to "bea"']), [{ verbo: 'transfer', serie: 'R:ana', cantidad: 5, de: 'ana', a: 'bea' }]);
+  assert.deepEqual(mueve(['=mint 3 E.(me).("EUR") to me price memo.2']).map((m) => [m.verbo, m.serie, m.cantidad, m.de, m.a, Boolean(m.precio)]), [['mint', 'E:ana/EUR', 3, null, 'ana', true]]);
+  assert.deepEqual(mueve(['=burn first memo.1 T.8 from me when first memo.2.2']), [{ verbo: 'burn', serie: 'T:futuro', cantidad: 5, de: 'ana', a: null, cuando: '2026-12-01T00:00:00Z' }]);
+  // lock y release: de y a son el mismo titular; exit es la salida.
+  assert.deepEqual(mueve(['=lock 2 T.1 from me exit "x"', '=release 1 T.1 from me exit "x"']).map((m) => [m.verbo, m.de, m.a, m.salida]), [['lock', 'ana', 'ana', 'x'], ['release', 'ana', 'ana', 'x']]);
+  // El condicional sale del and perezoso, las alternativas del or; lo que vale cero o nada no se mueve.
+  assert.deepEqual(mueve(['=1 = 2 and mint 1 R.(me) to me or transfer 1 R.(me) from me to "bea"']).map((m) => m.verbo), ['transfer']);
+  assert.deepEqual(mueve(['=transfer 0 R.(me) from me to "bea"', '=transfer memo.9 R.(me) from me to "bea"']), []);
+  // En orden, una sentencia detrás de otra; lo que valen no cuenta, cuenta lo que mueven.
+  assert.deepEqual(mueve(['=mint 1 R.(me) to me', '=transfer 1 R.(me) from me to "bea"']).map((m) => m.verbo), ['mint', 'transfer']);
+  // Un verbo sin su enlace es de sintaxis; un enlace que no lleva, también.
+  for (const [src, re] of [['burn 1 T.1 to me', /burn lleva «from»/], ['lock 1 T.1 from me', /lock lleva «exit»/], ['mint 1 T.1 from me to me', /mint no lleva «from»/], ['lock 1 T.1 from me exit 1 when 2', /lock no lleva «when»/], ['transfer 1 T.1 from me to me to me', /«to» dos veces/]]) {
+    assert.throws(() => analizar(src), re, src);
+  }
+  // El símbolo sigue siendo un símbolo donde no empieza un operando (burn in it.4, it.4 = mint).
+  assert.deepEqual(queMueve(analizar('count (ev.1 where burn in it.4 or it.4 = mint)')), { verbo: null, put: false });
+});
+
+test('la serie como posición de su familia: T.d, R.(x), E.(x).(y)[.(z)], P.(x)[.(y)]; un texto no fabrica una serie', () => {
+  const reg = 'a'.repeat(64);
+  assert.deepEqual(['T.1', 'T.8', 'R.(me)', 'E.(me).("EUR")', 'E.(me).("EUR").("' + reg + '")', 'P.("r").(me)'].map((x) => textoDe(val(x, enPlantilla), enPlantilla)), ['T:minuto', 'T:futuro', 'R:ana', 'E:ana/EUR', 'E:ana/EUR@' + reg, 'P:r/ana']);
+  assert.deepEqual(val('R.(memo.9)', enPlantilla), [], 'una parte vacía no hace serie');
+  assert.throws(() => analizar('E.(me)'), /la serie de E lleva 2 o 3 partes/);
+  assert.throws(() => analizar('T.(1).(2)'), /la serie de T lleva 1 parte/);
+  // Un texto (del payload o escrito) no es una serie para un verbo: SEG-09.
+  const r = evaluarPlantilla(['=transfer 1 first memo.2.0 from me to "bea"'], enPlantilla, { sujeto: 'x' });
+  assert.equal(r.estado, 'ERROR');
+  assert.match(r.motivo, /un texto no fabrica una serie/);
+  // Sin serie (vacía), el movimiento sale con serie null: quien construye dice «no series».
+  assert.deepEqual(mueve(['=transfer 1 R.(memo.9) from me to "bea"']), [{ verbo: 'transfer', serie: null, cantidad: 1, de: 'ana', a: 'bea' }]);
+});
+
+test('invariante del núcleo: un verbo solo se evalúa en una plantilla; en una condición, una lectura o una regla que escribe es ERROR aunque no se llegue a evaluar', () => {
+  for (const src of ['=transfer 1 R.(first ev.3) from first ev.3 to "bea"', '=1 = 2 and burn 1 T.1 from first ev.3']) {
+    const r = evaluar(src, ctx);
+    assert.equal(r.estado, 'ERROR', src);
+    assert.match(r.motivo, /solo una plantilla de transacción mueve/);
+  }
+  const regla = [['moves in a rule'], [], ['=1 = 2 and burn 1 T.1 from first ev.3'], ['ev.3'], ['burn'], ['*'], ['prueba'], ['epoch 0'], ['first'], ['no']];
+  assert.deepEqual([evaluarRegla(regla, ctx).pasa, evaluarRegla(regla, ctx).estado], [false, 'ERROR']);
+  assert.match(evaluarRegla(regla, ctx).motivo, /solo una plantilla de transacción mueve/);
+  const lectura = [['moving reading'], [], ['=mint 1 T.1 to it'], ['X.4.4'], ['read'], ['*'], ['prueba'], ['epoch 0'], ['first'], ['no']];
+  assert.equal(leerRegla(lectura, 'ana', enPlantilla).estado, 'ERROR');
+  const escribe = [['moving writer'], [], ['=transfer 1 T.1 from first ev.3 to "bea" and put 1 at (first ev.3).2.1.("r")'], ['ev.3'], ['put'], ['*'], ['prueba'], ['epoch 0'], ['first'], ['no']];
+  assert.equal(evaluarEscritura(escribe, ctx).estado, 'ERROR');
+  assert.deepEqual(queMueve(analizar('=1 = 2 and burn 1 T.1 from first ev.3')), { verbo: 'burn', put: false });
+});
+
+test('put: en una regla que escribe, solo en la lista cerrada de destinos (A.2.1, la obtención); en una plantilla, el nivel en mano A.1.(S).1', () => {
+  assert.deepEqual(DESTINOS_DE_PUT, [[2, 1]]);
+  const regla = (formula) => [['writer'], [], [formula], ['ev.3'], ['put'], ['*'], ['prueba'], ['epoch 0'], ['first'], ['no']];
+  assert.equal(evaluarEscritura(regla('=put 10 at (first ev.3).2.1.("r")'), ctx).escrituras.length, 1);
+  const fuera = evaluarEscritura(regla('=put 10 at (first ev.3).1.("R:ana")'), ctx);
+  assert.deepEqual([fuera.estado, fuera.escrituras], ['ERROR', []]);
+  assert.match(fuera.motivo, /solo coloca en A\.2\.1/);
+  // En una plantilla: acuña lo que falte para que lo disponible llegue al nivel (sin eje, ana no tiene nada: todo).
+  assert.deepEqual(mueve(['=put memo.1 at me.1.(R.(me)).1']), [{ verbo: 'mint', serie: 'R:ana', cantidad: 5, de: null, a: 'ana' }]);
+  const otro = evaluarPlantilla(['=put 1 at me.2.1.("r")'], enPlantilla, { sujeto: 'x' });
+  assert.equal(otro.estado, 'ERROR');
+  assert.match(otro.motivo, /solo coloca el nivel en mano/);
+  // Fuera de una regla que escribe y de una plantilla, put es ERROR (como antes).
+  assert.match(evaluar('put 1 at epoch.1.(2)', ctx).motivo, /put: solo en una regla que escribe/);
+});
+
+test('memo: el payload de la candidata, sin D-META (ni los movimientos en el 1 ni el autor en el 3)', () => {
+  const c = new ContextoEje(null, { ev: EV, epoch: P });
+  assert.deepEqual([val('count ev.1', c), val('count memo.1', c), val('memo.0', c), val('count ev.3', c), val('count memo.3', c)], [[3], [0], ['Prueba'], [2], [0]]);
 });

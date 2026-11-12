@@ -148,7 +148,7 @@ export function reglasDelCiclo(ev, ctx) {
 export function validosDe(ev) {
   return (Array.isArray(ev.movimientos) ? ev.movimientos : [])
     .map((m, i) => ({ m, i }))
-    .filter(({ m }) => m && typeof m === 'object' && !validarMovimiento(m).length);
+    .filter(({ m }) => m && typeof m === 'object' && !validarMovimiento(m).length && m.estado !== 'anunciado'); // lo anunciado no emite ni mueve (VG 12-11, decisión 8)
 }
 
 /** Las reglas de emisión de la versión 2 (VA-3), para los eventos guardados con ella. Lista de errores como reglasDelCiclo. */

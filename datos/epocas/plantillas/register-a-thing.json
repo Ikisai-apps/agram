@@ -23,7 +23,10 @@
       ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
       ["required"],
       [2],
-      [60, "the minutes of T I give the thing to write with (a thing has no daily T: it spends what its owner gives it)"]
+      [
+        60,
+        "the minutes of T I give the thing to write with (a thing has no daily T: it spends what its owner gives it)"
+      ]
     ],
     [
       ["key"],
@@ -91,22 +94,18 @@
   [
     [
       ["T:minuto"],
-      [1],
-      ["burn"],
-      [["=me"], ["nobody"]]
-    ],
-    [
-      ["T:minuto"],
       ["=first ev.1"],
       ["transfer"],
       [["=me"], ["=last ev.3.1"]]
-    ]
+    ],
+    "=transfer first memo.1 T.1 from me to first memo.3.1"
   ],
   ["1.4"],
   [
     "Encargo core-escribe (VG, 11-11 noche): Core es una identidad «cosa» que escribe en el eje de VG con su propia clave. Una cosa es la identidad cuya alta escribe otra, su dueño (VG, 10-11, B1): esta plantilla es esa alta, sobre mi propia alta",
     "La clave de la cosa se declara en este registro («a key is declared at its alta»: quien recibe algo aquí) y llega con su prueba de posesión («a declared key comes with its proof»): la cosa firma el id de este registro; por eso la prueba viene en la petición de la cosa, con el instante del registro",
-    "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)"
+    "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)",
+    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
   ],
   ["epoch 0"],
   [1, 5],

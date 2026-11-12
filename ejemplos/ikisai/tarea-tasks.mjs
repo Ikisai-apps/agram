@@ -423,17 +423,15 @@ export async function ejemploTarea({ claves = {}, hasta = 'pagada' } = {}) {
   }, priv('organizadora'));
   if (tope < 3) return r;
 
-  // La organizadora anuncia en la tarea lo que va a pagar (su 4.1, un registro
-  // por movimiento): el precio elegido, en las series de las partidas. Es lo
-  // que la tarea espera para cerrarse (su plantilla de cerrado).
-  r.anuncios = [];
-  for (const m of movimientosDeEjecucion(eje, r.consolidacion.id, r.tarea.id)) {
-    const a = [[claveToken(m)], [m.cantidad], ['pagar'], [[m.de], [m.a]]];
-    r.anuncios.push(await eje.escribir({
-      autor: 'organizadora', sobre: r.tarea.id, en: ANUNCIO, t: '2026-11-08T10:30:00Z',
-      movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT(a), de: 'organizadora', a: null }], payload: a,
-    }, priv('organizadora')));
-  }
+  // La organizadora anuncia en la tarea lo que va a pagar (su 4.1): el precio
+  // elegido, en las series de las partidas, como movimientos anunciados del
+  // libro (VG 12-11, decisión 8: no tocan saldos), en un anuncio. Es lo que la
+  // tarea espera para cerrarse (su plantilla de cerrado).
+  const anunciados = movimientosDeEjecucion(eje, r.consolidacion.id, r.tarea.id).map((m) => ({ ...m, estado: 'anunciado' }));
+  r.anuncios = [await eje.escribir({
+    autor: 'organizadora', sobre: r.tarea.id, en: ANUNCIO, t: '2026-11-08T10:30:00Z',
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT('pagar'), de: 'organizadora', a: null }, ...anunciados], payload: 'pagar',
+  }, priv('organizadora'))];
   if (tope < 4) return r;
 
   // Entrega: el proveedor monta la carpa y lo registra en la fábrica de la
@@ -455,13 +453,15 @@ export async function ejemploTarea({ claves = {}, hasta = 'pagada' } = {}) {
   if (tope < 5) return r;
 
   // El pago, con la carpa montada el viernes: lo que a la tarea le falta de la
-  // organizadora (motor.siguiente), en un registro suyo sobre la tarea.
-  const { faltaDeMi } = siguiente(eje, r.tarea.id, 'organizadora');
+  // organizadora (motor.siguiente), en un registro suyo anclado sobre su
+  // anuncio (VG 12-11, decisión 8: así lo cumple).
+  const [{ transaccion }] = siguiente(eje, r.tarea.id, 'organizadora').faltaDeMi;
   r.pago = await eje.escribir({
     autor: 'organizadora',
-    sobre: r.tarea.id,
+    sobre: transaccion.sobre,
+    en: transaccion.en,
     t: '2026-11-13T18:00:00Z',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'organizadora', a: null }, ...faltaDeMi.map((x) => x.transaccion.movimientos[1])],
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'organizadora', a: null }, ...transaccion.movimientos.slice(1)],
     payload: 'Carpa montada y pagada',
   }, priv('organizadora'));
   return r;

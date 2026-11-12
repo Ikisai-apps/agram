@@ -16,7 +16,7 @@ import { ejemploCompra, ejemploCuenta, ejemploJardinYParque, ejemploFabrica, eje
 import { generarClaves } from '../src/autoridad.js';
 import { escribirBase, SIN_BASE_ESCRITA, HITOS } from '../src/bases.js';
 import { pasos as pasosDe, pasoDe } from '../src/pasos.js';
-import { recuento, miradasDe } from '../src/motor.js';
+import { recuento, miradasDe, ANUNCIO } from '../src/motor.js';
 import { estadoDePaquete } from '../src/lente.js';
 import * as A from '../src/acciones.js';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
@@ -189,7 +189,9 @@ test('madurez: la lectura «maturity» (X.8.1) con su medida (X.8.6), y el nombr
   assert.deepEqual(C.niveles(), ['seed', 'sprout', 'shoot', 'stem', 'branch', 'leaf', 'bud', 'flower', 'fruit', 'tenfold', 'list', 'shop', 'block', 'district', 'kingdom']);
   // La reserva tiene su propia escala en el 8.8 de «booking»: cinco niveles, repartidos sobre los genéricos.
   const { eje: b, reserva, habitacion } = await ejemploReserva();
-  assert.deepEqual(C.madurez(b, reserva), { nivel: 4, de: 5, nombre: 'settled', clave: 'settled', medida: { posiciones: 37, profundidad: 1, cantidad: 205 } });
+  // VG 12-11 (decisión 8): sus dos anuncios son movimientos anunciados (no cuentan como movidos) y lo que los cumple
+  // cuelga de ellos (profundidad 2).
+  assert.deepEqual(C.madurez(b, reserva), { nivel: 4, de: 5, nombre: 'settled', clave: 'settled', medida: { posiciones: 19, profundidad: 2, cantidad: 187 } });
   assert.equal(C.madurez(b, habitacion).nombre, 'list');
   // La lectura es una regla de la época como las demás: en el 2, con read en su 4, después de «weight», y se lee en X.8.1.
   const regla = EPOCA_0_BTML.lecturas.find((r) => r[0][0] === 'maturity');
@@ -225,8 +227,9 @@ test('diario: las transacciones del subárbol por llegada, con los asientos del 
   assert.deepEqual(C.diario(eje, 'f'.repeat(64)), { total: 0, desde: 0, entradas: [] });
   const { eje: b, reserva, entrega, pago } = await ejemploReserva();
   const r = C.diario(b, reserva.id);
-  assert.equal(r.total, 8);
-  assert.deepEqual(r.entradas.slice(-2).map((e) => [e.id, e.autor, e.ancla.sobre]), [[entrega.id, 'casa', reserva.id], [pago.id, 'huesped', reserva.id]]);
+  assert.equal(r.total, 6); // la reserva, sus noches, sus dos anuncios y lo que los cumple, anclado sobre cada uno (VG 12-11, decisión 8)
+  const anuncios = b.sobre(reserva.id, ANUNCIO).map((a) => a.id);
+  assert.deepEqual(r.entradas.slice(-2).map((e) => [e.id, e.autor, e.ancla.sobre]), [[entrega.id, 'casa', anuncios[0]], [pago.id, 'huesped', anuncios[1]]]);
   assert.ok(r.entradas.at(-1).movimientos.some((m) => m.primitiva === 'transferir' && m.serie === 'E:casa/EUR' && m.cantidad === 165));
 });
 
@@ -594,11 +597,13 @@ test('hijosDe en el 1 de la compra: el coste del 1.2 de su plantilla (hijo 1), l
   assert.deepEqual(h[0].coste, { posicion: '1.2', cuanto: 12, unidad: 'EUR', texto: 'EUR 12' });
   // «declare capacity or threshold» de la huésped en el 2.2 de la compra: dos a la vez; no hay E atado a la compra, nada comprometido
   assert.deepEqual(['capacidad', 'comprometido', 'disponible', 'franja', 'declara'].map((k) => h[1][k]), [2, 0, 2, '', capacidad.id]);
-  // lo que entra y sale, visto desde la huésped: paga 12 EUR a la cocina y quema su T al escribir (la compra, una hora; lo demás, minutos)
+  // lo que entra y sale, visto desde la huésped: paga 12 EUR a la cocina con la compra y 12 más con el pago de lo que
+  // anunció (ejemploFabrica: anclado sobre su anuncio, VG 12-11, decisión 8), y quema su T al escribir (la compra, una
+  // hora; lo demás, minutos)
   const quemado = C.diario(eje, compra.id, 0, 1e9).entradas.flatMap((e) => e.movimientos).filter((m) => m.serie === 'T:minuto' && m.de === 'huesped' && m.primitiva === 'quemar').reduce((s, m) => s + m.cantidad, 0);
   assert.ok(quemado > 0);
   assert.deepEqual(h[2].entradas, []);
-  assert.deepEqual(h[2].salidas.map((x) => [x.serie, x.cantidad, x.con]), [['T:hora', 1, [null]], ['E:casa/EUR', 12, ['cocina']], ['T:minuto', quemado, [null]]]);
+  assert.deepEqual(h[2].salidas.map((x) => [x.serie, x.cantidad, x.con]), [['T:hora', 1, [null]], ['E:casa/EUR', 24, ['cocina']], ['T:minuto', quemado, [null]]]);
   // la cuenta la escribe la cocina: su T es de la cocina, no sale de la huésped; la asignación del día no cuenta como entrada
   assert.equal(h[2].salidas.some((x) => x.con.includes('huesped')), false);
   assert.deepEqual([h[0], h[1], h[2], h[3]].map((x) => ['coste', 'capacidad', 'entradas'].filter((k) => k in x)), [['coste'], ['capacidad'], ['entradas'], []]);

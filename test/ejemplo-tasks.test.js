@@ -36,9 +36,10 @@ const CABEN = 'FILTRAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"), Y(ACTUAL(1) <= 
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 
 /** El pago de la organizadora: lo que a la tarea le falta de ella (motor.siguiente), en un registro suyo sobre la tarea. */
+// El pago se ancla sobre el anuncio que cumple (VG 12-11, decisión 8; #48): lo que siguiente propone.
 const pagar = (eje, tarea, t, payload = 'Carpa montada y pagada') => {
-  const { faltaDeMi } = siguiente(eje, tarea.id, 'organizadora');
-  return registrar(eje, { autor: 'organizadora', sobre: tarea.id, t, movimientos: [minuto('organizadora'), ...faltaDeMi.map((x) => x.transaccion.movimientos[1])], payload });
+  const [{ transaccion }] = siguiente(eje, tarea.id, 'organizadora').faltaDeMi;
+  return registrar(eje, { autor: 'organizadora', sobre: transaccion.sobre, en: transaccion.en, t, movimientos: [minuto('organizadora'), ...transaccion.movimientos.slice(1)], payload });
 };
 
 test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trabaja consume horas', async () => {
@@ -75,9 +76,9 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   // (VG, 8-11: no hay T acumulable). Ya no libera P al acabar.
   assert.deepEqual([T('casa'), consumido('casa')], [[0, 0], [1 + 2 + 3 + 10, 0]]);
   assert.deepEqual(eje.recursos('proveedor').filter((r) => r.denominacion === 'hora'), [{ emisor: 'casa', denominacion: 'hora', cantidad: 20 }]);
-  // La organizadora: su alta (1), la tarea (33), la fecha límite (1), la consolidación (10), dos anuncios (5 cada uno)
-  // y el pago (1).
-  assert.deepEqual([T('organizadora'), consumido('organizadora')], [[0, 0], [1 + 33 + 1 + 10 + 2 * 5 + 1, 0]]);
+  // La organizadora: su alta (1), la tarea (33), la fecha límite (1), la consolidación (10), el anuncio (1: su payload
+  // dice para qué; lo anunciado son sus dos movimientos, VG 12-11, decisión 8) y el pago (1).
+  assert.deepEqual([T('organizadora'), consumido('organizadora')], [[0, 0], [1 + 33 + 1 + 10 + 1 + 1, 0]]);
   // El proveedor: su alta (1), dos presupuestos (4 cada uno) y la entrega (2), y las 6 horas que trabaja.
   assert.deepEqual([T('proveedor'), consumido('proveedor')], [[0, 0], [1 + 2 * 4 + 2, 6]]);
   // Todo registro tras el génesis cuesta minutos a su autor; solo la entrega consume horas, y son del proveedor.
@@ -144,8 +145,8 @@ test('partidas: cada una es una posición con capacidad respaldada por una serie
 
 test('hilo y fórmulas: las partidas se referencian, no se copian; coste, tiempo y composición', async () => {
   const { eje, alta, partidas, tarea, pago } = await ejemploTarea();
-  // El pago se escribe sobre la tarea (ya no sobre una consolidación ejecutada).
-  assert.deepEqual(eje.hilo(pago.id).map((e) => e.id), [pago.id, tarea.id, partidas.id, alta.id, eje.genesisId]);
+  // El pago se escribe sobre el anuncio de la tarea que cumple (VG 12-11, decisión 8; ya no sobre una consolidación ejecutada).
+  assert.deepEqual(eje.hilo(pago.id).map((e) => e.id), [pago.id, eje.sobre(tarea.id, ANUNCIO)[0].id, tarea.id, partidas.id, alta.id, eje.genesisId]);
   // 1.0: las partidas de la tarea son referencias; su importe vive en el registro de partidas.
   const refs = tarea.payload[1][0].slice(1);
   assert.ok(refs.every((x) => esReferencia(x) && x.ref === partidas.id));
@@ -271,14 +272,13 @@ test('ciclo: consolidar → la organizadora anuncia el pago → lo paga con su p
     { token: 'E', emisor: 'casa', denominacion: 'alquiler de la carpa', cantidad: 250, de: 'organizadora', a: 'proveedor' },
     { token: 'E', emisor: 'casa', denominacion: 'transporte', cantidad: 60, de: 'organizadora', a: 'proveedor' },
   ]);
-  // Y es lo que la organizadora anunció en la 4.1 de la tarea, un registro por movimiento.
+  // Y es lo que la organizadora anunció en la 4.1 de la tarea: un anuncio con sus movimientos anunciados (VG 12-11, decisión 8).
   assert.deepEqual(eje.sobre(tarea.id, ANUNCIO).map((a) => a.id), anuncios.map((a) => a.id));
-  assert.deepEqual(anuncios.map((a) => a.payload), mov.map((m) => [[serie(m.denominacion)], [m.cantidad], ['pagar'], [[m.de], [m.a]]]));
+  assert.deepEqual(anuncios.map((a) => [a.payload, a.movimientos.slice(1)]), [['pagar', mov.map((m) => ({ ...m, estado: 'anunciado' }))]]);
   // Anunciado y sin pagar, la tarea está abierta: a la organizadora le falta pagar; al proveedor, nada.
   assert.deepEqual([cerrado(eje, tarea.id).cerrado, cerrado(eje, tarea.id).plantilla], [false, CERRADO]);
   assert.deepEqual(siguiente(eje, tarea.id, 'organizadora').faltaDeMi.map((x) => x.que), [
-    'mover 250 E:casa/alquiler de la carpa de organizadora a proveedor',
-    'mover 60 E:casa/transporte de organizadora a proveedor',
+    'mover 250 E:casa/alquiler de la carpa de organizadora a proveedor; mover 60 E:casa/transporte de organizadora a proveedor',
   ]);
   assert.deepEqual(siguiente(eje, tarea.id, 'proveedor').faltaDeMi, []);
 
@@ -296,7 +296,7 @@ test('ciclo: consolidar → la organizadora anuncia el pago → lo paga con su p
 
   const pago = await pagar(eje, tarea, '2026-11-13T18:00:00Z');
   assert.deepEqual(pago.movimientos.slice(1), mov);
-  assert.deepEqual(eje.hilo(pago.id).slice(0, 2).map((x) => x.id), [pago.id, tarea.id]);
+  assert.deepEqual(eje.hilo(pago.id).slice(0, 3).map((x) => x.id), [pago.id, anuncios[0].id, tarea.id]);
   assert.equal(eje.saldo('proveedor', serie('alquiler de la carpa')), 250);
   // Pagado, cerrado: no queda nada que mover (antes, «ya ejecutado»).
   assert.equal(cerrado(eje, tarea.id).cerrado, true);
@@ -312,7 +312,7 @@ test('entrega: el proveedor consume las horas de su presupuesto; las previstas n
   assert.equal(tiempoPrevisto(eje, tarea.id).valor.cantidad, 7);
   // La entrega no cierra la tarea: lo anunciado es el pago, y aún falta (recibos de terceros, docs/MOTOR.md §12).
   assert.equal(cerrado(eje, tarea.id).cerrado, false);
-  assert.equal(siguiente(eje, tarea.id, 'organizadora').faltaDeMi.length, 2);
+  assert.equal(siguiente(eje, tarea.id, 'organizadora').faltaDeMi.length, 1); // los dos movimientos, en una transacción sobre su anuncio
   // Nadie más consume las horas del proveedor.
   await assert.rejects(
     eje.escribir({
@@ -347,9 +347,10 @@ test('eje temporal: la fecha límite es una proyección; lo declarado en 7 no ll
   const alPagar = ejeTemporal(r.eje, r.tarea.id, { ahora: r.pago.t }).futuro.find((x) => x.id === r.limite.id);
   assert.equal(alPagar.tipo, 'proyeccion');
   assert.ok(alPagar.delta > 0);
-  // [X] decidir VG: el pago, fechado el 13, es un registro sobre la tarea; leído el 8 a las 10:30 aparece como
-  // proyección, antes que la fecha límite (antes se leía como el estado de la consolidación).
-  assert.deepEqual(ejeTemporal(r.eje, r.tarea.id, { ahora }).futuro.map((x) => [x.tipo, x.id]), [['declarado', r.tarea.id], ['proyeccion', r.pago.id], ['proyeccion', r.limite.id]]);
+  // [X] decidir VG: el pago, fechado el 13, cuelga del anuncio que cumple (VG 12-11, decisión 8), no de la tarea: el eje
+  // temporal de la tarea (lo escrito sobre ella) ya no lo enseña como proyección; antes salía antes que la fecha límite.
+  assert.deepEqual(ejeTemporal(r.eje, r.tarea.id, { ahora }).futuro.map((x) => [x.tipo, x.id]), [['declarado', r.tarea.id], ['proyeccion', r.limite.id]]);
+  assert.equal(r.pago.sobre, r.anuncios[0].id);
 
   // Nada impide pagar después de la fecha límite (docs/MOTOR.md §12: proyecciones reales en PV7, comprobar `t`).
   const tarde = await ejemploTarea({ hasta: 'entregada' });

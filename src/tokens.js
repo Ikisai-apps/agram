@@ -203,6 +203,22 @@ if (ESCALAS_T.length > MAXIMO_ESCALAS_T) throw new Error('T admite como mucho ' 
 export const ESTADOS = Object.freeze(['bloqueo', 'liberacion']);
 
 /**
+ * El movimiento ANUNCIADO (VG 12-11, decisión 8 del estudio BQL-transacciones; resuelve #48): un movimiento del
+ * registro que no toca saldos y dice lo que se moverá (de quién, a quién, qué serie, cuánto) y, si lo lleva, para
+ * cuándo (`refiere`, la fecha a la que se refiere: su D-MOV 7.1). El libro no lo aplica (src/eje.js: un paso vacío);
+ * lo lee `moves` con la clase «anuncio» y lo cumple el registro que se ancla sobre él moviendo lo mismo (la lectura
+ * «stage»). Las estaciones por las que pasa (propuesta, autorizada, ejecutada, verificada) son datos de la época.
+ * El T informativo ya es lo anunciado del T (T futuro con fecha): no se anuncia otra vez.
+ */
+export const ANUNCIADO = 'anunciado';
+
+/** ¿Es un movimiento anunciado (no toca saldos)? */
+export const esAnunciado = (m) => Boolean(m) && typeof m === 'object' && m.estado === ANUNCIADO;
+
+/** Los movimientos de un evento que tocan saldos: los declarados menos los anunciados. */
+export const movimientosReales = (ev) => (Array.isArray(ev?.movimientos) ? ev.movimientos : []).filter((m) => !esAnunciado(m));
+
+/**
  * Duración de cada escala en segundos, para MEDIR distancias de tiempo (las
  * bandas del eje temporal), solo de las escalas reales. No convierte tokens: los saldos de T no se
  * suman entre escalas. Año = 13 ciclos de 28 días + 1. De la época: el 1 de
@@ -372,7 +388,8 @@ export function validarMovimiento(m) {
     if (m.nota !== undefined && !texto(m.nota)) errores.push('la nota es texto');
   } else {
     if (m.nota !== undefined) errores.push('nota solo en T pasado, futuro o inventado');
-    if (m.refiere !== undefined) errores.push('refiere solo en T pasado, futuro o inventado');
+    if (m.refiere !== undefined && m.estado !== ANUNCIADO) errores.push('refiere solo en T pasado, futuro o inventado, o en un movimiento anunciado');
+    else if (m.refiere !== undefined && !esInstante(m.refiere)) errores.push('refiere debe ser instante ISO-8601 con zona explícita');
   }
   if (m.token === 'E') {
     if (!texto(m.denominacion)) errores.push('E exige denominación');
@@ -426,8 +443,11 @@ export function validarMovimiento(m) {
   if (m.de !== null && !texto(m.de)) errores.push('de debe ser identidad o null');
   if (m.a !== null && !texto(m.a)) errores.push('a debe ser identidad o null');
   if (m.de === null && m.a === null) errores.push('movimiento sin origen ni destino');
-  if (m.estado !== undefined) {
-    if (!ESTADOS.includes(m.estado)) errores.push('estado inválido: ' + m.estado + ' (bloqueo o liberacion)');
+  if (m.estado === ANUNCIADO) {
+    if (informativa) errores.push('el T ' + m.escala + ' no se anuncia: ya es lo anunciado (se consume con la fecha a la que se refiere)');
+    if (m.salida !== undefined) errores.push('un movimiento anunciado no lleva salida: no se mueve todavía');
+  } else if (m.estado !== undefined) {
+    if (!ESTADOS.includes(m.estado)) errores.push('estado inválido: ' + m.estado + ' (bloqueo, liberacion o anunciado)');
     else {
       if (m.de === null || m.a !== m.de) errores.push(m.estado + ': de y a son el mismo titular (no cambia de manos)');
       if (!texto(m.salida)) errores.push(m.estado + ' exige salida: la condición de liberación, declarada (no verificable todavía)');

@@ -248,23 +248,25 @@ export async function ejemploJardinYParque(eje, { compra }, privadas = {}) {
  * La fábrica de la compra (encargo «datos2», issue #11): lo que hace falta para que la matriz del 4 enseñe sus tres
  * estaciones y para que el 1 tenga capacidad. Todo inventado.
  *
- * La huésped anuncia en el 4.1 de la compra tres movimientos (un registro por movimiento: [[serie], [cuánto], [qué],
- * [[de], [a]]]): pagar los doce euros a la cocina, que la compra misma ya transfirió (ejecutada); darle una hora a la
- * cocina para servir, que respalda comprometiendo su P sobre ese anuncio («commit P»: su recuento pasa el umbral, así
- * que está autorizada aunque la hora aún no se ha movido); y devolverle una R a la casa para que la atienda, sin más
- * (propuesta). Además, por el aro: declara la capacidad de la compra («declare capacity or threshold», en su 2.2: dos a
- * la vez) y ancla una nota en ella («anchor here», en su raíz: una interacción del 6 sobre la posición 0).
+ * La huésped anuncia en el 4.1 de la compra tres movimientos (un registro por movimiento; VG 12-11, decisión 8: cada uno
+ * es un movimiento anunciado del libro, estado «anunciado», que no toca saldos, y su payload dice para qué): pagar
+ * los doce euros de la propina a la cocina, que paga por el aro anclando el pago sobre el anuncio («pay»: así lo cumple,
+ * y solo a él; ejecutada); darle una hora a la cocina para servir, que respalda comprometiendo su P sobre ese anuncio
+ * («commit P»: su recuento pasa el umbral, así que está autorizada aunque la hora aún no se ha movido); y devolverle una
+ * R a la casa para que la atienda, sin más (propuesta). Además, por el aro: declara la capacidad de la compra («declare
+ * capacity or threshold», en su 2.2: dos a la vez) y ancla una nota en ella («anchor here», en su raíz: una
+ * interacción del 6 sobre la posición 0).
  */
 export async function ejemploFabrica(eje, { compra }, privadas = {}) {
   const priv = (id) => privadas[id];
   const t = (minuto) => '2026-11-07T16:' + String(minuto).padStart(2, '0') + ':00Z';
   const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-  const anuncia = (minuto, serie, cantidad, que, de, a) => eje.escribir({
-    autor: 'huesped', sobre: compra.id, en: '4100000000', t: t(minuto), movimientos: [gasta('huesped')], payload: [[serie], [cantidad], [que], [[de], [a]]],
+  const anuncia = (minuto, movimiento, que) => eje.escribir({
+    autor: 'huesped', sobre: compra.id, en: '4100000000', t: t(minuto), movimientos: [gasta('huesped'), { ...movimiento, estado: 'anunciado' }], payload: que,
   }, priv('huesped'));
-  const pagar = await anuncia(0, 'E:casa/EUR', 12, 'pagar', 'huesped', 'cocina');
-  const servir = await anuncia(1, 'T:hora', 1, 'servir', 'huesped', 'cocina');
-  const atender = await anuncia(2, 'R:casa', 1, 'atender', 'huesped', 'casa');
+  const pagar = await anuncia(0, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' }, 'pagar');
+  const servir = await anuncia(1, { token: 'T', escala: 'hora', cantidad: 1, de: 'huesped', a: 'cocina' }, 'servir');
+  const atender = await anuncia(2, { token: 'R', emisor: 'casa', cantidad: 1, de: 'huesped', a: 'casa' }, 'atender');
   // Por el aro: la plantilla construye el registro (nombra la acción en su 4; con clave, se valida ya firmado) y la
   // huésped lo escribe con su firma.
   const accion = async (minuto, cual, params) => {
@@ -277,7 +279,9 @@ export async function ejemploFabrica(eje, { compra }, privadas = {}) {
   const respaldo = await accion(3, 'commit P', { X: servir.id, power: 'P:' + servir.id + '/huesped', amount: 10 });
   const capacidad = await accion(4, 'declare capacity or threshold', { X: compra.id, capacity: 2 });
   const nota = await accion(5, 'anchor here', { X: compra.id, title: 'Nota de la huésped' });
-  return { pagar, servir, atender, respaldo, capacidad, nota };
+  // El pago de lo anunciado, anclado sobre el anuncio (la plantilla «pay» lo ancla en su 4): lo cumple.
+  const pago = await accion(6, 'pay', { X: compra.id, announcement: { ref: pagar.id } });
+  return { pagar, servir, atender, respaldo, capacidad, nota, pago };
 }
 
 /**

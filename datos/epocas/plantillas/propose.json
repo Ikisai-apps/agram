@@ -64,19 +64,13 @@
   ],
   ["=count it.3 > 0"],
   ["me"],
-  [
-    [
-      ["T:minuto"],
-      [1],
-      ["burn"],
-      [["=me"], ["nobody"]]
-    ]
-  ],
+  ["write"],
   ["4"],
   [
     "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
     "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-    "La fábrica (PV4) sigue siendo donde se proponen registros, sin fases (mapa §15 [D])"
+    "La fábrica (PV4) sigue siendo donde se proponen registros, sin fases (mapa §15 [D])",
+    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
   ],
   ["epoch 0"],
   [4, 3],

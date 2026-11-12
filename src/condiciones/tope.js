@@ -41,7 +41,7 @@ export function contratoE(m, registroEmisor) {
 /** El génesis y los no-eventos no pasan por aquí; los movimientos mal formados ya los cuenta validarForma. */
 const validosDe = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos : [])
   .map((m, i) => ({ m, i }))
-  .filter(({ m }) => m && typeof m === 'object' && !validarMovimiento(m).length);
+  .filter(({ m }) => m && typeof m === 'object' && !validarMovimiento(m).length && m.estado !== 'anunciado'); // lo anunciado no emite ni mueve (VG 12-11, decisión 8)
 
 /**
  * Reglas de la E atada al recurso. Errores [{ i, capa, texto }] como los de
