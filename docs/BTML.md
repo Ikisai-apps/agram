@@ -285,7 +285,7 @@ La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento 
 eje.esPersona(identidad)     // → true si escribió su propia alta (persona), false si se la escribió otra identidad (cosa), null sin alta (VG, 10-11, B1)
 eje.alta(identidad)          // → { id, t } del evento en que recibió tokens por primera vez, o null
 eje.saldoT(id, escala, t)    // → T disponible el día de t: lo que queda de su asignación (persona) o lo que le dieron (cosa); ningún T se acumula (VG, 8-11)
-eje.presente(id)             // → false si el registro se pagó solo con T informativo (VG, 8-11); true si no; undefined si no está
+eje.presente(id)             // → false solo si el registro quemara T informativo y nada real (la época 0 ya lo rechaza: VG 13-11, #76, todo registro paga T real de hoy); true si no; undefined si no está
 eje.gastadoT(persona, escala, dia) // → lo gastado de su asignación ese día civil (tokens.asignacionT)
 eje.tiempoInformativo(id)    // → [{ escala, cantidad, autor, t, refiere, nota, id }]: el T pasado, futuro e inventado consumido sobre id, aparte
 eje.serie(clave)             // → { emisor, emitido } de la serie con esa clave de saldo ({ emisor: null, emitido: 0 } si nadie la ha emitido), y caduca, divisible y emisores si los tiene
@@ -458,6 +458,10 @@ Una décupla (y la raíz) tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), ín
 - `validarPayload` no limita la profundidad; `direccion` sí (diez índices). Un nodo por debajo del décimo nivel existe pero no tiene dirección. Pendiente: cambio de foco al agotar diez niveles (mapa §2.1).
 
 `modos.contarPosiciones(payload)` cuenta las posiciones desarrolladas: cada terminal cuenta una (cada elemento de una lista, uno).
+
+#### Sin huecos: claves y valores (VG 13-11, #77)
+
+Regla general de BTML, en las tres casas (AGRAM, StateArk, Be): **ninguna posición vacía ni rellena con «-»**. Cada objeto (un registro, una fila de la época, un sello, un recibo) ocupa **posiciones seguidas desde el 0, todas con contenido**: lo opcional va al final y, si falta, se corta (no se rellena). Y **nada de tuplas `[campo, valor]` dentro de una décupla**: lo que se nombra va como una décupla de **claves** (los nombres, solo los que existen) y otra **paralela de valores** (el valor de la clave de su misma posición, en el mismo orden). Una clave que se repite junta sus valores (un ajuste de varios valores); una décupla libre al mismo nivel puede llevar firmas, marcas de tiempo, etc. Es el último nivel de profundidad (10⁻¹⁰). La regla manda en los datos de la época (`epoch.8.7`: `[[pv], [profundidad], [nota], [claves], [valores]]`), en los registros de ajustes (`[[nombre], [claves], [valores], [quién], [ayuda], [tipo]]`: «preferences», «guide settings» y «exterior settings», `docs/CONTRATO.md` §16.2 bis) y en todo lo que escribe el código; una posición con nombre «{parámetro}» (y no «-») dice dónde va lo que una plantilla no escribe en el registro. Lo prueba `test/sin-huecos.test.js`.
 
 ### 3.3 Referencias
 
@@ -1463,7 +1467,7 @@ export class Eje {
   obligaciones(emisor): number;                            // su R en manos ajenas
   alta(identidad): { id, t } | null;
   saldoT(identidad, escala, t?): number;                  // asignación del día (persona) o lo recibido (cosa); ningún T se acumula (VG, 8-11)
-  presente(id): boolean | undefined;                       // false si se pagó solo con T informativo (VG, 8-11)
+  presente(id): boolean | undefined;                       // false solo si quemara T informativo y nada real (VG 13-11, #76: la época 0 lo rechaza)
   gastadoT(identidad, escala, dia): number;
   tiempoInformativo(id): { escala, cantidad, autor, t, refiere, nota, id }[];
   clave(identidad): string | undefined;   // hex x-only

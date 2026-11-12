@@ -85,7 +85,7 @@ VG, 7-11 noche (mapa §12, «T, corregido por VG», punto 4): el tamaño de un �
 | `MODOS[modo].orden` | Pointed 1, Sequenced 2, Mapped 3, Scened 4, Be del quinto en adelante (`orden` 5, por encima de Scened). Los cuatro primeros tienen por mínimo y máximo `minimoDe(orden)` y `maximoDe(orden)`; Be no tiene mínimo propio y su máximo es todos (VG, 7-11 noche) |
 | `ordenDeEscala(escalaT)`, `ORDENES_DE_ESCALA` | segundo 1, minuto 2, hora 3, día 4, semana 5, ciclo 6, año 7 (las siete reales, `tokens.ESCALAS_REALES`: `dia`, `anio`); las tres informativas de las diez de `tokens.ESCALAS_T` (pasado, futuro, inventado; VG, 8-11) son informativas sin orden: `null` |
 
-`ordenDeEscala` es **solo informativa**: nadie la aplica todavía. La usa `tiempo.escalaQueCubre` para que el 4 proponga la escala de T que cubre lo emitido (VG 12-11, #65; la «incongruencia de escala», que se enseñaba sin rechazar, se retiró).
+`ordenDeEscala` es **solo informativa**: nadie la aplica todavía. La usa `tiempo.escalaQueCubre` para que el 4 proponga la escala de T que cubre lo emitido, sin bajar nunca del minuto (VG 13-11, #78; el segundo queda en el desplegable) (VG 12-11, #65; la «incongruencia de escala», que se enseñaba sin rechazar, se retiró).
 
 Tres reglas valen para todos [A/D]: **cambiar de modo no muta el contenido** (un modo solo lee); **sobrio y animado son dos renders de la misma operación** (§10.3; en estos módulos solo existe el sobrio, y pedir `'animado'` lanza «render no disponible»; el primer mundo animado, los hilos del 6 y 7, está en el frontend: `mundos/hilos.js`); y la época va **fuera del dato** (§9): cada modo recibe la época con la que se lee.
 
@@ -152,7 +152,7 @@ Los guisos mueven 12 EUR de los 32 que mueven las cuatro compras del menú (37,5
 
 ### 0.5 bis Las formas de la división, por modo
 
-VG, 12-11 (#52): **los modos son cinco** (Pointed, Sequenced, Mapped, Scened y Be, los de `epoch.8.2`, en ese orden) y **las formas de la división de cada mundo (`epoch.8.7`) van por modo, con herencia hacia abajo**. La posición 3 de cada fila es una lista con una hoja por modo; `-` hereda del modo anterior (Sequenced de Pointed, Mapped de Sequenced, Scened de Mapped, Be de Scened). Hoy Mapped lleva las formas de siempre, Sequenced las mismas (apiladas en una columna cuando no caben a lo ancho: eso es píxeles, no dato), Pointed ninguna y Scened y Be heredan de Mapped. `contrato.formaDe(eje, pv, modo, { nivel })` resuelve la herencia; la carta pide `sequenced` en la fila abierta del acordeón y `mapped` en las demás. Detalle y por qué: `docs/CONTRATO.md` §4.2 («Las formas por modo») y `docs/notas/DECISIONES_2026-11-12.md` (#52).
+VG, 12-11 (#52): **los modos son cinco** (Pointed, Sequenced, Mapped, Scened y Be, los de `epoch.8.2`, en ese orden) y **las formas de la división de cada mundo (`epoch.8.7`) van por modo, con herencia hacia abajo**. La forma de cada modo es la clave `<modo> form` de la fila (VG 13-11, #77: sin huecos ni «-», claves y valores); el modo que no la dice hereda del anterior (Sequenced de Pointed, Mapped de Sequenced, Scened de Mapped, Be de Scened). Hoy Mapped lleva las formas de siempre, Sequenced las mismas (apiladas en una columna cuando no caben a lo ancho: eso es píxeles, no dato), Pointed ninguna y Scened y Be heredan de Mapped. `contrato.formaDe(eje, pv, modo, { nivel })` resuelve la herencia; la carta pide `sequenced` en la fila abierta del acordeón y `mapped` en las demás. Detalle y por qué: `docs/CONTRATO.md` §4.2 («Las formas por modo») y `docs/notas/DECISIONES_2026-11-12.md` (#52).
 
 ### 0.6 El móvil: vertical Sequenced, apaisado Mapped
 
@@ -316,40 +316,40 @@ console.log(render(escena(eje, [compra.id, c2.id, c3.id, menu.id], { ahora, capa
 ```
 
 ```text
-escena · 5 de 5 focos · común 8d4199fa · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n0 8d4199fa cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
-1 n1 1e1b2c84 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
-2 n2 2fe61207 cocina · 0 Cuenta del menú · 1 =REF("1e1b2c84", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
-3 n1 540b2400 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
-4 n1 1f6703f7 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+escena · 5 de 5 focos · común 9744bb9d · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n0 9744bb9d cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
+1 n1 f762a6f6 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
+2 n2 ea44caf0 cocina · 0 Cuenta del menú · 1 =REF("f762a6f6", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
+3 n1 914b272b huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+4 n1 c687b496 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
 aristas: hilo 4 · referencia 4 · fórmula 1 · fuera de escena 0
 recuentos: grupos 3 · pasado 19 · futuro 0
 medidas del 8 (suma de 5 focos): escritos 4 · movimientos 8 · posiciones 17 · identidades 8
 ---
-escena · 4 de 4 focos · común 91778f17 · época 0 · camino raíz · 43 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n0 91778f17 casa · Casa de ejemplo · hermano 1 de 1 · pasado 3 futuro 0 · ← 1
-1 n1 ed6e0d84 casa · 0 cocina · hermano 1 de 1 (3 en el eje) · pasado 2 futuro 0 · hilo→0 · ← 1
-2 n2 8d4199fa cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
-3*n3 1e1b2c84 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
+escena · 4 de 4 focos · común 3aecfd5e · época 0 · camino raíz · 43 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n0 3aecfd5e casa · Casa de ejemplo · hermano 1 de 1 · pasado 3 futuro 0 · ← 1
+1 n1 31b4d234 casa · 0 cocina · hermano 1 de 1 (3 en el eje) · pasado 2 futuro 0 · hilo→0 · ← 1
+2 n2 9744bb9d cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
+3*n3 f762a6f6 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
 aristas: hilo 3 · referencia 2 · fórmula 0 · fuera de escena 0
 recuentos: grupos 4 · pasado 14 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 3 de 3 focos · común 8d4199fa · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 1e1b2c84 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0
-1*n1 540b2400 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
-2 n1 1f6703f7 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
+escena · 3 de 3 focos · común 9744bb9d · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 f762a6f6 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 3 · pasado 4 futuro 0
+1*n1 914b272b huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
+2 n1 c687b496 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 4
 recuentos: grupos 1 · pasado 10 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 2 de 4 focos · común 8d4199fa · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 1e1b2c84 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
-1 n1 540b2400 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
+escena · 2 de 4 focos · común 9744bb9d · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 f762a6f6 huesped · 0 Compra del menú del día · 1 [3] · 2 [2] · 3 [2] · 4 [2] · 5 purchase · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
+1 n1 914b272b huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 3
 recuentos: grupos 1 · pasado 7 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
-aviso: capacidad de la escena: 30 posiciones. El foco 1f6703f7 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: 1f6703f7 8d4199fa. Trae 27 de 31 posiciones.
+aviso: capacidad de la escena: 30 posiciones. El foco c687b496 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: c687b496 9744bb9d. Trae 27 de 31 posiciones.
 ```
 
 Lectura de la primera escena: se pidieron en desorden y el marco las coloca por el hilo, en preorden. El menú es el común (n0) y recibe siete aristas: el hilo de las tres compras y sus cuatro referencias. La cuenta (n2) cuelga de la compra anclada en su posición 1 (los recursos) y su fórmula lee la 1.2 de la compra (el precio); por eso va justo detrás de la compra y antes de la segunda compra: las tres compras siguen el orden de llegada, pero no van seguidas. En la segunda, el génesis es un terminal y sale como tal, sin índice. En la última, la compra trae 24 posiciones con contenido (ella, que con el criterio de cerrado en su 2 tiene una más que antes del encargo 3b, el menú, las altas, el génesis y la cuenta escrita encima), la segunda compra suma 4 y la tercera pasaría de 30: se corta ahí y el menú, pedido detrás, también queda fuera.

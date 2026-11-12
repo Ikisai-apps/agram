@@ -20,6 +20,7 @@ import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import * as salida from '../src/escritura.js';
 import { pagaElCoste } from './ayudas-coste.js';
+import { poner } from './ayudas-division.js';
 
 // El idioma por defecto de la época es el español; esta batería comprueba los nombres canónicos de la época (en inglés), así que lo pide.
 const arbol = (estado, eje, yo, medidas, opciones = {}) => arbolEnIdioma(estado, eje, yo, medidas, { idioma: 'en', ...opciones });
@@ -184,7 +185,7 @@ test('enviar: una transacción mal formada devuelve los motivos sin asentar nada
   assert.deepEqual([mal.ok, mal.asentado, mal.motivos.map((m) => m.regla)], [false, null, ['quantity']]);
   assert.equal(eje.orden.length, antes);
   // La cocina pide español en su configuración (un registro «preferences» en el 9 de su alta): los motivos de las reglas llegan traducidos.
-  await eje.escribir({ autor: 'cocina', sobre: eje.alta('cocina').id, en: '9000000000', t: T1, movimientos: [minuto('cocina')], payload: ['preferences', 10, 'sober', 'es', [1, 2, 3], 'preferences'] });
+  await eje.escribir({ autor: 'cocina', sobre: eje.alta('cocina').id, en: '9000000000', t: T1, movimientos: [minuto('cocina')], payload: C.registroDeAjustes('preferences', { step: 10, render: 'sober', language: 'es', sizes: [1, 2, 3] }, { quien: 'cocina' }) });
   assert.equal(C.configuracion(eje, 'cocina').language, 'es');
   const es = await enviar(eje, menu.id, 'issue E tied to X', { denomination: 'racion', quantity: 5 }, 'cocina', undefined, { t: T1 });
   assert.equal(es.ok, false);
@@ -245,7 +246,12 @@ test('las preferencias se editan como un registro más: la candidata sale de la 
   // Todas las preferencias de la época, también las que no tienen defecto (el servidor y el eje compartido, etapa 3).
   assert.deepEqual(p.campos.map((c) => c.etiqueta), C.clavesDeConfiguracion().map((c) => c.clave));
   assert.ok(Object.keys(C.configuracion(eje, null)).filter((k) => k !== 'de').every((k) => p.campos.some((c) => c.clave === k)));
-  assert.equal(p.payload.length, 8, 'sin servidor ni eje compartido, el registro acaba en el 7: BTML no tiene posiciones vacías');
+  // sin huecos ni rellenos (VG 13-11, #77): 0 el nombre, 1 las claves de las preferencias que tienen valor, 2 sus valores en paralelo, 3 quién, 4 su ayuda, 5 el tipo
+  assert.equal(p.payload.length, 6, 'el servidor y el eje compartido, sin dar, no están: ni hueco ni «-»');
+  assert.deepEqual(p.payload[1], ['step', 'render', 'language', 'sizes', 'sizes', 'sizes', 'model', 'animations']);
+  assert.deepEqual(p.payload[2], [5, 'sober', 'en', 1, 2, 3, 'general', 10]);
+  assert.deepEqual([p.payload[0], p.payload[3], p.payload[5]], [['preferences'], ['huesped'], ['preferences']]);
+  assert.ok(!JSON.stringify(p.payload).includes('"-"'));
   await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto('huesped')], payload: p.payload });
   const conf = C.configuracion(eje, 'huesped');
   assert.deepEqual([conf.language, conf.step], ['en', 5]);
@@ -734,7 +740,7 @@ test('el orden vertical del 6 y el 7 es un dato de la época (epoch.8.7): el pas
   assert.equal(f6.bandas.at(-1).ahora, true);
   assert.equal(f7.bandas[0].ahora, true);
   // Sin el dato, por llegada: la carta no ordena por su cuenta.
-  const sinOrden = epocaCon((e) => { for (const f of e[8][7][1]) if ([6, 7].includes(f[0][0])) f.length = 8; });
+  const sinOrden = epocaCon((e) => { for (const f of e[8][7][1]) if ([6, 7].includes(f[0][0])) poner(f, 'order', []); });
   const b = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: sinOrden });
   assert.deepEqual(b.secuencia.pasado.ocupantes.lista.map((o) => o.texto), ['pasado 11-08', 'pasado 11-10', 'pasado 11-09']);
   assert.deepEqual(b.secuencia.futuro.ocupantes.lista.map((o) => o.texto), ['futuro 2026-12-20', 'futuro 2026-11-20', 'futuro 2027-01-06']);

@@ -357,7 +357,7 @@ test('#4: en la configuración, «modelo» es un desplegable con los modelos de 
   // La cuenta de VG: con «sobrio» guardado, el desplegable propone general (el sobrio no se elige) y al guardar queda general.
   const q = preferencias(eje, 'huesped', { model: 'sobrio' });
   assert.equal(q.campos.find((c) => c.clave === 'model').valor, 'general');
-  assert.ok(q.payload.some((x) => Array.isArray(x) && x[0] === 'general'));
+  assert.ok(q.payload[1].includes('model') && q.payload[2].includes('general'), 'el modelo es un ajuste más del registro de claves y valores');
   // Elegir el genérico lo guarda.
   const g = preferencias(eje, 'huesped', { model: 'animado-generico' });
   assert.equal(g.campos.find((c) => c.clave === 'model').valor, 'animado-generico');
@@ -366,7 +366,7 @@ test('#4: en la configuración, «modelo» es un desplegable con los modelos de 
   assert.deepEqual(modelos.eleccionDeModelo({ epoca: una }).modelos.map((m) => m.nombre), ['general']);
   const u = preferencias(eje, 'huesped', { model: 'sobrio' }, { epoca: una });
   assert.equal(u.campos.find((c) => c.clave === 'model'), undefined, 'con uno solo, no se pregunta');
-  assert.ok(u.payload.some((x) => Array.isArray(x) && x[0] === 'general'), 'y se guarda el que hay');
+  assert.ok(u.payload[1].includes('model') && u.payload[2].includes('general'), 'y se guarda el que hay');
   assert.doesNotMatch(html(await arbol({ foco: { X: eje.alta('huesped').id, pv: 0 } }, eje, 'huesped', ORDENADOR), { preferencias: u }), /name="model"/);
 });
 

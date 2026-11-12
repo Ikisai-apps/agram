@@ -278,27 +278,29 @@ test('pasado, futuro e inventado: ilimitados, se registran con sus dos fechas y 
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...sinFecha, escala: 'futuro' }] }), /T futuro exige refiere/);
   assert.ok(validarMovimiento({ ...pasado(), a: 'bea' }).some((e) => /solo se consume/.test(e)));
   assert.ok(validarMovimiento({ ...gasta('ana'), nota: 'x' }).some((e) => /nota solo en T pasado, futuro o inventado/.test(e)));
-  // Y pagan la escritura (VG, 8-11): el registro es válido, gratis en T real, y queda como no presente («el pago es la
-  // ausencia de un registro presente, que puede ser un criterio en PV2 cuando el tiempo importe (p. ej. caducidad
-  // alimentaria)»). Con T real, presente.
+  // Y NO pagan la escritura (VG, 13-11, #76: «recordar algo o planear algo consume tiempo en el presente»; sustituye lo
+  // del 8-11): el T informativo es contenido del registro, no pago. Quien solo quema T informativo se rechaza como
+  // cualquiera que paga de menos; con el coste en T real, el registro es válido (y presente) lleve o no T informativo.
   const antes = eje.saldoT('ana', 'minuto', T0);
-  const deMemoria = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [pasado()] });
-  assert.deepEqual([eje.presente(deMemoria.id), esPresente(deMemoria), eje.saldoT('ana', 'minuto', T0)], [false, false, antes]);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [pasado()] }), /writing burns today's T/);
+  assert.equal(eje.saldoT('ana', 'minuto', T0), antes, 'lo rechazado no gasta nada');
+  const deMemoria = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [gasta('ana'), pasado()] });
+  assert.deepEqual([eje.presente(deMemoria.id), esPresente(deMemoria), eje.saldoT('ana', 'minuto', T0) < antes], [true, true, true], 'una memoria paga T real de hoy');
   assert.deepEqual([eje.presente(alta.id), eje.presente(eje.genesisId), eje.presente('nada')], [true, true, undefined]);
-  // Se ve en validez y en la lectura, y un criterio del dueño puede exigirlo en BQL: FILTRAR(…, PRESENTE()).
-  assert.deepEqual([(await validez(eje, deMemoria.id)).presente, (await validez(eje, alta.id)).presente], [false, true]);
-  assert.ok(leerEvento(eje, deMemoria.id).split('\n')[0].endsWith(' · no presente (pagado con T informativo; VG, 8-11)'));
-  assert.doesNotMatch(leerEvento(eje, alta.id), /no presente/);
+  // La función pura sigue distinguiendo lo que solo quema T informativo (nada de eso entra ya en un eje con la época 0).
+  assert.equal(esPresente({ autor: 'ana', movimientos: [pasado()] }), false);
+  assert.deepEqual([(await validez(eje, deMemoria.id)).presente, (await validez(eje, alta.id)).presente], [true, true]);
+  assert.doesNotMatch(leerEvento(eje, deMemoria.id), /no presente/);
   const X = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, movimientos: [gasta('ana')],
     payload: ['caducidad', 'lote', '=CONTAR(FILTRAR(BUSCAR("1000000000"), PRESENTE()))', '=CONTAR(BUSCAR("1000000000"))'] });
   await eje.escribir({ autor: 'ana', sobre: X.id, en: '1000000000', t: T0, movimientos: [gasta('ana')], payload: 'abierto hoy' });
-  await eje.escribir({ autor: 'ana', sobre: X.id, en: '1000000000', t: T0, movimientos: [pasado()], payload: 'abierto, de memoria' });
-  assert.deepEqual([evaluar(eje, X.id, [2]).texto, evaluar(eje, X.id, [3]).texto], ['2', '3']);
+  await eje.escribir({ autor: 'ana', sobre: X.id, en: '1000000000', t: T0, movimientos: [gasta('ana'), pasado()], payload: 'abierto, de memoria' });
+  assert.deepEqual([evaluar(eje, X.id, [2]).texto, evaluar(eje, X.id, [3]).texto], ['3', '3'], 'todo registro es presente: la memoria también pagó T real');
   assert.equal(evaluar(eje, X.id, [2]).estado, 'RESUELTO');
   // Restaurar rehace lo registrado.
   const otro = await Eje.desde(eje.orden.map((id) => eje.obtener(id)));
   assert.deepEqual(otro.tiempoInformativo(alta.id), eje.tiempoInformativo(alta.id));
-  assert.equal(otro.presente(deMemoria.id), false);
+  assert.equal(otro.presente(deMemoria.id), true);
 });
 
 // ---------- 2 · T se ve y no concede nada a terceros ----------

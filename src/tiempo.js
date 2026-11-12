@@ -64,7 +64,9 @@ export function ejeTemporal(eje, foco, { ahora = new Date().toISOString(), maxim
  * cuyo orden de magnitud (modos.ordenDeEscala: segundo 1-10 posiciones,
  * minuto 10-100, hora 100-1000, día 1000-10000, semana 10^4-10^5, ciclo
  * 10^5-10^6, año 10^6-10^7) alcanza el de lo emitido (modos.orden); la mayor
- * si se pasa de todas. 0 posiciones y 1-10 caen en el segundo.
+ * si se pasa de todas. **Nunca baja del minuto** (VG 13-11, #78): el coste de escribir va en minutos del calendario, así
+ * que de 0 a 100 posiciones caen en el minuto (6 posiciones, «6 min», no «360 s»); el segundo sigue siendo una escala
+ * disponible en el desplegable del 4 para afinar, pero no se propone.
  *
  * Es la utilidad con la que el 4 (quien ejecuta) propone la denominación de T
  * de un registro a partir de lo emitido (VG 12-11, #65; docs/notas/
@@ -72,7 +74,11 @@ export function ejeTemporal(eje, foco, { ahora = new Date().toISOString(), maxim
  * escala no la declara el autor a ojo, la propone el 4, así que el desajuste
  * solo sería un fallo del propio 4 (cosa de una prueba, no de una marca).
  */
+/** La escala más pequeña que el 4 propone (VG 13-11, #78): el minuto, la unidad del coste de escribir. */
+export const ESCALA_MINIMA_PROPUESTA = 'minuto';
+
 export function escalaQueCubre(posiciones) {
   const n = orden(posiciones);
-  return ESCALAS_REALES.find((e) => ORDENES_DE_ESCALA[e] >= n) ?? ESCALAS_REALES[ESCALAS_REALES.length - 1];
+  const cubre = ESCALAS_REALES.find((e) => ORDENES_DE_ESCALA[e] >= n) ?? ESCALAS_REALES[ESCALAS_REALES.length - 1];
+  return ESCALAS_REALES.indexOf(cubre) < ESCALAS_REALES.indexOf(ESCALA_MINIMA_PROPUESTA) ? ESCALA_MINIMA_PROPUESTA : cubre;
 }

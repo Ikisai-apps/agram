@@ -11,6 +11,7 @@ import { html, htmlEstilos } from '../carta/dom.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { poner } from './ayudas-division.js';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const T = [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }];
@@ -105,7 +106,7 @@ test('el estilo de los de abajo es X.5.0: el registro, si no su padre, si no su 
   assert.deepEqual(estilo(eje, compra.id, 'hijos', { pv: 1 }), { css: '--hueco: 1fr;', origen: 'epoca' });
   assert.deepEqual(estilo(eje, compra.id, 'hijos', { pv: 2 }), { css: '', origen: null });
   assert.deepEqual(estilo(eje, compra.id, 'hijos'), { css: '', origen: null });
-  const otraEpoca = epocaCon((e) => { e[8][7][1].find((f) => f[0][0] === 2)[5] = ['gap: 3px']; });
+  const otraEpoca = epocaCon((e) => { poner(e[8][7][1].find((f) => f[0][0] === 2), 'style', ['gap: 3px']); });
   assert.deepEqual(estilo(eje, compra.id, 'hijos', { pv: 2, epoca: otraEpoca }), { css: 'gap: 3px;', origen: 'epoca' });
   // La plantilla de X gana a la época.
   const conPlantilla = epocaCon((e) => { compraPlantilla(e)[5] = [['gap: 4px']]; });

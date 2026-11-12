@@ -70,7 +70,7 @@ export function reciboFirmado(rele, { instante = '2026-11-10T10:30:00.000Z', sem
  */
 export async function declararExterior(eje, { observadores = [], sello, privada, t } = {}) {
   const raiz = eje.obtener(eje.genesisId).autor;
-  const valores = { 'observer keys': observadores.join(' ') || '-', ...(sello ? { 'seal url': sello } : {}) };
+  const valores = { 'observer keys': observadores.join(' '), ...(sello ? { 'seal url': sello } : {}) };
   const a = G.ajustesEditablesDe('exterior settings', eje, raiz, valores);
   const cuando = t ?? new Date(eje.tMaximo() + 60_000).toISOString();
   return salida.escribirDesde(eje, { modo: 'sequenced', autor: raiz, sobre: a.sobre, en: a.en, payload: a.payload, t: cuando }, privada);

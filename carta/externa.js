@@ -162,7 +162,7 @@ export function evaluar(eje, yo, propuesta, opciones = {}) {
   const dato = { ...base, accion: canonico, nombre: contrato.texto(eje, contrato.claves.plantilla(canonico), idioma, { original: canonico }) };
   if (propuesta.sobre === undefined || propuesta.sobre === null || propuesta.sobre === '') return { ...dato, valida: false, motivo: t('externaSinSobre') };
   if (!sobre) return { ...dato, valida: false, motivo: t('externaRegistroDesconocido', { sobre: cadena(propuesta.sobre) }) };
-  const pedidos = acciones.parametros(plantilla.plantilla, o);
+  const pedidos = acciones.parametros(plantilla.plantilla, { ...o, eje });
   const dados = esObjeto(propuesta.parametros) ? propuesta.parametros : {};
   const parametros = {};
   for (const [clave, valor] of Object.entries(dados)) {
@@ -214,8 +214,9 @@ const CLASIFICACION = [
  * la transacción que la ancla: cada parámetro va por su posición (la de la plantilla: 0 el texto, 1 la clasificación
  * como ocupantes «etiqueta: valor», 5 el tipo, 6 la referencia al registro opinado, 7 la versión de la carta, 8 lo que
  * enseñaba lo tocado, 9 la ruta de ancestros). El registro opinado es el que se tocó o, si no era un registro, el que
- * estaba en foco. Una posición nunca queda vacía: la ruta (9) pide la 6, la 7 y la 8, y se rellenan con «-» las que
- * falten salvo la 6, sin la cual no se escribe lo de detrás. → { accion, parametros } o null si la época no trae la plantilla.
+ * estaba en foco. Sin huecos ni rellenos (VG 13-11, #77): lo opcional va al final y cada posición lleva contenido real; la 7
+ * pide la 6, la 8 la 7 (y lo que enseñaba lo tocado, o si no su tipo) y la ruta (9) la 8: lo que falta corta lo de detrás, no
+ * se rellena con nada. → { accion, parametros } o null si la época no trae la plantilla.
  */
 export function parametrosDeOpinion(eje, opinion, opciones = {}) {
   const g = contrato.guia(null, 'en', opciones);
@@ -229,10 +230,11 @@ export function parametrosDeOpinion(eje, opinion, opciones = {}) {
   const ruta = (opinion.nodo?.ruta ?? []).filter((x) => typeof x === 'string' && x);
   const v = { 0: opinion.texto, 1: clasificacion, 5: plantilla.nombre, 6: sobre };
   if (sobre) {
-    const visto = cadena(opinion.nodo?.texto);
-    v[7] = cadena(opinion.version) || (visto || ruta.length ? '-' : undefined);
-    v[8] = visto || (ruta.length ? '-' : undefined);
-    v[9] = ruta.length ? ruta : undefined;
+    // Lo que enseñaba lo tocado; si no enseñaba nada, qué era (su tipo): contenido real, no un relleno.
+    const visto = cadena(opinion.nodo?.texto) || cadena(opinion.nodo?.tipo);
+    v[7] = cadena(opinion.version) || undefined;
+    v[8] = v[7] && visto ? visto : undefined;
+    v[9] = v[8] && ruta.length ? ruta : undefined;
   }
   const parametros = {};
   for (const [pos, valor] of Object.entries(v)) {

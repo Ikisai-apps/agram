@@ -14,7 +14,7 @@
 //                                          (con `orden`, el de las listas verticales de un mundo: divisionDelMundo(…).orden)
 //   division(eje, ruta, { datos, forma })  qué puntos de vista caben y cómo se disponen (epoch.8.3)
 //   divisionDelMundo(eje, pv, { nivel })   la división de un mundo a pantalla completa: hijos, profundidad, forma, bandas, hilos, estilo, orden (epoch.8.7)
-//   formaDe(eje, pv, modo, { nivel })      la forma de un mundo en un modo (epoch.8.7, posición 3: una hoja por modo, «-» hereda del anterior)
+//   formaDe(eje, pv, modo, { nivel })      la forma de un mundo en un modo (epoch.8.7, clave «<modo> form»: el modo que no la dice hereda del anterior)
 //   hijosDe(eje, X, pv, { nivel })         los hijos de X en un mundo: [{ digito, nombre, ocupantes, vacio }]
 //                                          (con `direccion`, además lo derivado de cada hijo: leerRuta con la dirección entera)
 //   leer(eje, N, d, { yo })                lo que el PV d lee de N: lo anclado en N.d y lo que deriva del libro (epoch.2, «point of view»)
@@ -100,7 +100,7 @@ const SITIO = Object.freeze({
   bloque: [8, 3], // el espacio de bloque: 1 la tabla datos → PV, 2 la disposición por la forma del hueco, 3 el paso
   madurez: [8, 4], // 1 umbrales por posición, 2 sus nombres, 3 techos de los órdenes, 4 sus nombres
   ordenes: [8, 5], // 1 los órdenes: [[nombre], [mecanismo, …], [qué]]
-  divisionDelMundo: [8, 7], // 1 la división de cada mundo a pantalla completa: [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos]]
+  divisionDelMundo: [8, 7], // 1 la división de cada mundo a pantalla completa: [[pv], [profundidad], [nota], [claves], [valores]] (#77)
   pasosDeTamano: [8, 6], // 1 los pasos de tamaño de un PV en Mapped: [[nombre], [fracción en una esquina], [fracción en un lado], [datos que caben]]
   cerrados: [9, 0, 1, 1], // las plantillas de cerrado: [[nombre], [fórmula]]
   plantillas: [9, 2], // 0 la cabecera (0.1 el tipo genérico por dígito), 1… las plantillas de dominio
@@ -177,6 +177,16 @@ export function esPlantilla(r) {
   return Array.isArray(cuatro[4]) && cuatro[4].includes('template');
 }
 
+/**
+ * ¿Es `p` una plantilla de AJUSTES (VG 13-11, #77: «claves y valores»)? Lo dice la bandera `settings` de su 4.4 (junto a
+ * `template`). Sus descripciones por posición son el CATÁLOGO de los ajustes que conoce (cada una, un ajuste: su nombre
+ * en el 0, su tipo, su validación, su defecto y su ayuda en el 9), no el molde de las posiciones del registro: un registro
+ * de ajustes lleva sus claves en el 1 y sus valores, en paralelo, en el 2 (MOLDE_DE_AJUSTES).
+ */
+export function esDeAjustes(p) {
+  return esPlantilla(p) && Array.isArray(p[4]) && esDecupla(p[4]) && Array.isArray(p[4][4]) && p[4][4].includes('settings');
+}
+
 /** El nombre de una plantilla: la etiqueta de su 0 (el 0.0), que es el nombre del tipo. */
 export const nombreDePlantilla = (p) => texto(hoja(hoja(p?.[0])));
 
@@ -233,9 +243,14 @@ export function plantilla(eje, X, opciones = {}) {
   return null;
 }
 
-/** Lo que una plantilla dice de la posición d (su décupla), o undefined si calla. Solo describe las posiciones de la profundidad 0. */
-function descripcion(p, camino) {
+/**
+ * Lo que una plantilla dice de la posición d (su décupla), o undefined si calla. Solo describe las posiciones de la
+ * profundidad 0. Una plantilla de ajustes no describe las posiciones de su registro (el catálogo de sus ajustes no son
+ * posiciones: #77), salvo que se pida el `catalogo`.
+ */
+function descripcion(p, camino, { catalogo = false } = {}) {
   if (!p || camino.length !== 1) return undefined;
+  if (!catalogo && esDeAjustes(p)) return undefined;
   const d = p[camino[0]];
   return Array.isArray(d) && esDecupla(d) ? d : undefined;
 }
@@ -316,6 +331,19 @@ export function validar(eje, X, opciones = {}) {
   const nombrePlantilla = nombreDePlantilla(p);
   const t = (clave, original) => texto_(eje, clave, opciones.idioma, { original, epoca: opciones.epoca });
   const fuera = [];
+  // Un registro de ajustes (#77): sus valores son los del 2, uno por clave del 1; cada ajuste del catálogo que es una enumeración
+  // (su validación «="a" in it.N or …») solo admite sus palabras; el motivo es la ayuda del ajuste, en el idioma.
+  if (esDeAjustes(p)) {
+    const ks = hojas(ev.payload[MOLDE_DE_AJUSTES.claves]);
+    const vs = hojas(ev.payload[MOLDE_DE_AJUSTES.valores]);
+    const catalogo = clavesDe(p);
+    ks.forEach((k, i) => {
+      const c = catalogo.find((x) => x.clave === k);
+      if (!c?.valores || c.valores.includes(vs[i])) return;
+      fuera.push({ posicion: MOLDE_DE_AJUSTES.valores, motivo: t(CLAVE.parametro(nombrePlantilla, k, 'label'), k) + ': ' + t(CLAVE.parametro(nombrePlantilla, k, 'help'), c.ayuda ?? '') });
+    });
+    return fuera;
+  }
   for (let d = 0; d < ARIDAD; d++) {
     const desc = descripcion(p, [d]);
     const formula = texto(ultima(desc?.[2]));
@@ -583,14 +611,34 @@ function cajasDeHitos(opciones = {}) {
 
 /** Las filas de epoch.8.7, la división de cada mundo. */
 const filasDeDivision = (raiz) => hojas(en(raiz, [...SITIO.divisionDelMundo, 1])).filter(Array.isArray);
-/** Lo que mide una fila de epoch.8.7: sus referencias, sin «-». */
-const mideDeFila = (fila) => hojas(fila?.[4]).filter((s) => typeof s === 'string' && s !== '-');
+/**
+ * Los atributos de una fila de epoch.8.7 (VG 13-11, #77: sin huecos ni rellenos, claves y valores). La fila es
+ * [[pv], [profundidad], [nota], [claves], [valores]]: el 3 son las CLAVES de lo que la fila dice (solo las que dice: «child»,
+ * «measures», «style», «thread», «order», «<modo> form», «link <n>» y los ejes de la matriz del 4: «office», «execution»,
+ * «criterion») y el 4 sus VALORES, en paralelo; una clave que se repite junta sus valores en orden. → { <clave>: [valores] }.
+ * «link <n>» es el enlace del hijo (o de la caja) n: un hijo que no mide nada no tiene la suya, sin hueco ni «-».
+ */
+function atributosDeFila(fila) {
+  const claves = hojas(fila?.[3]);
+  const valores = hojas(fila?.[4]);
+  const dicen = {};
+  claves.forEach((k, i) => { if (typeof k === 'string' && valores[i] !== undefined) (dicen[k] ??= []).push(valores[i]); });
+  return dicen;
+}
+/** Los enlaces de una fila de epoch.8.7, por el número de su clave «link <n>»: [[n, valor]] en orden creciente de n. */
+function enlacesDeFila(fila) {
+  const dicen = atributosDeFila(fila);
+  return Object.keys(dicen).map((k) => [/^link (\d+)$/.exec(k)?.[1], dicen[k][0]]).filter(([n, v]) => n !== undefined && (typeof v === 'number' || typeof v === 'string')).map(([n, v]) => [Number(n), v]).sort((a, b) => a[0] - b[0]);
+}
+/** Lo que mide una fila de epoch.8.7: sus referencias («measures»). */
+const mideDeFila = (fila) => (atributosDeFila(fila).measures ?? []).filter((s) => typeof s === 'string');
 /** Una dirección de la escalera: los diez dígitos de un punto del cubo [0..9]^10. */
 const RE_DIRECCION = /^\d{10}$/;
 
 /**
- * Los dos ejes de la matriz del 4 (VG 12-11, #41): el enlace de la fila de epoch.8.7 que mide «execution», dos listas,
- * [[los oficios], [[la ejecución, sus criterios…], …]]. → { filas: [{ indice, nombre, texto? }], columnas: [{ indice,
+ * Los dos ejes de la matriz del 4 (VG 12-11, #41): lo que dice la fila de epoch.8.7 que mide «execution» con sus claves y
+ * valores (#77): cada «office» es un oficio y cada «execution» una ejecución, con sus «criterion» detrás (los que la
+ * eligen, hasta la siguiente «execution»). → { filas: [{ indice, nombre, texto? }], columnas: [{ indice,
  * nombre, criterios, texto? }] } o null si la época no los da. Las filas son los oficios (el tipo de acción: 0 mostrar,
  * 1 gestionar, 2 administrar, 3 coordinar, 4 hacer, 5 verificar, 6 registrar, 7 planear, 8 medir, 9 guiar); las
  * columnas, la ejecución (lo que se mueve: 0 contenido que se muestra, 1 E, 2 P, 3 R, 4 T, 5 verificación sin token
@@ -602,22 +650,30 @@ const RE_DIRECCION = /^\d{10}$/;
 export function ejesDeLaMatriz({ idioma, ...opciones } = {}) {
   const raiz = raizDe(epocaDe(opciones));
   const fila = filasDeDivision(raiz).find((r) => mideDeFila(r).includes(MIDE.ejecucion));
-  const [oficios, ejecucion] = hojas(fila?.[8]).filter(Array.isArray);
-  if (!oficios || !ejecucion) return null;
+  const oficios = [];
+  const ejecucion = [];
+  hojas(fila?.[3]).forEach((k, i) => {
+    const v = hojas(fila?.[4])[i];
+    if (typeof v !== 'string') return;
+    if (k === 'office') oficios.push(v);
+    else if (k === 'execution') ejecucion.push([v]);
+    else if (k === 'criterion' && ejecucion.length) ejecucion.at(-1).push(v);
+  });
+  if (!oficios.length || !ejecucion.length) return null;
   const traducir = (clave, nombre) => (idioma ? { texto: texto_(null, clave, idioma, { original: nombre, ...opciones }) } : {});
   // El orden de pintado de las columnas (VG 12-11): 1 … 9 y el 0 (contenido que se muestra) al final; el `indice` sigue siendo el dígito. Las filas, 0 … 9.
   const al0Final = (a, b) => (a.indice === 0) - (b.indice === 0) || a.indice - b.indice;
   return {
-    filas: hojas(oficios).filter((s) => typeof s === 'string').map((nombre, indice) => ({ indice, nombre, ...traducir(CLAVE.oficio(nombre), nombre) })),
-    columnas: hojas(ejecucion).filter(Array.isArray).map((c, indice) => {
-      const [nombre, ...criterios] = hojas(c).filter((s) => typeof s === 'string');
+    filas: oficios.map((nombre, indice) => ({ indice, nombre, ...traducir(CLAVE.oficio(nombre), nombre) })),
+    columnas: ejecucion.map((c, indice) => {
+      const [nombre, ...criterios] = c;
       return { indice, nombre, criterios, ...traducir(CLAVE.ejecucion(nombre), nombre) };
     }).sort(al0Final),
   };
 }
 
 /**
- * La escalera dulce (VG 12-11, #41): el enlace de la fila de epoch.8.7 que mide «rank» (el cielo del 8), una dirección
+ * La escalera dulce (VG 12-11, #41): los «link» de la fila de epoch.8.7 que mide «rank» (el cielo del 8), una dirección
  * por caja, en el orden de las cajas: la fila k ↔ el dígito k+1 repetido k+1 veces con ceros detrás (la fila es el tipo
  * de acción y la dirección el intercambio hecho, un dígito más porque cambiar es más que ver; la fila 9 ↔ diez ceros, el
  * ciclo da la vuelta). → [{ indice, direccion, digito, profundidad, fila, columna, nivel, grado, nombre }]: `fila` es el
@@ -626,8 +682,9 @@ export function ejesDeLaMatriz({ idioma, ...opciones } = {}) {
  */
 export function escalera(opciones = {}) {
   const raiz = raizDe(epocaDe(opciones));
-  const fila = filasDeDivision(raiz).find((r) => mideDeFila(r).includes(MIDE.rango) && hojas(r[8]).some((s) => RE_DIRECCION.test(String(s))));
-  const direcciones = hojas(fila?.[8]).filter((s) => typeof s === 'string' && RE_DIRECCION.test(s));
+  const enlaces = (r) => enlacesDeFila(r).map(([, v]) => v).filter((v) => typeof v === 'string' && RE_DIRECCION.test(v));
+  const fila = filasDeDivision(raiz).find((r) => mideDeFila(r).includes(MIDE.rango) && enlaces(r).length);
+  const direcciones = enlaces(fila);
   return direcciones.map((direccion, indice) => {
     const digito = Number(direccion[0]);
     const profundidad = direccion.length - direccion.replace(new RegExp('^' + direccion[0] + '+'), '').length;
@@ -868,11 +925,11 @@ const MODO_DE_LA_DIVISION = 'mapped';
 const ENTRE_NIVELES = '>';
 
 /**
- * La forma de un mundo en un modo (epoch.8.7, VG 12-11, #52): la posición 3 de la fila del PV es una LISTA con una hoja por
- * modo, en el orden de los modos de la época (epoch.8.2: Pointed, Sequenced, Mapped, Scened, Be); en cada hoja, la forma de
- * cada nivel separadas por «>» (la última se repite), y «-» donde el modo no declara la suya y hereda la del modo anterior
- * (Mapped de Sequenced, Sequenced de Pointed; Scened de Mapped; Be de Scened). Una lista más corta que los modos deja
- * los últimos en «-». El PV de la primera profundidad define cómo se ve a cualquier profundidad: esto no lo cambia.
+ * La forma de un mundo en un modo (epoch.8.7, VG 12-11, #52; VG 13-11, #77): la fila del PV dice la forma de cada modo que
+ * declara una en la clave «<modo> form» («sequenced form», «mapped form»…: el nombre del modo de epoch.8.2 en minúsculas:
+ * Pointed, Sequenced, Mapped, Scened, Be); su valor son la forma de cada nivel separadas por «>» (la última se repite). Un
+ * modo que no la dice (no tiene esa clave: ni hueco ni «-») hereda la del modo anterior (Mapped de Sequenced, Sequenced de
+ * Pointed; Scened de Mapped; Be de Scened). El PV de la primera profundidad define cómo se ve a cualquier profundidad: esto no lo cambia.
  * → { forma, formas, de } (`forma` la del `nivel` pedido, desde 1, la última se repite; `formas` las de todos los niveles;
  * `de` el modo de la época donde se declara) o { forma: null, formas: [], de: null } si ningún modo hasta este la declara;
  * null si la época no dice nada de ese PV. Un modo que la época no tiene lanza.
@@ -884,10 +941,11 @@ export function formaDe(_eje, pv, modo = MODO_DE_LA_DIVISION, { nivel = 1, ...op
   const orden = modos(opciones).map((m) => String(m.nombre).toLowerCase());
   const donde = orden.indexOf(String(modo).toLowerCase());
   if (donde < 0) throw new Error('modo desconocido: ' + modo + ' (la época tiene ' + orden.join(', ') + ')');
-  const hojasDeModo = hojas(fila[3]).filter((s) => typeof s === 'string');
-  for (let i = Math.min(donde, hojasDeModo.length - 1); i >= 0; i--) {
-    if (hojasDeModo[i].trim() === '-') continue;
-    const formas = hojasDeModo[i].split(ENTRE_NIVELES).map((s) => s.trim()).filter(Boolean);
+  const dicen = atributosDeFila(fila);
+  for (let i = donde; i >= 0; i--) {
+    const dicha = (dicen[orden[i] + ' form'] ?? []).find((s) => typeof s === 'string' && s.trim());
+    if (dicha === undefined) continue;
+    const formas = dicha.split(ENTRE_NIVELES).map((s) => s.trim()).filter(Boolean);
     const actual = Math.min(Math.max(1, Math.floor(nivel)), formas.length);
     return { forma: formas[actual - 1], formas, de: orden[i] };
   }
@@ -897,9 +955,11 @@ export function formaDe(_eje, pv, modo = MODO_DE_LA_DIVISION, { nivel = 1, ...op
 /**
  * La división de un mundo (un punto de vista lateral) a pantalla completa (epoch.8.7, VG 10-11 noche): no es una
  * matriz con herencia sino la cruceta aplicada al elemento pulsado. Al entrar en un elemento, sus hijos son los
- * dígitos que ese mundo enciende (cada uno, un PV aplicado al elemento de arriba). La fila de la época, una por PV,
- * es `[[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos], [enlace], [orden]]`;
- * las posiciones que no aplican llevan `0`, `[]` o `"-"`. `nivel` es el nivel de profundidad en que se mira (desde 1).
+ * dígitos que ese mundo enciende (cada uno, un PV aplicado al elemento de arriba). La fila de la época, una por PV, es
+ * `[[pv], [profundidad], [nota], [claves], [valores]]` (VG 13-11, #77: sin huecos ni rellenos, claves y valores): el 3 son las
+ * claves de lo que la fila dice y el 4 sus valores en paralelo (`child` los hijos, `measures` lo que mide, `style` el estilo de
+ * los de abajo, `thread` los hilos, `link` el enlace, `order` el orden, `<modo> form` la forma de un modo, y los ejes de la
+ * matriz del 4); lo que no aplica no está. `nivel` es el nivel de profundidad en que se mira (desde 1).
  * → { pv, hijos, profundidad, nivel, entra, forma, formas, mide, bandas?, paso?, hilos?, enlace?, orden?, estilo, nota } o null si la época
  * no dice nada de ese PV. `forma` es la del nivel pedido (la última se repite); `bandas` (y `paso`, el paso de
  * epoch.9.8 que coloca cada entrada) salen de lo que la fila mide: en las franjas (el 6 y el 7), una por escala de T
@@ -911,7 +971,7 @@ export function formaDe(_eje, pv, modo = MODO_DE_LA_DIVISION, { nivel = 1, ...op
  * referencias de lo que la fila mide; `enlace` (encargo «datos», issue #11), lo que cada hijo es de lo que la fila mide,
  * uno por hijo y en su orden: en el 2, la mirada de su P (epoch.1.1); en el 3, la zona de atención (epoch.1.2.1); en el 1
  * (encargo «datos2», issue #11), la referencia de lo que mide cada hijo (epoch.9.2 el coste, capacity la capacidad,
- * epoch.4.0 lo que entra y sale), con null donde la fila pone «-» (ese hijo no mide nada). Encargo «datos3» (issue #11):
+ * epoch.4.0 lo que entra y sale), con null en los hijos de detrás que no tienen «link» (no miden nada). Encargo «datos3» (issue #11):
  * `pasos`, los nombres de los pasos de epoch.9.8 que la fila mide, en su orden (el 7: «cuando» y «escala»), y, si la fila
  * mide «cohort» (el 8), `cohortes`, las cohortes que la época admite ([{ valor, alcance, texto }], cohortes()).
  */
@@ -921,16 +981,18 @@ export function divisionDelMundo(eje, pv, { nivel = 1, modo = MODO_DE_LA_DIVISIO
   if (!fila) return null;
   const numeros = (x) => hojas(x).filter((n) => typeof n === 'number');
   const textos = (x) => hojas(x).filter((s) => typeof s === 'string');
-  const hijos = numeros(fila[1]);
-  const profundidad = Number(hoja(fila[2])) || 0;
+  const dicen = atributosDeFila(fila);
+  const hijos = numeros(dicen.child);
+  const profundidad = Number(hoja(fila[1])) || 0;
   const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, profundidad));
   const { formas, forma } = formaDe(eje, pv, modo, { nivel: actual, ...opciones });
-  const mide = textos(fila[4]).filter((s) => s !== '-');
-  const hilos = numeros(fila[7]);
-  // El enlace, uno por hijo: un número (la mirada, la zona) o una referencia (el 1); «-» en un hijo que no mide nada.
-  const enlaceCrudo = hojas(fila[8]).filter((x) => typeof x === 'number' || typeof x === 'string');
-  const enlace = enlaceCrudo.every((x) => x === '-') ? [] : enlaceCrudo.map((x) => (x === '-' ? null : x));
-  const orden = ordenPorNombre(texto(hoja(fila[9])), opciones)?.nombre ?? null;
+  const mide = mideDeFila(fila);
+  const hilos = numeros(dicen.thread);
+  // El enlace, uno por hijo y en su orden: un número (la mirada, la zona) o una referencia (el 1); el hijo que no mide nada no
+  // tiene «link <su dígito>» (sin hueco ni «-») y su enlace es null. Sin hijos (el 8), uno por caja, en su orden.
+  const enlaces = enlacesDeFila(fila);
+  const enlace = !enlaces.length ? [] : hijos.length ? hijos.map((h) => enlaces.find(([n]) => n === h)?.[1] ?? null) : enlaces.map(([, v]) => v);
+  const orden = ordenPorNombre(texto(hoja(dicen.order)), opciones)?.nombre ?? null;
   const nombres = mide.filter((s) => !/^epoch\./.test(s) && s !== 'hitos' && s !== MIDE.rango);
   // Los pasos de epoch.9.8 que la fila nombra, en su orden (encargo «datos3»): la entrada va en la franja del primero que
   // da valor (el 7: por la fecha a la que se refiere y, si no, por su escala); el último es la escala que declara.
@@ -949,8 +1011,8 @@ export function divisionDelMundo(eje, pv, { nivel = 1, modo = MODO_DE_LA_DIVISIO
     ...(hilos.length ? { hilos } : {}),
     ...(enlace.length ? { enlace } : {}),
     ...(orden ? { orden } : {}),
-    estilo: cssSeguro(textos(fila[5]).join('; ')),
-    nota: texto(ultima(fila[6])) ?? '',
+    estilo: cssSeguro(textos(dicen.style).join('; ')),
+    nota: texto(ultima(fila[2])) ?? '',
   };
 }
 
@@ -1833,7 +1895,7 @@ function cohorteEscrita(eje, ev, opciones) {
   const param = parametroPorEtiqueta(p, CAMBIAR_COHORTE.parametro);
   const ancla = p ? texto(hoja(p[5])) : undefined;
   const donde = param ? texto(hoja(param[5])) : undefined;
-  if (!ancla || !donde || ancla.startsWith('=') || donde === '-' || typeof eje?.sobre !== 'function') return null;
+  if (!ancla || !donde || ancla.startsWith('=') || !/^\d(\.\d)*$/.test(donde) || typeof eje?.sobre !== 'function') return null;
   const escritos = eje.sobre(ev.id, direccion(caminoDe(ancla))).filter((h) => h.autor === ev.autor && hojas(h.payload?.[4]).includes(CAMBIAR_COHORTE.plantilla));
   const ultimo = escritos[escritos.length - 1];
   const v = ultimo ? hoja(en(ultimo.payload, caminoDe(donde))) : undefined;
@@ -1986,15 +2048,15 @@ export const configuracionGuia = (eje, quien, opciones = {}) => configuracionDe(
 export const POSICION_ANCLA_DE_OPINIONES = 6;
 
 /**
- * Dónde ancla `quien` sus opiniones como registros: lo que dice su registro de ajustes de la guía en la posición 6 (el id
- * o el 0 de un registro, tal cual lo escribió) o null si no lo ha dicho (o escribió «-»: quitarla). La resolución a un
- * registro es de acciones.registroDe.
+ * Dónde ancla `quien` sus opiniones como registros: lo que dice su registro de ajustes de la guía en el ajuste de la
+ * posición 6 del catálogo (el id o el 0 de un registro, tal cual lo escribió) o null si no lo ha dicho (sin el ajuste,
+ * quitarla es no escribirlo: #77). La resolución a un registro es de acciones.registroDe.
  */
 export function anclaDeLasOpiniones(eje, quien, opciones = {}) {
   const nombre = ajustesDeLaGuia(opciones);
   const clave = clavesDeConfiguracionDe(nombre, opciones).find((c) => c.pv === POSICION_ANCLA_DE_OPINIONES)?.clave;
   const v = clave ? configuracionDe(eje, quien, nombre, opciones)[clave] : undefined;
-  return typeof v === 'string' && v.trim() && v.trim() !== '-' ? v.trim() : null;
+  return typeof v === 'string' && v.trim() ? v.trim() : null;
 }
 
 /** ¿Es X un registro de configuración (de las preferencias o de los ajustes de la guía o del exterior)? Lo que no se manda a ninguna IA: puede llevar dónde se comparte el eje. */
@@ -2007,33 +2069,70 @@ export function esDeConfiguracion(eje, X, opciones = {}) {
   return p === en(raizDe(epocaDe(opciones)), SITIO.preferencias) || p === propias.find((x) => x.nombre === ajustesDeLaGuia(opciones))?.registro || otras.includes(p);
 }
 
+/**
+ * El molde de un registro de ajustes (VG 13-11, #77: sin huecos ni rellenos, claves y valores): 0 el nombre de la
+ * plantilla, 1 las CLAVES (los nombres de los ajustes que tiene, en el orden del catálogo de su plantilla), 2 los VALORES
+ * (una décupla paralela: el valor de la clave de su misma posición; un ajuste de varios valores repite su clave), 3 quién
+ * lo escribe (su dueño), 4 su ayuda (lo que es, la de su plantilla) y 5 el tipo (B4: el 5 de todo registro nombra su
+ * plantilla). Ninguna posición vacía ni rellena con «-»: solo van los ajustes que tienen valor.
+ */
+export const MOLDE_DE_AJUSTES = Object.freeze({ nombre: 0, claves: 1, valores: 2, quien: 3, ayuda: 4, tipo: 5 });
+
+/**
+ * Los ajustes que dice un payload de ajustes, por clave del catálogo `claves` (las de la plantilla): { <clave>: [valores] }
+ * en el orden en que vienen. Las claves que la plantilla no conoce y los valores que no son terminales se descartan; una
+ * lista de valores más corta que la de claves deja los últimos sin valor.
+ */
+function ajustesDelPayload(payload, claves) {
+  const dicen = {};
+  if (!Array.isArray(payload)) return dicen;
+  const ks = hojas(payload[MOLDE_DE_AJUSTES.claves]);
+  const vs = hojas(payload[MOLDE_DE_AJUSTES.valores]);
+  ks.forEach((k, i) => {
+    if (typeof k !== 'string' || !claves.has(k) || !esTerminal(vs[i])) return;
+    (dicen[k] ??= []).push(vs[i]);
+  });
+  return dicen;
+}
+
+/**
+ * El payload de un registro de ajustes de la plantilla `nombre` con los `valores` dados ({ <clave>: valor | [valores] }, solo
+ * los que tienen valor, en el orden del catálogo de la plantilla): el molde de MOLDE_DE_AJUSTES. `quien` es el dueño (el 3).
+ * null si no hay ningún valor (un registro de ajustes sin ajustes no dice nada, y el 1 no puede quedar vacío).
+ */
+export function registroDeAjustes(nombre, valores, { quien, ...opciones } = {}) {
+  const p = plantillas(null, opciones).find((x) => x.nombre === nombre)?.registro;
+  if (!esDeAjustes(p) || typeof quien !== 'string' || !quien) return null;
+  const claves = [];
+  const dados = [];
+  for (const { clave } of clavesDe(p)) {
+    for (const v of hojas(valores?.[clave])) {
+      if (!esTerminal(v) || v === '') continue;
+      claves.push(clave);
+      dados.push(v);
+    }
+  }
+  if (!claves.length) return null;
+  const ayuda = texto(ultima(descripcion(p, [0], { catalogo: true })?.[9])) ?? nombre;
+  return [[nombre], claves, dados, [quien], [ayuda], [nombre]];
+}
+
 function leerConfiguracion(eje, quien, p, opciones) {
   const identidad = typeof quien === 'string' ? quien : quien?.identidad;
   if (!esPlantilla(p)) return { de: null };
   const valores = {};
   // El 5 es el tipo (B4: ahí el registro nombra su plantilla), no una preferencia: la plantilla lo describe para que
   // las posiciones de detrás existan (encargo 3c-2b: «model» en el 6), y aquí no se lee.
-  for (let d = 1; d < ARIDAD; d++) {
-    if (d === 5) continue;
-    const desc = descripcion(p, [d]);
-    if (!desc) continue;
-    const nombre = texto(hoja(desc[0]));
-    const defecto = hojas(desc[9]).slice(0, -1);
-    if (nombre && defecto.length) valores[nombre] = defecto.length === 1 ? defecto[0] : defecto;
-  }
+  const catalogo = clavesDe(p);
+  for (const { clave, defecto } of catalogo) if (defecto !== undefined) valores[clave] = defecto;
   const alta = identidad ? eje?.alta(identidad) : null;
   let registro = null;
   if (alta) {
     for (const h of eje.sobre(alta.id, direccion([9]))) if (h.autor === identidad && plantilla(eje, h, opciones) === p) registro = h;
   }
   if (registro && Array.isArray(registro.payload)) {
-    for (let d = 1; d < ARIDAD; d++) {
-      if (d === 5) continue;
-      const desc = descripcion(p, [d]);
-      const nombre = texto(hoja(desc?.[0]));
-      const v = hojas(registro.payload[d]).filter((x) => esTerminal(x));
-      if (nombre && v.length) valores[nombre] = v.length === 1 ? v[0] : v;
-    }
+    const dicen = ajustesDelPayload(registro.payload, new Set(catalogo.map((c) => c.clave)));
+    for (const [clave, v] of Object.entries(dicen)) valores[clave] = v.length === 1 ? v[0] : v;
   }
   return { ...valores, de: registro?.id ?? null };
 }
@@ -2074,7 +2173,7 @@ function clavesDe(p) {
   const claves = [];
   for (let d = 1; d < ARIDAD; d++) {
     if (d === 5) continue;
-    const desc = descripcion(p, [d]);
+    const desc = descripcion(p, [d], { catalogo: true });
     const clave = texto(hoja(desc?.[0]));
     if (!clave) continue;
     const defecto = hojas(desc[9]).slice(0, -1);
@@ -2382,8 +2481,6 @@ export function desdeLegible(textoDado, tipo, { eje, idioma = 'en', ...opciones 
 
 /** La posición donde un registro nombra su plantilla (B4: el 5 es el tipo; es la que lee plantilla()). */
 const POSICION_DEL_TIPO = 5;
-/** Dónde pone la época los modelos de visualización (epoch.9.7: 0 la cabecera, con la dirección de la preferencia que nombra el modelo en 0.5; 1… las referencias a los modelos). */
-const SITIO_MODELOS = [9, 7];
 /** Cuántos valores, como mucho, da un rango de enteros de una validación («=it >= 0 and it <= 9»: los dígitos). */
 const MAXIMO_RANGO = ARIDAD;
 
@@ -2393,28 +2490,6 @@ function rangoDeValidacion(formula) {
   if (!m) return null;
   const [a, b] = [Number(m[1]), Number(m[2])];
   return b >= a && b - a < MAXIMO_RANGO ? Array.from({ length: b - a + 1 }, (_, k) => a + k) : null;
-}
-
-/** Los idiomas de la época (epoch.9.4) con su nombre: [{ valor: código, texto: nombre }]; el canónico, por su código. */
-function idiomasConNombre(opciones) {
-  const registros = hojas(en(raizDe(epocaDe(opciones)), SITIO.mensajes)).slice(1).filter(Array.isArray);
-  return idiomas(opciones).map((codigo) => {
-    const nombre = texto(hojas(registros.find((r) => hojas(r[0]).includes(codigo))?.[0])[1]);
-    return { valor: codigo, texto: nombre ?? codigo };
-  });
-}
-
-/** Los nombres de los modelos de la época (epoch.9.7.1…, cada uno por el 0.0 de su registro), en su orden. */
-function nombresDeModelos(opciones) {
-  const epoca = epocaDe(opciones);
-  return hojas(en(raizDe(epoca), SITIO_MODELOS)).slice(1).filter(esReferencia)
-    .map((r) => texto(hoja(hoja(epoca.registros?.get?.(r.ref)?.[0])))).filter(Boolean);
-}
-
-/** La dirección (diez dígitos) de la preferencia que nombra el modelo: la cabecera de los modelos (epoch.9.7.0.5), o null. */
-function direccionDelModelo(opciones) {
-  const d = texto(hoja(en(raizDe(epocaDe(opciones)), [...SITIO_MODELOS, 0, 5])));
-  return d && /^[0-9]{10}$/.test(d) ? d : null;
 }
 
 /** Los registros hermanos de X: los anclados en su mismo padre con su misma plantilla (sin plantilla, en su misma posición), sin X. */
@@ -2432,10 +2507,9 @@ function hermanosDe(eje, ev, opciones) {
  *       las identidades del eje; cada uno con su legible;
  *   (b) si es una enumeración de la época: la que escribe su validación («="a" in it… or "b" in it…», como el pintado;
  *       un rango pequeño de enteros, «=it >= 0 and it <= 9», como los dígitos), los niveles si su tipo es `level`
- *       (epoch.8.4), los idiomas de los mensajes si es la preferencia del idioma (epoch.9.4: la que tiene por defecto uno
- *       de ellos), los modelos si es la
- *       preferencia que nombra la cabecera de los modelos (epoch.9.7.0.5) o, en un parámetro de una acción, la lista de
- *       la que su defecto «=first …» toma el primero;
+ *       (epoch.8.4) o, en un parámetro de una acción, la lista de la que su defecto «=first …» toma el primero (los
+ *       ajustes de una plantilla de ajustes no son posiciones de su registro, #77: sus listas, el idioma y el modelo,
+ *       las da la configuración por clave, carta.preferencias);
  *   (c) si no, los ocupantes ya escritos en esa posición en los registros hermanos (mismo padre, misma plantilla): lo
  *       propio de su payload y lo anclado ahí (por su legible), sin repetir.
  * `parametro` (un parámetro de acciones.parametros, con `en`: la dirección donde anclará el registro que escribe la
@@ -2459,12 +2533,11 @@ export function opciones(eje, X, pv, { yo, idioma, parametro, ...resto } = {}) {
   let camino;
   let hermanos;
   let esTipo = false;
-  let preferencia = null;
   if (parametro) {
     tipoDato = hojas(parametro.tipo);
     formula = parametro.validacion ?? null;
     defectos = hojas(parametro.defectos);
-    camino = parametro.posicion && parametro.posicion !== '-' ? caminoDe(parametro.posicion) : null;
+    camino = parametro.posicion ? caminoDe(parametro.posicion) : null;
     hermanos = id && typeof parametro.en === 'string' ? eje.sobre(id, parametro.en) : [];
   } else {
     camino = caminoDe(pv);
@@ -2474,7 +2547,6 @@ export function opciones(eje, X, pv, { yo, idioma, parametro, ...resto } = {}) {
     formula = texto(ultima(desc?.[2])) ?? null;
     hermanos = hermanosDe(eje, ev, o);
     esTipo = camino.length === 1 && camino[0] === POSICION_DEL_TIPO;
-    if (p && p === en(raiz, SITIO.preferencias)) preferencia = { defecto: hojas(desc?.[9]).slice(0, -1), direccion: direccion([...SITIO.preferencias, ...camino]) };
   }
   const t0 = tipoDato.find((x) => typeof x === 'string');
   const unicas = (lista) => {
@@ -2501,9 +2573,6 @@ export function opciones(eje, X, pv, { yo, idioma, parametro, ...resto } = {}) {
   const enumerada = valoresDeValidacion(formula) ?? rangoDeValidacion(formula);
   if (enumerada) return unicas(enumerada.map((v) => ({ valor: v, texto: leer(v, tipoDato) })));
   if (t0 === TIPO.nivel) return unicas(niveles({ epoca }).map((n) => ({ valor: n, texto: texto_(eje, CLAVE.nivel(n), idioma, { original: n, epoca }) })));
-  // La época no enlaza la preferencia del idioma con epoch.9.4 (solo lo dice su ayuda): es la que tiene por defecto un idioma de los mensajes.
-  if (preferencia?.defecto.length === 1 && idiomas(o).includes(preferencia.defecto[0])) return unicas(idiomasConNombre(o));
-  if (preferencia && preferencia.direccion === direccionDelModelo(o)) return unicas(nombresDeModelos(o).map((n) => ({ valor: n, texto: n })));
   for (const d of defectos) {
     const m = typeof d === 'string' ? /^=\s*first\s+(.+)$/.exec(d) : null;
     if (!m || !id) continue;

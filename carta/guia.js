@@ -68,8 +68,10 @@ export function ajustesEditables(eje, yo, valores = {}, opciones = {}) {
 
 /**
  * Lo mismo para cualquier plantilla de ajustes de la época, por su nombre (los de la guía y los del exterior, docs/CONTRATO.md
- * §16.2 y §16.2 bis): el registro candidato de `yo` con los valores dados sobre los actuales. Un ajuste sin valor por
- * defecto (una url) se quita escribiendo «-».
+ * §16.2 y §16.2 bis): el registro candidato de `yo` con los valores dados sobre los actuales. Sin huecos ni rellenos (VG
+ * 13-11, #77): el registro lleva las claves de los ajustes que tienen valor y, en paralelo, sus valores
+ * (contrato.registroDeAjustes); el formulario enseña un campo por ajuste conocido y guarda solo los rellenos. Un campo dado
+ * vacío quita el ajuste (si tiene defecto de la época, vuelve a él); uno no dado conserva el actual.
  */
 export function ajustesEditablesDe(nombre, eje, yo, valores = {}, opciones = {}) {
   const alta = eje?.alta(yo);
@@ -77,34 +79,27 @@ export function ajustesEditablesDe(nombre, eje, yo, valores = {}, opciones = {})
   if (!alta || !plantilla) return null;
   const idioma = opciones.idioma ?? contrato.configuracion(eje, yo, opciones).language;
   const leido = contrato.configuracionDe(eje, yo, nombre, opciones);
-  // «-» es lo que se escribe en una posición sin valor que queda delante del tipo (BTML no tiene huecos): se lee como vacío.
   // Una lista (las claves de los observadores, varias hojas) se enseña y se compara como un texto separado por espacios.
-  const actual = Object.fromEntries(Object.entries(leido).map(([k, x]) => [k, x === '-' ? undefined : Array.isArray(x) ? x.join(' ') : x]));
+  const actual = Object.fromEntries(Object.entries(leido).map(([k, x]) => [k, Array.isArray(x) ? x.join(' ') : x]));
   const claves = contrato.clavesDeConfiguracionDe(nombre, opciones);
-  const payload = [[plantilla.nombre]];
+  const dados = {};
   const campos = [];
   let cambiado = false;
   for (const { pv, clave, defecto, ayuda: canonica } of claves) {
     const numero = typeof defecto === 'number';
     const dado = valores[clave] !== undefined ? String(valores[clave]).trim() : undefined;
-    // Un ajuste sin defecto (el ancla de las opiniones) se quita escribiendo «-»; vacío conserva el actual.
-    const quitar = dado === '-' && defecto === undefined;
-    let v = quitar ? undefined : dado === undefined || dado === '' ? actual[clave] ?? defecto : numero ? Number(dado) : dado;
+    let v = dado === undefined ? actual[clave] ?? defecto : dado === '' ? defecto : numero ? Number(dado) : dado;
     if (numero && !(Number.isFinite(v) && v > 0)) v = actual[clave] ?? defecto;
     if (v !== (actual[clave] ?? defecto)) cambiado = true;
-    if (v !== undefined) payload[pv] = [v]; // BTML no tiene posiciones vacías
+    if (v !== undefined) dados[clave] = v;
     campos.push({
       pv, clave, numero, valor: v ?? '', marcador: defecto ?? '',
       etiqueta: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'label'), idioma, { original: clave, ...opciones }),
       ayuda: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'help'), idioma, { original: canonica ?? '', ...opciones }),
     });
   }
-  // Las posiciones sin valor y sin defecto (una url sin decir) que quedan delante de otra con valor se escriben «-»: BTML no tiene huecos
-  // (delante del tipo, el 5, siempre; detrás, solo hasta la última que lleva algo).
-  payload[5] = [plantilla.nombre]; // el tipo (B4)
-  const ultima = payload.length - 1;
-  for (const { pv } of claves) if (pv < ultima && payload[pv] === undefined) payload[pv] = ['-'];
-  return { payload, campos, sobre: alta.id, en: direccion([9]), cambiado };
+  const payload = contrato.registroDeAjustes(nombre, dados, { quien: yo, ...opciones });
+  return { payload, campos, sobre: alta.id, en: direccion([9]), cambiado: cambiado && payload !== null };
 }
 
 /** Las preguntas hechas de la época (los botones rápidos), en el idioma. */

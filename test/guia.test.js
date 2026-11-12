@@ -58,6 +58,7 @@ test('los ajustes de la guía son una plantilla de la época con sus defectos, y
   assert.deepEqual(a.campos.map((c) => c.clave), ['guide model', 'guide via', 'guide history', 'guide context', 'opinions anchor']);
   assert.equal(a.campos[1].etiqueta, 'guide via', 'en el idioma de la configuración (en): la etiqueta canónica');
   assert.equal(G.ajustesEditables(eje, 'huesped', {}, { idioma: 'es' }).campos[1].etiqueta, 'vía de la guía');
+  assert.deepEqual(a.payload.slice(1, 3), [['guide model', 'guide via', 'guide history', 'guide context'], ['claude-sonnet-5-5', 'direct', 20, 3000]], 'sin huecos: las claves de los ajustes con valor y sus valores en paralelo (#77)');
   const sinCambios = G.ajustesEditables(eje, 'huesped', {});
   assert.equal(sinCambios.cambiado, false);
   assert.equal(G.ajustesEditables(eje, 'huesped', { 'guide via': 'server' }).cambiado, false);

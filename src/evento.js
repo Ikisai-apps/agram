@@ -167,8 +167,9 @@ export function validarForma(ev, { tLaxo = false, v2 = tLaxo } = {}) {
     // acumulable): su autor vive de su asignación del día; solo en la versión
     // 2 el génesis tenía que emitir T a su autor.
     const esGenesis = ev.contexto?.genesis === true;
-    // El T informativo (pasado, futuro, inventado) también paga la escritura (VG, 8-11): el evento sale gratis en T
-    // real y queda como no presente (esPresente), que un criterio del dueño puede exigir.
+    // La FORMA solo pide un consumo de T del autor (cualquiera); que sea T real y llegue al coste lo exige la condición
+    // «writing burns today's T» de la época (VG, 13-11, #76): el T informativo (pasado, futuro, inventado) ya no paga la
+    // escritura, es contenido del registro. Aquí no se distingue (la forma no sabe de la época).
     const cuenta = (m) => (esGenesis ? m.a === ev.autor : v2 ? m.de === ev.autor : esConsumoT(m, ev.autor));
     const mueveT = ev.movimientos.some((m) => m && m.token === 'T' && cuenta(m));
     if (!mueveT && !(esGenesis && !v2)) {
@@ -202,11 +203,12 @@ export function esConsumoT(m, autor) {
 
 /**
  * ¿Es `ev` un registro presente? Sí si su autor consume T real (una escala no
- * informativa) o si es el génesis. Un evento pagado solo con T informativo
- * (pasado, futuro, inventado) es válido y sale gratis en T real, pero no es
- * presente (VG, 8-11: «el pago es la ausencia de un registro presente, que
- * puede ser un criterio en PV2 cuando el tiempo importe (p. ej. caducidad
- * alimentaria)»). Se deriva del evento, no se guarda: no cambia su id.
+ * informativa) o si es el génesis. Un evento que solo quemara T informativo
+ * (pasado, futuro, inventado) no es presente (VG, 8-11). Desde VG 13-11 (#76: «recordar
+ * algo o planear algo consume tiempo en el presente») la época 0 ya no admite uno
+ * así: la condición «writing burns today's T» exige el coste en T real de hoy a todo
+ * registro, así que todo registro del libro es presente; la función queda como la
+ * lectura pura del evento. Se deriva del evento, no se guarda: no cambia su id.
  */
 export function esPresente(ev) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return true;

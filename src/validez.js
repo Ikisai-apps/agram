@@ -621,7 +621,7 @@ export async function validez(eje, evento, { epoca = EPOCA_0 } = {}) {
     criptografia,
     acreditacion,
     permiso,
-    // VG, 8-11: pagado solo con T informativo, el registro es válido pero no presente (evento.esPresente).
+    // evento.esPresente: false solo si quemara T informativo y nada real (la época 0 lo rechaza desde VG 13-11, #76).
     presente: esPresente(ev),
     resumen: capas.map((c) => c.capa + ' ' + c.nombre + ': ' + c.estado + ' · ' + c.resumen).join('\n'),
   };

@@ -100,7 +100,7 @@ node servidor/sim/aarpia/servidor.mjs                  # http://127.0.0.1:8788  
 node servidor/sim/stateark/servidor.js 8787 600000     # http://127.0.0.1:8787  (sello; un bloque cada 10 min)
 ```
 
-y en los ajustes del exterior: `relay url` y `blossom url` = `http://127.0.0.1:8788`, `seal url` = `http://127.0.0.1:8787` (más el eje compartido: `sync ledger`, y su clave de lectura, que se crea con `POST /eventos/ejes` en el servicio simulado, cabecera `X-Crear-Ejes: prueba`). Los registros siguen siendo los mismos (ids, cuerpos, orden); la simulación añade el recibo del relé y el bloque simulado, y el registro sale «verificado» (`contrato.verificado`). Para volver a Supabase, vaciar las tres url (escribir `-` en cada una). `test/paridad-exterior.test.js` hace la misma secuencia (crear la cuenta, escribir, adjuntar, sincronizar, bajar en otro dispositivo) por los dos y comprueba que cambia solo lo que debe.
+y en los ajustes del exterior: `relay url` y `blossom url` = `http://127.0.0.1:8788`, `seal url` = `http://127.0.0.1:8787` (más el eje compartido: `sync ledger`, y su clave de lectura, que se crea con `POST /eventos/ejes` en el servicio simulado, cabecera `X-Crear-Ejes: prueba`). Los registros siguen siendo los mismos (ids, cuerpos, orden); la simulación añade el recibo del relé y el bloque simulado, y el registro sale «verificado» (`contrato.verificado`). Para volver a Supabase, vaciar las tres url (dejar el campo vacío: el ajuste deja de escribirse, VG 13-11, #77). `test/paridad-exterior.test.js` hace la misma secuencia (crear la cuenta, escribir, adjuntar, sincronizar, bajar en otro dispositivo) por los dos y comprueba que cambia solo lo que debe.
 
 ## La guía del PV9 (función `guia`)
 

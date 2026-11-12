@@ -1,4 +1,4 @@
-# Lo decidido con VG el 11 y el 12 de noviembre de 2026
+# Lo decidido con VG el 11, el 12 y el 13 de noviembre de 2026
 
 **Estado:** nota de registro, escrita el 12-11 sobre `beta` (`3cfe6ef`). Lleva al repositorio lo que hasta ahora vivía en el catálogo de issues de Core (filas 29 a 50, más los flecos de la 12 y la 23), en el diseño `DISENO_8-7_POR_MODO` (tercera versión, §7 incluido) y en el estudio `ESTUDIO_BQL_TRANSACCIONES` (§6), para que los agentes lean del repositorio y no del chat. No añade nada a lo que dicen esas fuentes. **Solo documentación:** ningún dato de la época ni ningún código cambia con esta nota; cada «qué cambia» es el encargo que sigue, y puede estar ya en una rama de la beta o no.
 
@@ -20,6 +20,7 @@ Cada nota tiene cuatro líneas: *Qué se decidió*, *Por qué* (lo que dice la f
 | 4. BQL con transacciones | #43, #48, #49 (decisiones 1 a 10), #50, #67, #64 d, #71.1, #71.2 |
 | 5. Tiempo e incongruencia | #42, #64 b, #65, decisión 4 de #49 (los tres relojes, `X.6.8`) |
 | 6. Pantalla | #23 |
+| 7. Lo del 13-11 | #75, #76, #77, #78 |
 
 Al final: «Lo que queda abierto» y «Lo que las fuentes no dicen o dicen distinto».
 
@@ -304,7 +305,7 @@ Fuente: catálogo #71 (punto 1), `InTheState/aarpia/CONVERGENCIA.md` §2.1 y §3
 - **Por qué.** Un registro que paga menos de lo que la regla dice está mal pagado; el libro no acepta dos tarifas según por dónde entre el registro: **una sola tarifa, por posición, venga de donde venga**.
 - **Qué cambia.** `datos/epocas/reglas/writing-burns-today-s-t.json` (la condición y su mensaje es/en); `src/escritura.js` (`quemaDelCoste(autor, payload, escala?, { eje })`, que usan `escribirDesde`, `Eje.invitar`/`aceptar`, `Local.englobar` y `escribirBase`); los ejemplos (`ejemplos/ikisai/coste.mjs`: `pagaElCoste`/`escribirPagando`) y los helpers de las pruebas (`test/ayudas-coste.js`) calculan por payload. La cuenta del coste está repetida en la condición (una regla no llama a otra); `test/coste-exigido.test.js` comprueba que coincide con `exigido`.
 - **Consecuencia abierta (decidir VG).** Una base pesa cientos de posiciones (≈280–360 en el ejemplo), así que escribirla cuesta cientos de minutos; antes, un minuto (`COSTE_BASE`, «[X] decidir VG: el coste de una base»). Las cosas del ejemplo (comprasHermanas) reciben ahora T de su dueño (sábado y domingo) en minutos, segundos, horas y el día, el ciclo o el año enteros para poder escribirlas; `escribirBase` paga en la `escala` que se le pida o, si no, en la primera, empezando por el minuto, que le alcanza (`escritura.escalaQueAlcanza`); y las bases del ejemplo se escriben por defecto el 9-11, un día en que la casa no ha gastado su asignación. El mercado y el puesto del ejemplo pasan del 7-11 al 8-11. Los mensajes de «ver/tocar» (un segundo, local) usan la misma plantilla de la regla.
-- **Pruebas.** `test/coste-exigido.test.js`: la cuenta de la condición es la de la regla; lo exigido pasa, uno menos se rechaza, de más vale; suma de escalas (1 h + 11 min); el T informativo no cuenta; una posición cuesta un minuto.
+- **Pruebas.** `test/coste-exigido.test.js`: la cuenta de la condición es la de la regla; lo exigido pasa, uno menos se rechaza, de más vale; suma de escalas (1 h + 11 min); una posición cuesta un minuto. (La exención del T informativo que esta nota dejaba, «el T informativo no cuenta», se retiró el 13-11: #76, §7.)
 
 ### #64 c — «Declarar T futuro» es un anuncio de T con fecha (DECIDIDO VG 12-11, «Adelante»)
 
@@ -342,6 +343,44 @@ Fuente: catálogo #71 (punto 1), `InTheState/aarpia/CONVERGENCIA.md` §2.1 y §3
 - **La forma del sello, sin huecos, relleno ni tuplas** (VG 12-11 y 13-11; SIP 0 b052690, simulación 9be12c3): 0 clase, 1 altura, 2 hash, 3 lote, 4 id, 5 instante, 6 vía, 7 lo observado [cabecera, firma, altura LE, clave y, si los hay, lados y hermanos del camino «bitcoin»], 8 lados y 9 hermanos del camino «sip» (si lo hay). Las posiciones que lee «sealed» salen de un solo mapa, `POSICIONES_DEL_SELLO` (`src/sello.js`), y su fórmula la escribe `formulaDeSellado()`: si la forma cambia otra vez, se cambian el mapa y `decuplaDeSello`, se reescribe el 2 de `sealed.json` y `npm run epocas`. Una diferencia con la simulación (decisión de Core, a comunicar a Core StateArk): sin camino «bitcoin», su 7 es una lista de cuatro hojas, que en BTML no tiene posiciones (7.0 no existe: sus hojas son ocupantes del 7); AGRAM pone cada parte en una lista de uno.
 - **Primitivas (Core AGRAM 13-11, H17-H19 del SIP 0, «sin tuplas»).** `merkle(hoja, lados, hermanos, esquema)` con dos listas hermanas (ausentes o vacías: la raíz es la hoja; se retira la de tres argumentos); `ots(x, pasos)` con una lista de textos «prepend <hex>», «append <hex>», «sha256» (el SIP de hoy no la usa); `lookup(claves, valores, clave)`, pura; `payload(X)`, el payload tal como se escribió. `docs/BQLM.md` §12; pruebas en `test/bqlm-cripto.test.js` (y que las siete reglas del SIP b052690 se analizan).
 - **Queda abierto.** «received» no comprueba aún que el recibo sea de X (el id de X va en la etiqueta «g» del 7701, dentro de la serialización de NIP-01 que la firma cubre: hay que copiarla) ni que el relé sea uno declarado (no hay lista de claves de relé). La profundidad sigue contando con `eje.alturaConocida`, la mayor altura que el adaptador dio por buena, no la de los sellos que «sealed» da por buenos. Un camino «sip» de más de diez pasos (lotes de más de 1024 ids) no cabe en la décupla del SIP 0 como pares.
+
+## 7. Lo decidido el 13-11 (#75, #76, #77, #78)
+
+Cuatro decisiones de VG del 13-11, construidas en la rama `beta-flecos`. Cada una con su porqué; los números son los del catálogo de issues de Core.
+
+### #77 — Sin huecos ni rellenos; claves y valores (DECIDIDO VG 13-11; regla general de BTML)
+
+- **Qué se decidió.** Ninguna posición vacía ni rellena con «-»; **cada objeto ocupa posiciones seguidas desde el 0, todas con contenido** (lo opcional va al final y, si falta, se corta); y **nada de tuplas `[campo, valor]` dentro de una décupla**: lo nombrado va como una décupla de **claves** y otra **paralela de valores** (solo las que existen, en el mismo orden), con décuplas libres al mismo nivel para firmas, marcas de tiempo, etc.; es el último nivel de profundidad (10⁻¹⁰). Vale para todo In the State: BTML en las tres casas (AGRAM, StateArk, Be). En AGRAM se aplica a «exterior settings», «preferences» y «guide settings» (registros de ajustes: `[[nombre], [claves], [valores], [quién], [ayuda], [tipo]]`, con el 3 y el 4 con contenido real porque el 5 es el tipo), a la fila de `epoch.8.7` (`[[pv], [profundidad], [nota], [claves], [valores]]`), a los parámetros de plantilla que no se escriben en el registro, a las estaciones sin autorización, a la plantilla «register a thing» y a la opinión (7, 8 y 9). StateArk rehizo sus décuplas del SIP 0 (sello, segundo factor, autorización, recibo, candado).
+- **Por qué.** «Si se empieza una décupla es porque se espera completar» (VG, #64 a): un hueco rellenado con «-» es una posición que finge decir algo; la forma limpia es que solo exista lo que existe. Las tuplas dentro de una décupla gastan un nivel de profundidad por ajuste; claves y valores en dos décuplas paralelas lo dejan en el último nivel. Y la misma regla para las tres casas evita que cada una invente su relleno.
+- **Qué cambia.**
+  - Datos de la época (`datos/epocas/epoca-0.btml.json`, `plantillas/`): 43 «-» de la fila `epoch.8.7` (hijos, lo que mide, estilo, hilos, enlace, orden y las formas por modo: la herencia, que era «-», es ahora «no tiene la clave `<modo> form`»; los ejes de la matriz del 4 son `office`, `execution` y `criterion`; el enlace es `link <n>`, sin el del hijo que no mide nada) y 9 de los parámetros de plantilla que no se escriben en el registro (su 5 es ahora un hueco con nombre `{parámetro}`, no «-»: `acciones.parametros` da `posicion: null`). Las tres plantillas de ajustes llevan la bandera `settings` en su 4.4 (`contrato.esDeAjustes`): su descripción por posición es el **catálogo** de lo que conocen (defecto, validación, ayuda) y no el molde de las posiciones del registro; sus posiciones y etiquetas no cambian («pay url» sigue siendo la cuarta descripción porque la marca `template` vive en la 4.ª).
+  - Núcleo: `contrato.registroDeAjustes(nombre, valores, { quien })` y `MOLDE_DE_AJUSTES`; `configuracionDe`/`configuracion` leen claves y valores (una clave que la plantilla no conoce no se lee; una repetida junta sus valores); `validar` valida las enumeraciones del catálogo sobre el valor de su clave; `contrato.opciones` deja de ofrecer idioma y modelo por posición de un registro de ajustes (las listas las da la configuración por clave); `anclaDeLasOpiniones` y `estacionesDeLaEpoca` no leen «-». `divisionDelMundo`, `formaDe`, `ejesDeLaMatriz` y `escalera` leen la fila por claves.
+  - Carta: `preferencias()` y `guia.ajustesEditablesDe` escriben el registro de claves y valores; el formulario enseña **un campo por ajuste conocido y guarda solo los rellenos** (un campo vacío quita el ajuste: ya no se escribe «-»); `carta/externa.js` (opiniones): lo opcional va al final y lo que falta corta lo de detrás (sin versión no hay 8 ni 9; lo que enseñaba lo tocado cae a su tipo).
+  - Lectores de los ajustes (`exterior`, `ajustesDelEje`, `sincronia`, `archivos`, `sello.deConfiguracion`) no cambian: leen por clave.
+  - **No se leen los registros de ajustes antiguos (por posición)**: se vuelven a escribir al guardar la configuración.
+  - Docs: `docs/BTML.md` (§3.2, «Sin huecos: claves y valores»), `docs/CONTRATO.md` §4.2, §7, §16.2 y §16.2 bis, `docs/MODOS.md`.
+- **Pruebas.** `test/sin-huecos.test.js` (ningún registro de la época ni de los ejemplos lleva «-» ni posiciones vacías; la fila de 8.7 y los registros de ajustes son claves y valores en paralelo; lo que escribe la carta, sin huecos), `test/exterior.test.js`, `test/guia.test.js`, `test/contrato.test.js`, `test/division-mundos.test.js`.
+
+### #76 — Coste también para memorias y planes (DECIDIDO VG 13-11, «recordar algo o planear algo consume tiempo en el presente»)
+
+- **Qué se decidió.** Se retira la exención del T informativo: **todo registro paga el coste por posición en T real de hoy** («writing burns today's T»), también los que llevan T pasado (memorias), futuro (planes) o inventado; ese T es **contenido, no pago**. Sustituye lo del 8-11 («el evento sale gratis en T real y no es presente»).
+- **Por qué.** Recordar algo o planear algo consume tiempo en el presente: quien escribe una memoria o un plan lo escribe ahora, y ahora es lo que cuesta.
+- **Qué cambia.** `datos/epocas/reglas/writing-burns-today-s-t.json` (sin la cláusula «o no quema nada de T real»); `esPresente`/`eje.presente` quedan como lecturas puras (en la época 0, todo registro del libro es presente); los ejemplos que escriben memorias o planes ya pagaban con `coste.mjs`; las salidas de `docs/comprobar.mjs --escribir` cambian solo por el id de la época y de la regla.
+- **Pruebas.** `test/coste-exigido.test.js` (solo T informativo se rechaza; con el coste en T real, vale), `test/t-consumido.test.js`, `test/ciclo-eprt.test.js`, `test/lecturas-bqlm.test.js`, `test/lente.test.js`.
+
+### #78 — La denominación propuesta nunca baja del minuto (DECIDIDO VG 13-11, «Vale»)
+
+- **Qué se decidió.** La denominación de T que propone el 4 no baja del minuto; el segundo queda como escala disponible en el desplegable.
+- **Por qué.** El coste de escribir está en minutos del calendario (un minuto por posición): 6 posiciones son «6 min», no «360 s».
+- **Qué cambia.** `tiempo.escalaQueCubre` (de 0 a 100 posiciones, el minuto; `ESCALA_MINIMA_PROPUESTA`), `acciones.ejecucion` (la propuesta de último recurso, cuando el saldo no alcanza, tampoco baja del minuto) y `denominacion` (sin cambios: el segundo se sigue admitiendo si se pide a mano).
+- **Pruebas.** `test/ui.test.js` (`escalaQueCubre`), `test/acciones.test.js` (6 posiciones: «6 min»).
+
+### #75 — El nombre de la cosa es el 0 de su alta (DECIDIDO VG, regla del nombre; encargo 13-11)
+
+- **Qué se decidió.** La plantilla «register a thing» escribe como 0 del registro **el nombre de la cosa**; el mensaje «X registers the thing Y» ya no se escribe (va en el «por qué» de la plantilla). **La clave es obligatoria solo si el eje exige firmas** (`exigirFirmas`).
+- **Por qué.** Una cosa dada de alta por la plantilla se habría llamado como el mensaje (la regla del nombre: el 0 de un registro es lo que es).
+- **Qué cambia.** `datos/epocas/plantillas/register-a-thing.json` (el 9, la nota, el 7 del parámetro `key`: `required if signed`) y su traducción; `acciones.parametros(plantilla, { eje })` resuelve el requisito.
+- **Pruebas.** `test/acciones.test.js` (una cosa dada de alta por la plantilla se lee con `contrato.legible` por su nombre; la clave solo se exige con `exigirFirmas`).
 
 ---
 

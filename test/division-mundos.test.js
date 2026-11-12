@@ -20,6 +20,7 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, C
 import { ejemploCompra, ejemploJardinYParque, ejemploFabrica, ejemploFuturoYCohorte } from '../ejemplos/ikisai/compra-food.mjs';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { pagaElCoste } from './ayudas-coste.js';
+import { poner, quitarPrefijo, ponerFormaUnica, ejes as ejesDeFila, ponerEjes } from './ayudas-division.js';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
@@ -48,14 +49,20 @@ async function conCarpeta() {
 const completa = (X, pv, extra = {}) => ({ foco: { X, pv }, ...extra });
 const celdasDe = (r) => r.celdas.map((c) => [c.fila, c.columna, c.pv]);
 
-test('epoch.8.7 «world division» es un dato de la época con su procedencia: una fila por PV [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo], [nota], [hilos], [enlace]], sin posiciones vacías', () => {
+test('epoch.8.7 «world division» es un dato de la época con su procedencia: una fila por PV [[pv], [profundidad], [nota], [claves], [valores]]: claves y valores en paralelo, sin posiciones vacías ni «-» (VG 13-11, #77)', () => {
   const fila = EPOCA_0_BTML.registro[8][7];
   assert.equal(fila[0][0], 'world division');
   assert.match(fila[2][0], /^VG, 10-11 noche/);
   const filas = fila[1];
   assert.deepEqual(filas.map((f) => f[0][0]), [0, 5, 1, 2, 3, 4, 6, 7, 8, 9]);
-  // nueve posiciones (la 8 es el enlace, #11); el 6 y el 7, una décima: el orden de sus listas verticales (VG 11-11, #18)
-  for (const f of filas) { assert.equal(f.length, [6, 7].includes(f[0][0]) ? 10 : 9); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
+  // cinco posiciones, todas con contenido: lo que la fila dice de más (hijos, lo que mide, el estilo, los hilos, el enlace, el orden,
+  // la forma de cada modo y los ejes de la matriz del 4) va como una clave y su valor, en paralelo, y solo si lo dice
+  for (const f of filas) {
+    assert.equal(f.length, 5);
+    assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60));
+    assert.equal(f[3].length, f[4].length, 'una clave por valor');
+    assert.ok(!JSON.stringify(f).includes('"-"'), 'ni «-»: ' + JSON.stringify(f[0]));
+  }
   const d = (pv, nivel = 1) => C.divisionDelMundo(null, pv, { nivel });
   // hijos, profundidad y forma: la cruceta aplicada al elemento pulsado, no una matriz con herencia
   assert.deepEqual([1, 2, 3, 4].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma]), [
@@ -137,10 +144,10 @@ test('la división sale de la época: cambiar la fila en una copia cambia el ár
   assert.equal(base.centro.rejilla.celdas.length, 4);
   assert.deepEqual(celdasDe(base.centro.rejilla), [[0, 0, 1], [0, 1, 2], [1, 0, 3], [1, 1, 4]], 'cruceta: ↖1 ↗2 ↙3 ↘4');
   const epoca = epocaCon((e) => {
-    filaDe(e, 1)[1] = [1, 2, 3];
-    filaDe(e, 1)[3] = ['columnas'];
+    poner(filaDe(e, 1), 'child', [1, 2, 3]);
+    ponerFormaUnica(filaDe(e, 1), 'columnas');
     e[7][0] = e[7][0].filter((r) => r[0][0] !== 'año'); // el calendario deja de medir el año
-    filaDe(e, 8)[4] = ['-'];
+    poner(filaDe(e, 8), 'measures', []);
   });
   const otra = await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE, { epoca });
   assert.deepEqual(celdasDe(otra.centro.rejilla), [[0, 0, 1], [0, 1, 2], [0, 2, 3]]);
@@ -242,7 +249,7 @@ test('entrar en una celda baja un nivel de profundidad y «volver» sube; en el 
 test('la matriz del 4 pagina por matrices enteras; las demás formas no paginan (cada hijo lleva la lista de sus ocupantes)', async () => {
   const { eje, compra } = await ejemploCompra();
   // Una época con el 2 como matriz: 100 celdas por página; la compra trae pocos ocupantes en el 2, una sola página.
-  const epoca = epocaCon((e) => { filaDe(e, 2)[3] = ['matriz']; });
+  const epoca = epocaCon((e) => { ponerFormaUnica(filaDe(e, 2), 'matriz'); });
   const r = (await arbol(completa(compra.id, 2), eje, 'huesped', GRANDE, { epoca })).centro.rejilla;
   assert.equal(r.celdas.length, 100);
   assert.deepEqual(r.pagina, { actual: 1, de: 1 });
@@ -320,7 +327,7 @@ test('en un bloque la rejilla se usa si cabe (celdas de 48 px o más); si no, la
   assert.equal(n4.rejilla, undefined, 'el 4 no cabe: sin rejilla');
   assert.ok(n4.ocupantes && n4.disposicion, 'la división de epoch.8.3 como hasta ahora');
   // Cambiar la época para que el 1 sea una matriz (10 × 10) lo deja también sin rejilla en ese bloque.
-  const epoca = epocaCon((x) => { filaDe(x, 1)[3] = ['matriz']; });
+  const epoca = epocaCon((x) => { ponerFormaUnica(filaDe(x, 1), 'matriz'); });
   const b = await arbol(estado, eje, 'huesped', ORDENADOR, { epoca });
   assert.equal(b.laterales.find((n) => n.pv === 1).rejilla, undefined);
   // Las franjas del 6 son verticales: siete columnas (7 × 48 = 336 px) y los cuatro hilos más la fila de los nombres
@@ -487,7 +494,7 @@ test('la matriz del 4 trae sus dos ejes nombrados por la época (filas: los diez
   assert.equal(r.sinPosicion.length, C.ocupantes(eje, compra.id, 4).total);
   assert.ok(h.includes('class="matriz-sin-posicion"'));
   // los nombres salen de la época: cambiarlos en una copia cambia los ejes
-  const otra = epocaCon((e) => { filaDe(e, 4)[8][0][4] = 'build'; filaDe(e, 4)[8][1][1] = ['money', 'token E']; });
+  const otra = epocaCon((e) => { const ej = ejesDeFila(filaDe(e, 4)); ej.oficios[4] = 'build'; ej.ejecuciones[1] = ['money', 'token E']; ponerEjes(filaDe(e, 4), ej); });
   const b = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE, { epoca: otra })).centro.rejilla;
   assert.deepEqual([b.ejes.filas[4].nombre, b.ejes.columnas.find((c) => c.pv === 1).etiqueta], ['build', 'money']);
 });
@@ -530,7 +537,7 @@ test('#40, el orden de ver: los cuatro hilos de las franjas del 6 y del 7 son lo
     assert.deepEqual(r.bandas[0].cruces.map((x) => x.hilo), [1, 2, 3, 4]);
   }
   // es un dato: cambiarlo en una copia cambia el orden
-  const otra = epocaCon((e) => { filaDe(e, 6)[7] = [4, 3, 2, 1]; });
+  const otra = epocaCon((e) => { poner(filaDe(e, 6), 'thread', [4, 3, 2, 1]); });
   assert.deepEqual(C.divisionDelMundo(eje, 6, { epoca: otra }).hilos, [4, 3, 2, 1]);
 });
 
@@ -549,7 +556,7 @@ test('la escalera dulce es un dato de la época (el enlace de la fila del 8): la
   assert.deepEqual(C.divisionDelMundo(null, 9).escalera, e, 'el 9 se sitúa por la misma escalera');
   assert.equal(C.divisionDelMundo(null, 9).paso, null, 'el rango no es un paso de epoch.9.8');
   // es un dato: quitarla de la época la quita
-  const sin = epocaCon((x) => { filaDe(x, 8)[8] = ['-']; });
+  const sin = epocaCon((x) => { quitarPrefijo(filaDe(x, 8), 'link '); });
   assert.deepEqual(C.escalera({ epoca: sin }), []);
 });
 
@@ -805,7 +812,7 @@ test('la matriz del 4: cada ejecución en la celda de su oficio (la fila) y de l
   const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
   for (const sel of ['.ejecucion[data-estado="autorizada"]{', '.ejecucion[data-estado="ejecutada"]::after{', '.matriz-sin-posicion{', '.matriz-abierta{']) assert.ok(css.includes(sel), sel);
   // sin «execution» ni «pv» en lo que mide la fila del 4 (epoch.8.7), los ocupantes del 4 por orden, como antes
-  const sinPv = epocaCon((e) => { filaDe(e, 4)[4] = ['epoch.5']; });
+  const sinPv = epocaCon((e) => { poner(filaDe(e, 4), 'measures', ['epoch.5']); });
   const b = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE, { epoca: sinPv })).centro.rejilla;
   assert.equal('sinPosicion' in b, false);
   assert.equal(b.celdas.filter((x) => x.ocupante).length, C.ocupantes(eje, compra.id, 4).total);
@@ -828,7 +835,7 @@ test('celdaDeEjecucion: el oficio por la plantilla, la estación o la posición;
   assert.deepEqual(celda(hoja), [0, 0, 'posicion', 'content']);
   assert.equal(C.celdaDeEjecucion(c.eje, 'no-existe'), null);
   // los criterios son datos: sin «dated» en la columna 7, lo que bloquea hasta una fecha cae por lo que mueve
-  const sinFecha = epocaCon((e) => { filaDe(e, 4)[8][1][7] = ['projection to the future', 'scale futuro', 'content at 7']; });
+  const sinFecha = epocaCon((e) => { const ej = ejesDeFila(filaDe(e, 4)); ej.ejecuciones[7] = ['projection to the future', 'scale futuro', 'content at 7']; ponerEjes(filaDe(e, 4), ej); });
   assert.deepEqual(C.celdaDeEjecucion(c.eje, c.plazo.id, { epoca: sinFecha }).ejecucion, 1);
 });
 

@@ -24,6 +24,7 @@ import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
 import { pagaElCoste } from './ayudas-coste.js';
+import { poner, quitarPrefijo, ponerEnlaces, ponerForma, ejes as ejesDeFila } from './ayudas-division.js';
 
 const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 const CERRADO = 'all announced movements happened';
@@ -256,20 +257,28 @@ test('configuracion: los defectos de la plantilla «preferences» si no hay regi
   assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 10, render: 'sober', language: 'es', sizes: [1, 2, 3], model: 'general', animations: 10, de: null });
   assert.deepEqual(C.configuracion(eje, C.yo(eje, 'huesped')), C.configuracion(eje, 'huesped'));
   const T = '2026-11-07T18:00:00Z';
-  const mias = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences'] });
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 20, render: 'animated', language: 'es', sizes: [1, 3], model: 'general', animations: 10, de: mias.id }, 'el 5 (el tipo) no es una preferencia; «model» (encargo 3c-2b) tiene su defecto');
-  assert.deepEqual(C.validar(eje, mias), []);
+  // Sin huecos ni rellenos, claves y valores (VG 13-11, #77): 0 el nombre, 1 las claves, 2 los valores en paralelo (un ajuste de varios valores repite su clave), 3 quién, 4 su ayuda, 5 el tipo
+  const preferencias = (valores) => C.registroDeAjustes('preferences', valores, { quien: 'huesped' });
+  assert.deepEqual(preferencias({ step: 20, render: 'animated', sizes: [1, 3] }), [['preferences'], ['step', 'render', 'sizes', 'sizes'], [20, 'animated', 1, 3], ['huesped'], ['my configuration: how the card shows things to me'], ['preferences']]);
+  const mias = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: preferencias({ step: 20, render: 'animated', language: 'es', sizes: [1, 3] }) });
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 20, render: 'animated', language: 'es', sizes: [1, 3], model: 'general', animations: 10, de: mias.id }, 'solo lo que el registro dice; el resto, los defectos de la plantilla («model», encargo 3c-2b)');
   // Un registro de preferencias anclado en otro sitio no es mi configuración; lo último mío en mi 9 manda.
-  await eje.escribir({ autor: 'huesped', sobre: menu.id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 99, 'sober', 'en', [2], 'preferences'] });
+  await eje.escribir({ autor: 'huesped', sobre: menu.id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: preferencias({ step: 99, render: 'sober', language: 'en', sizes: 2 }) });
   assert.equal(C.configuracion(eje, 'huesped').step, 20);
-  const otras = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 5, 'sober', 'en', [2], 'preferences'] });
+  const otras = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: preferencias({ step: 5, render: 'sober', language: 'en', sizes: 2 }) });
   assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 5, render: 'sober', language: 'en', sizes: 2, model: 'general', animations: 10, de: otras.id }, 'el último mío');
   // Sin su 5 no es un registro de preferencias (y como el 5 exige el 0-4, un registro de preferencias siempre dice todo).
-  await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 7, 'animated'] });
+  await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', ['step', 'render'], [7, 'animated']] });
   assert.equal(C.configuracion(eje, 'huesped').de, otras.id);
-  const mal = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 0, 'loud', 'en', [1], 'preferences'] });
-  assert.deepEqual(C.validar(eje, mal).map((x) => x.posicion), [1, 2]);
-  assert.deepEqual(C.etiqueta(eje, mal, 2), 'render');
+  // Una clave que la plantilla no conoce, o sin valor en la lista paralela, no se lee; la posición 2 de un registro de ajustes son sus valores, no «render»
+  const rara = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', ['step', 'nada', 'render', 'language'], [3, 'x', 'own'], ['huesped'], ['ayuda'], 'preferences'] });
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 3, render: 'own', language: 'es', sizes: [1, 2, 3], model: 'general', animations: 10, de: rara.id }, 'la clave desconocida y la que no tiene valor se descartan');
+  assert.deepEqual([C.etiqueta(eje, rara, 1), C.etiqueta(eje, rara, 2)], ['recursos', 'criterios'], 'la plantilla de ajustes no describe las posiciones del registro: las etiquetas son las de la época');
+  assert.deepEqual(C.validar(eje, rara), []);
+  // La enumeración del catálogo («render»: sober, own o animated) la valida la plantilla sobre el valor de su clave
+  const mal = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: preferencias({ step: 1, render: 'loud', language: 'en' }) });
+  assert.deepEqual(C.validar(eje, mal).map((x) => x.posicion), [2]);
+  assert.match(C.validar(eje, mal)[0].motivo, /^render: /);
 });
 
 // ---------- 8. mensajes ----------
@@ -423,14 +432,12 @@ test('opciones (a): el 5 lista las plantillas que hay; un tipo `ref` que nombra 
 test('opciones (b): las enumeraciones de la época: el pintado (su validación), el idioma (epoch.9.4), el modelo (epoch.9.7.0.5), los niveles (epoch.8.4), un rango de dígitos y la lista del defecto «=first …» de un parámetro', async () => {
   const { eje: e, compra: c } = await ejemploCompra();
   const T = '2026-11-07T18:00:00Z';
-  const mias = await e.escribir({ autor: 'huesped', sobre: e.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences', 'general'] });
-  assert.deepEqual(C.opciones(e, mias.id, 2).map((o) => o.valor), ['sober', 'own', 'animated'], 'la validación «="sober" in it.2 or "own" in it.2 or "animated" in it.2»');
-  assert.deepEqual(C.opciones(e, mias.id, 3).map((o) => o.valor), C.idiomas());
-  assert.equal(C.opciones(e, mias.id, 3).find((o) => o.valor === 'es').texto, EPOCA_0_BTML.registro[9][4].slice(1).find((r) => r[0].includes('es'))[0][1], 'con el nombre del idioma de su registro de mensajes');
+  // Los ajustes de una plantilla de ajustes no son posiciones de su registro (#77): sus enumeraciones las da la configuración por clave
+  const render = C.clavesDeConfiguracion().find((c) => c.clave === 'render');
+  assert.deepEqual(render.valores, ['sober', 'own', 'animated'], 'la validación «="sober" in it.2 or "own" in it.2 or "animated" in it.2» del ajuste «render» de la plantilla');
+  assert.deepEqual(C.idiomas(), ['en', 'es']);
   const cabecera = EPOCA_0_BTML.registro[9][7][0];
-  assert.equal(cabecera[5][0], '9360000000', 'la cabecera de los modelos nombra la preferencia del 6');
-  assert.deepEqual(new Set(C.opciones(e, mias.id, 6).map((o) => o.valor)), new Set(cabecera[2]), 'los modelos de la época');
-  assert.deepEqual(C.opciones(e, mias.id, 1), [], 'el paso es un número sin enumeración ni hermanos');
+  assert.equal(cabecera[5][0], '9360000000', 'la cabecera de los modelos nombra la preferencia del 6 de la plantilla');
   assert.deepEqual(C.opciones(e, c.id, 8).map((o) => o.valor), C.niveles(), 'el 8 de una compra es un `level`');
   assert.deepEqual(C.opciones(e, c.id, 8, { idioma: 'es' }).map((o) => o.texto), C.niveles({ idioma: 'es' }));
   // un parámetro: «=it >= 0 and it <= 9» son los dígitos; el defecto «=first epoch.9.0.1.2», la lista de la que toma el primero
@@ -474,7 +481,7 @@ async function jardinYParque() {
 const filaDelMundo = (e, pv) => e[8][7][1].find((f) => f[0][0] === pv);
 const sinOcupantes = (hijos) => hijos.map(({ ocupantes, nombre, ...h }) => h);
 
-test('epoch.8.7: la posición 8 de cada fila es el enlace (dato de la época); el 2 mide el P por mirada y el recuento, el 3 los grupos (las cajas de personas, encargo pv3) y los paquetes', () => {
+test('epoch.8.7: el enlace de cada fila son sus «link <n>» (dato de la época); el 2 mide el P por mirada y el recuento, el 3 los grupos (las cajas de personas, encargo pv3) y los paquetes', () => {
   const d = (pv) => C.divisionDelMundo(null, pv);
   assert.deepEqual([d(2).mide, d(2).enlace], [['epoch.1.1', 'epoch.9.0.0'], [1, 2, 3, 4, 5]]);
   // el 3 por tema (VG, 12-11): sus hijos son las cajas 0-5, numeradas como los PV; el dígito es la caja, sin enlace
@@ -523,11 +530,11 @@ test('hijosDe en el 2 sale de la época: sin el recuento en lo que mide no hay u
   const { eje, compra, decision } = await jardinYParque();
   const con = (cambiar) => epocaCon((e) => cambiar(filaDelMundo(e, 2)));
   const dosDe = (epoca) => C.hijosDe(eje, decision.id, 2, { nivel: 2, epoca }).find((h) => h.digito === 2);
-  const sinRecuento = dosDe(con((f) => { f[4] = ['epoch.1.1']; }));
+  const sinRecuento = dosDe(con((f) => { poner(f, 'measures', ['epoch.1.1']); }));
   assert.deepEqual([sinRecuento.comprometidos, 'umbral' in sinRecuento], [2, false]);
-  const sinEnlace = dosDe(con((f) => { f[8] = ['-']; }));
+  const sinEnlace = dosDe(con((f) => { quitarPrefijo(f, 'link '); }));
   assert.equal(['mirada', 'comprometidos', 'umbral'].some((k) => k in sinEnlace), false);
-  const alReves = C.hijosDe(eje, compra.id, 2, { epoca: con((f) => { f[8] = [5, 4, 3, 2, 1]; }) });
+  const alReves = C.hijosDe(eje, compra.id, 2, { epoca: con((f) => { ponerEnlaces(f, { 1: 5, 2: 4, 3: 3, 4: 2, 5: 1 }); }) });
   assert.deepEqual(alReves.map((h) => [h.digito, h.mirada, h.comprometidos]), [[1, 5, 0], [2, 4, 0], [3, 3, 0], [4, 2, 5], [5, 1, 0]]);
   // Un registro que no está en el eje no mide nada; los otros mundos, tampoco.
   assert.equal(C.hijosDe(eje, 'no-existe', 2).some((h) => 'mirada' in h), false);
@@ -548,7 +555,7 @@ test('hijosDe en el 3 por tema (encargo pv3, VG 12-11): las seis cajas 0-5 con e
   const g = C.gruposDelTres(eje, compra.id, { filtros: { 0: 'doy' } });
   assert.deepEqual([g[0].filtro, g[0].total, g[0].personas.length], ['doy', 1, casa.doy > 0 ? 1 : 0]);
   // sin los grupos en lo que mide, los hijos vuelven a ser lo anclado en X.d (la regla general de hijosDe)
-  const sinGrupos = epocaCon((e) => { filaDelMundo(e, 3)[4] = ['attended']; });
+  const sinGrupos = epocaCon((e) => { poner(filaDelMundo(e, 3), 'measures', ['attended']); });
   assert.equal(C.hijosDe(eje, compra.id, 3, { epoca: sinGrupos }).some((h) => 'personas' in h), false);
 });
 
@@ -620,12 +627,12 @@ test('hijosDe en el 1 de la reserva: el coste llega por referencia (el precio de
 
 test('lo que mide cada hijo del 1 sale de la época: otro enlace lo mueve de hijo; sin la referencia en lo que mide, no se da', async () => {
   const { eje, compra } = await conFabrica();
-  const otro = epocaCon((e) => { filaDelMundo(e, 1)[8] = ['-', 'epoch.4.0', 'capacity', 'epoch.9.2']; });
+  const otro = epocaCon((e) => { ponerEnlaces(filaDelMundo(e, 1), { 2: 'epoch.4.0', 3: 'capacity', 4: 'epoch.9.2' }); });
   const h = C.hijosDe(eje, compra.id, 1, { epoca: otro });
   assert.deepEqual(h.map((x) => ['coste', 'capacidad', 'entradas'].filter((k) => k in x)), [[], ['entradas'], ['capacidad'], []], 'el 4.2 de la compra no es una magnitud: sin coste');
-  const sinCapacidad = epocaCon((e) => { filaDelMundo(e, 1)[4] = ['epoch.9.2', 'epoch.4.0']; });
+  const sinCapacidad = epocaCon((e) => { poner(filaDelMundo(e, 1), 'measures', ['epoch.9.2', 'epoch.4.0']); });
   assert.equal(C.hijosDe(eje, compra.id, 1, { epoca: sinCapacidad }).some((x) => 'capacidad' in x), false);
-  const sinEnlace = epocaCon((e) => { filaDelMundo(e, 1)[8] = ['-']; });
+  const sinEnlace = epocaCon((e) => { quitarPrefijo(filaDelMundo(e, 1), 'link '); });
   assert.equal('enlace' in C.divisionDelMundo(null, 1, { epoca: sinEnlace }), false);
   assert.equal(C.hijosDe(eje, compra.id, 1, { epoca: sinEnlace }).some((x) => 'coste' in x || 'capacidad' in x || 'entradas' in x), false);
 });
@@ -699,7 +706,7 @@ test('la franja de una entrada del 7 es la de la fecha a la que se refiere (epoc
   assert.equal(pasoDe(c.eje, c.cuenta.id, 'cuando').k, null);
   assert.equal('escalaDeFecha' in C, false, 'when scale cayó a BQL: ya no hay escalaDeFecha en JavaScript');
   // es un dato de la época: sin «cuando» en lo que mide el 7, todo por su escala
-  const sinCuando = epocaCon((e) => { filaDelMundo(e, 7)[4] = ['epoch.1.3', 'epoch.7', 'escala']; });
+  const sinCuando = epocaCon((e) => { poner(filaDelMundo(e, 7), 'measures', ['epoch.1.3', 'epoch.7', 'escala']); });
   assert.deepEqual(C.franjaDeEntrada(c.eje, c.manana.id, 7, { epoca: sinCuando }), { k: escalas.minuto, paso: 'escala', rara: false });
 });
 
@@ -747,7 +754,7 @@ test('hijosDe en el 8: las diez cajas de los hitos como hijos, con los comparabl
   assert.ok(co.comparables.every((x) => x.caja === null || (Number.isInteger(x.caja) && x.caja >= 0 && x.caja <= 9)));
   assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 8, { cohorte: 'siblings' }).map((x) => x.total), [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   // sin «cohort» en lo que mide el 8, como antes: sin hijos
-  const sin = epocaCon((e) => { filaDelMundo(e, 8)[4] = ['hitos', 'cuota']; });
+  const sin = epocaCon((e) => { poner(filaDelMundo(e, 8), 'measures', ['hitos', 'cuota']); });
   assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 8, { epoca: sin }), []);
 });
 
@@ -829,7 +836,7 @@ test('el 9 lee el rango del 8: las posiciones para situarse son las que deja (de
   assert.match(reglas.find((x) => x.pv === 9).regla[6].at(-1), /situarse lee el rango del 8/);
   assert.match(reglas.find((x) => x.pv === 8).regla[6].at(-1), /un solo rango, el del 8/);
   // sin escalera en la época, ni rango ni posiciones
-  const sinEscalera = epocaCon((e) => { filaDelMundo(e, 8)[8] = ['-']; });
+  const sinEscalera = epocaCon((e) => { quitarPrefijo(filaDelMundo(e, 8), 'link '); });
   assert.equal(C.rango(c.eje, c.compra.id, { epoca: sinEscalera }), null);
   assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 9, { epoca: sinEscalera }), []);
 });
@@ -891,10 +898,14 @@ test('botonDeEjecutar (VG 12-11, decisión 7): cambia con el rango del 8: apagad
   assert.deepEqual(C.BOTON_DE_EJECUTAR.estados, ['apagado', 'marcado', 'efectos']);
 });
 
-test('formaDe: las formas van por modo en epoch.8.7 (VG 12-11, #52): una hoja por modo, «-» hereda del modo anterior, cinco modos', () => {
+test('formaDe: las formas van por modo en epoch.8.7 (VG 12-11, #52): la clave «<modo> form» de cada fila; el modo que no la dice hereda del anterior; cinco modos (VG 13-11, #77: sin «-»)', () => {
   assert.deepEqual(C.modos().map((m) => m.nombre), ['Pointed', 'Sequenced', 'Mapped', 'Scened', 'Be'], 'cinco modos, en el orden de epoch.8.2');
-  // la posición 3 de cada fila es una lista con una hoja por modo (no una décupla: solo hojas)
-  for (const f of EPOCA_0_BTML.registro[8][7][1]) assert.ok(f[3].length === 5 && f[3].every((h) => typeof h === 'string'), 'una hoja por modo: ' + JSON.stringify(f[0]));
+  // el 3 de cada fila son sus claves y el 4 sus valores en paralelo; la forma de un modo es la clave «<modo> form»: solo los modos que la dicen
+  for (const f of EPOCA_0_BTML.registro[8][7][1]) {
+    assert.equal(f.length, 5, 'la fila es [[pv], [profundidad], [nota], [claves], [valores]]: ' + JSON.stringify(f[0]));
+    assert.equal(f[3].length, f[4].length, 'una clave por valor: ' + JSON.stringify(f[0]));
+    assert.deepEqual(f[3].filter((k) => k.endsWith(' form')), ['sequenced form', 'mapped form'], 'solo Sequenced y Mapped declaran su forma: ' + JSON.stringify(f[0]));
+  }
   // lo de hoy: Mapped y Sequenced se ven como siempre; Pointed no declara forma
   assert.deepEqual([1, 2, 3, 4, 6, 7, 8, 9].map((pv) => C.formaDe(null, pv, 'mapped').forma), ['cruceta', 'escalera', 'rejilla', 'matriz', 'franjas', 'franjas', 'cielo', 'camino']);
   assert.deepEqual([1, 2, 3, 4, 6, 7, 8, 9].map((pv) => C.formaDe(null, pv, 'sequenced').forma), ['cruceta', 'escalera', 'rejilla', 'matriz', 'franjas', 'franjas', 'cielo', 'camino']);
@@ -902,7 +913,7 @@ test('formaDe: las formas van por modo en epoch.8.7 (VG 12-11, #52): una hoja po
   // los niveles dentro de la hoja; la última forma se repite
   assert.deepEqual(C.formaDe(null, 2, 'mapped', { nivel: 1 }), { forma: 'escalera', formas: ['escalera', 'columnas'], de: 'mapped' });
   assert.deepEqual([1, 2, 5, 99].map((nivel) => C.formaDe(null, 2, 'mapped', { nivel }).forma), ['escalera', 'columnas', 'columnas', 'columnas']);
-  // herencia hacia abajo: Scened ← Mapped y Be ← Scened («-» en los datos)
+  // herencia hacia abajo: Scened ← Mapped y Be ← Scened (sin su clave en los datos)
   assert.deepEqual(C.formaDe(null, 3, 'scened'), { forma: 'rejilla', formas: ['rejilla', 'conversacion'], de: 'mapped' });
   assert.deepEqual(C.formaDe(null, 3, 'be'), { forma: 'rejilla', formas: ['rejilla', 'conversacion'], de: 'mapped' });
   assert.equal(C.formaDe(null, 11, 'mapped'), null, 'sin fila, la época no dice nada del PV');
@@ -912,10 +923,10 @@ test('formaDe: las formas van por modo en epoch.8.7 (VG 12-11, #52): una hoja po
   assert.equal(C.divisionDelMundo(null, 2).forma, 'escalera');
   assert.deepEqual(['pointed', 'sequenced', 'mapped', 'scened', 'be'].map((modo) => C.divisionDelMundo(null, 1, { modo }).forma), [null, 'cruceta', 'cruceta', 'cruceta', 'cruceta']);
   // la herencia es de los datos: una época con otras hojas la cambia (Pointed con la suya, Mapped heredando de Sequenced, Be con la suya)
-  const otra = epocaCon((e) => { e[8][7][1].find((f) => f[0][0] === 1)[3] = ['fila', 'columnas', '-', '-', 'cielo']; });
+  const otra = epocaCon((e) => { const f = e[8][7][1].find((x) => x[0][0] === 1); ponerForma(f, 'pointed', 'fila'); ponerForma(f, 'sequenced', 'columnas'); ponerForma(f, 'mapped'); ponerForma(f, 'be', 'cielo'); });
   const por = (modo) => C.formaDe(null, 1, modo, { epoca: otra });
   assert.deepEqual(['pointed', 'sequenced', 'mapped', 'scened', 'be'].map((m) => [por(m).forma, por(m).de]), [['fila', 'pointed'], ['columnas', 'sequenced'], ['columnas', 'sequenced'], ['columnas', 'sequenced'], ['cielo', 'be']]);
-  // una lista más corta que los modos deja los últimos heredando
-  const corta = epocaCon((e) => { e[8][7][1].find((f) => f[0][0] === 1)[3] = ['cruceta']; });
+  // con solo la forma de Pointed, los demás modos heredan de ella
+  const corta = epocaCon((e) => { const f = e[8][7][1].find((x) => x[0][0] === 1); ponerForma(f, 'sequenced'); ponerForma(f, 'mapped'); ponerForma(f, 'pointed', 'cruceta'); });
   assert.deepEqual(['pointed', 'mapped', 'be'].map((m) => C.formaDe(null, 1, m, { epoca: corta }).de), ['pointed', 'pointed', 'pointed']);
 });

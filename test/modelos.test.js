@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { modelo, propio, pieza, modelosDeLaEpoca, cabecera, leerPieza, piezasDeModelo, validarModelo, recursoAdmitido, corresponde, rolPorDefecto, conRecursos, CUALQUIERA } from '../src/modelos.js';
 import { importar, importarPaquetes, mundoDe } from '../arte/importar.mjs';
-import { configuracion, validar } from '../src/contrato.js';
+import { configuracion, validar, registroDeAjustes } from '../src/contrato.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { modelosDe, modeloConPiezas, SIN_PIEZAS, MUNDOS } from '../datos/epocas/generar.mjs';
@@ -31,7 +31,7 @@ function epocaCon(cambiar) {
 
 /** La configuración de `quien` con el modelo `nombre`: un registro de preferencias en el 9 de su alta. */
 async function conModelo(eje, quien, nombre, t = T) {
-  return eje.escribir({ autor: quien, sobre: eje.alta(quien).id, en: '9000000000', t, movimientos: [minuto(quien)], payload: ['preferences', 10, 'animated', 'en', [1, 2, 3], 'preferences', nombre] });
+  return eje.escribir({ autor: quien, sobre: eje.alta(quien).id, en: '9000000000', t, movimientos: [minuto(quien)], payload: registroDeAjustes('preferences', { step: 10, render: 'animated', language: 'en', sizes: [1, 2, 3], model: nombre }, { quien }) });
 }
 
 test('la época lleva los modelos como registros: epoch.9.7 es la cabecera y las referencias a sobrio, animado-generico y general, cada uno con sus piezas referenciadas por mundo; npm run epocas los tiene al día', () => {

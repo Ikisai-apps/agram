@@ -325,9 +325,11 @@ test('las tres cifras del modo, discretas junto a su nombre (VG, 7-11 noche)', (
 });
 
 test('escalaQueCubre: la escala del calendario cuyo orden alcanza el de lo emitido (utilidad del 4, VG 12-11 #65); ya no hay incongruencia de escala', () => {
-  assert.equal(escalaQueCubre(0), 'segundo');
-  assert.equal(escalaQueCubre(1), 'segundo');
-  assert.equal(escalaQueCubre(10), 'segundo');
+  // nunca baja del minuto (VG 13-11, #78): el coste de escribir va en minutos del calendario; el segundo es solo del desplegable
+  assert.equal(escalaQueCubre(0), 'minuto');
+  assert.equal(escalaQueCubre(1), 'minuto');
+  assert.equal(escalaQueCubre(6), 'minuto');
+  assert.equal(escalaQueCubre(10), 'minuto');
   assert.equal(escalaQueCubre(11), 'minuto');
   assert.equal(escalaQueCubre(100), 'minuto');
   assert.equal(escalaQueCubre(1000), 'hora');
