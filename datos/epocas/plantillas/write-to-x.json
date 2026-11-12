@@ -67,7 +67,7 @@
     ]
   ],
   ["=first it.3 != me and count (first it.3).6 > 0 and count ((first it.3).3 where me in it2.3 and last it2.2.0 = \"nothing\") = 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["=first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3) each 1) < first ev.6.2.1 and put first ev.6.2.1 at me.1.(R.(me)).1 and transfer first ev.6.2.1 R.(me) from me to first it.3 or (first ev.6.2.0 = \"my R\" or first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3) each 1) >= first ev.6.2.1) and transfer first ev.6.2.1 R.(first it.3) from me to first it.3 or first ev.6.2.0 = \"E\" and transfer first ev.6.2.1 (first ((me.1 where E in it2.0.0.0 and it2.1 >= first ev.6.2.1) each 0)) from me to first it.3 or first ev.6.2.0 = \"P\" and transfer first ev.6.2.1 (first ((me.1 where P in it2.0.0.0 and it2.1 >= first ev.6.2.1 and first (first it.3).6 in path (first it2.0.0.1)) each 0)) from me to first it.3"],
   ["3", "=first (first it.3).6"],
   [

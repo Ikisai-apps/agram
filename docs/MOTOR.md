@@ -39,7 +39,7 @@ Decisión de VG (8-11, mapa §15 [D] «Una sola operación: registrar»; encargo
 | descubrir (Q) | `descubrir(eje, foco, { camino, posiciones, epoca, maximo })` | nada | lo que hay en 1–4 del foco, con sus candidatos elegibles (§2) |
 | proponer (B) | `proponer(eje, foco, { camino, posiciones })` | nada | elecciones desde las fórmulas del foco (§2.1) |
 | consolidar (C) | `consolidar(eje, { autor, foco, elecciones, titulo, t, camino }, privada)` | un registro en la fábrica del foco (`direccion([...camino, 4])`), sin fase (§3) | — |
-| cerrado | `cerrado(eje, X)` | nada | la plantilla de cerrado del dueño de X (§4.1) |
+| cerrado | `cerrado(eje, X)` | nada | la plantilla de cerrado del dueño de X y, antes, los finales «closed with error» y «expired»: `fin` (§4.1) |
 | siguiente | `siguiente(eje, X, yo)` | nada | lo que a X le falta de mí, con la transacción que lo cumple, y lo que espera de otros (§4.1) |
 | recuento | `recuento(eje, X)` | nada | el recuento del dueño sobre el P comprometido con X (§4.3) |
 | peso | `peso(eje, A, X)` | nada | el P de A en X entre su P en el dominio de X (§4.2) |
@@ -325,12 +325,23 @@ Lo que antes eran estados del núcleo (pendiente, autorizado, ejecutado) son aho
 ### 4.1 Cerrado y siguiente
 
 ```js
-cerrado(eje, X)          // → { cerrado: true | false | null, plantilla, estado, motivo }
-siguiente(eje, X, yo)    // → { cerrado, faltaDeMi: [{ que, anuncio?, plantilla, transaccion }], espera: [{ que, anuncio?, de }], tutorial? }
+cerrado(eje, X)          // → { cerrado: true | false | null, plantilla, estado, motivo, fin, causa?, plazo?, registro? }
+siguiente(eje, X, yo)    // → { cerrado, faltaDeMi: [{ que, anuncio?, plantilla, transaccion }], espera: [{ que, anuncio?, de }], tutorial? }  (cerrado con error o caducado: { cerrado: true, fin, causa | plazo, faltaDeMi: [], espera: [] })
 registrar(eje, datos, privada)  // → Promise<evento>: eje.escribir
 ```
 
 **Cerrado** (mapa §15 [D] N5). El dueño de X nombra la plantilla de cerrado en su criterio: en su 2.7 si su 2 es una décupla, o en su 2 si es una lista (gana la última que nombre); sin nombrar ninguna rige la de la época, epoch.9.0.1: **«all announced movements happened»**. Esa plantilla mira los **anuncios** de X: los registros que el dueño de X ancla en su 4.1 (`ANUNCIO`), uno por movimiento, con la forma `[[serie], [cantidad], [qué], [[de], [a]]]`. Cada anuncio se da por cumplido cuando hay, en X o en un registro que cuelga de X, una transferencia de esa serie, de quien la debe a quien la recibe, por al menos esa cantidad. Sin anuncios, X está cerrado. `cerrado` devuelve `null` (con el motivo) si la plantilla no se resuelve.
+
+**Los otros dos finales: cerrado con error y caducado** (Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG; #71.2; `InTheState/aarpia/CONVERGENCIA.md` §2.1). Un proceso puede terminar sin cumplirse, y eso no es «all announced movements happened»: `cerrado` devuelve además **`fin`**: `'cumplido'` si lo cierra la plantilla del dueño (o la de la época), `'error'` si el dueño lo cerró con error, `'caducado'` si venció un plazo que el proceso declaró, y `null` si sigue abierto o sin resolver. Los dos finales nuevos son las plantillas de cierre de la época `epoch.9.0.1` «closed with error» y «expired»: no las elige el dueño en su X.2.7; `cerrado` las lee **siempre, antes** que la del dueño (con error gana a caducado), y valen solo si el registro de cierre es del dueño de X o de una cosa suya (`first (first it2.3).6.3 = first it.3`: el autor del alta de quien escribe es el dueño). El registro es una plantilla de transacción anclada en el 4 del proceso, con el cierre nombrado en su 4:
+
+| Plantilla | Modo | Lleva | Quién y cuándo |
+|---|---|---|---|
+| `close with error` («cerrar con error», [4, 7]) | `person` | la **causa** como texto obligatorio en su 0; 4 = «close with error» | el dueño, mientras algo anunciado siga pendiente y no esté ya cerrado con error o caducado |
+| `expire` («caducar», [4, 8]) | `agent` | el **plazo vencido** como dato en su 2.1 (2.0 = «expired»); 4 = «expire» | el dueño o una cosa suya (el programador de AARPIA), cuando una fecha de un anuncio pendiente (su 7.1, el `when` del movimiento anunciado) ya pasó |
+
+La regla de la época «an expiry has expired» comprueba (solo lee) que el plazo del 2.1 es la fecha de un anuncio pendiente del proceso y que de verdad venció **con el reloj del libro** (`before.6.0`, el mayor t aceptado), no con el instante que diga quien escribe (que puede ir hasta un año por delante); un libro quieto necesita un registro cualquiera que mueva su reloj. Las dos llevan su coste por la regla «the cost of writing» (su 4 es `write`). El «estado deseable mantenido» **no es un cierre** y no está hecho: es un dato del tipo de contexto (#71.3).
+
+Efectos: `cerrado.fin` y `cerrado.plantilla` los distinguen de lo cumplido; `siguiente` calla (`{ cerrado: true, fin, causa | plazo, faltaDeMi: [], espera: [] }`, y `acciones.camino` no lista sus pasos pendientes); `ocupacion` solo cuenta como válido lo que termina en `'cumplido'`. `cerrado` sigue valiendo `true` para quien solo mira si el proceso aún pide algo; quien necesite saber si se cumplió, lee `fin`. La lista de finales es `motor.FINES` (`fin`, plantilla de cerrado y acción que escribe el registro). Pruebas: `test/motor.test.js` (cerrado con error, caducado, los finales).
 
 **Siguiente** (encargo 3b, paso 2). Con la plantilla «what is missing» de la época (epoch.9.0.3), lee los anuncios de X que aún no han pasado y los reparte: los que debe `yo` van en `faltaDeMi`, cada uno con la **transacción** que lo cumpliría (plantilla «move what was announced»: la transferencia anunciada y un minuto de mi T), lista para `registrar`; los que deben otros van en `espera`. Si el dueño de X declara un recuento en su criterio y no pasa, añade lo que falta: si `yo` cuento en ese recuento y tengo P disponible en el dominio de X, una transacción «commit P» que bloquea ese P con la salida = X; si no, una espera del dueño (§4.3). Si X es el alta de `yo` aceptando una invitación, suma lo que la invitación le pide y el **tutorial** (§4.4).
 

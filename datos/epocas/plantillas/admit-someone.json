@@ -75,7 +75,7 @@
     ]
   ],
   ["=first it.3 = me"],
-  ["me"],
+  [["me"], ["person"]],
   [
     "=put first memo.1.0 at me.1.(R.(me)).1",
     "=transfer first memo.1.0 R.(me) from me to first memo.3.1",

@@ -69,7 +69,7 @@
     ]
   ],
   ["=count (me.1 where P in it2.0.0.0 and it2.1 > 0 and count it2.0.5 = 0 and (first it2.0.0.1 in up it or first it2.0.0.1 in down it)) > 0"],
-  ["me"],
+  [["me"], ["person"]],
   [
     "=burn first memo.1.1 before.4.(first memo.1.0) from me",
     "=first it.5 in up (first (before.4.(first memo.1.0)).0.1) and mint first memo.1.1 * first epoch.1.1.4.2 P.(it).(first (before.4.(first memo.1.0)).0.2) to me or first it.5 in down (first (before.4.(first memo.1.0)).0.1) and mint first memo.1.1 * last epoch.1.1.4.2 P.(it).(first (before.4.(first memo.1.0)).0.2) to me"

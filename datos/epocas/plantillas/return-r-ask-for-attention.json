@@ -63,7 +63,7 @@
     ]
   ],
   ["=count (me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3 and it2.1 > 0) > 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["=transfer first memo.1 R.(first it.3) from me to first it.3"],
   ["3", "=first (first it.3).6"],
   [

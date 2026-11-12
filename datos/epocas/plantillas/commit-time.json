@@ -78,7 +78,7 @@
     ]
   ],
   ["=count (me.1 where not (T in it2.0.0.0) and it2.1 > 0) > 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["=lock first memo.1.1 before.4.(first memo.1.0) from me exit first memo.1.2"],
   ["7"],
   [

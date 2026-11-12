@@ -111,7 +111,7 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   // Encargo «lecturas» (issue #12): las diez lecturas de los puntos de vista («point of view» en su 4) van al final.
   // VG 12-11 (estudio BQL-transacciones): tres lecturas más, el movimiento con fecha (X.7.9), su fecha (X.7.7) y los tres relojes (X.6.9);
   // y el coste de escribir (decisión 7), una lectura sobre la candidata.
-  assert.deepEqual([EPOCA_0_BTML.condiciones.length, EPOCA_0_BTML.escrituras.length, EPOCA_0_BTML.lecturas.length, EPOCA_0_BTML.lecturasDePv.length], [30, 3, 14, 10]);
+  assert.deepEqual([EPOCA_0_BTML.condiciones.length, EPOCA_0_BTML.escrituras.length, EPOCA_0_BTML.lecturas.length, EPOCA_0_BTML.lecturasDePv.length], [31, 3, 14, 10]);
   assert.equal(JSON_EN_DISCO[2].length, reglas.length);
   assert.ok(JSON_EN_DISCO[2].every((x) => Object.keys(x).join() === 'ref' && /^[0-9a-f]{64}$/.test(x.ref)), 'el 2 son referencias { ref }');
   assert.deepEqual(EPOCA_0_BTML.reglasConId.map((x) => x.id), JSON_EN_DISCO[2].map((x) => x.ref));
@@ -126,7 +126,7 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
     assert.deepEqual(r[7], ['epoch 0']);
   }
   // Con el BQL mínimo, el 2 da las reglas (cada referencia lleva a su registro): first, nth k.
-  assert.equal(uno('count epoch.2'), 57);
+  assert.equal(uno('count epoch.2'), 58);
   assert.equal(evaluar('first epoch.2', ctx).texto, JSON_EN_DISCO[2][0].ref, 'una regla se lee por su id');
   assert.equal(uno('first epoch.2 = "' + JSON_EN_DISCO[2][0].ref + '"'), true, 'y vale su id');
   assert.equal(uno('(first epoch.2).0'), "writing burns today's T");
@@ -139,10 +139,11 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.deepEqual(val('(first epoch.2).7'), ['epoch 0']);
   assert.deepEqual(val('(first epoch.2).8'), ['first']);
   assert.match(uno('(first epoch.2).9'), /\{first ev\.3\}/);
-  assert.equal(uno('(nth 42 epoch.2).0'), 'stage', 'las lecturas van detrás');
+  assert.equal(uno('(nth 43 epoch.2).0'), 'stage', 'las lecturas van detrás');
   assert.equal(uno('(last epoch.2).0'), 'how', 'y al final, las de los diez puntos de vista (del 0 al 9)');
-  assert.equal(uno('(nth 29 epoch.2).0'), 'a person joins by an invitation', 'la última condición');
-  assert.equal(uno('(nth 30 epoch.2).0'), 'writing a record gives ten P on it', 'y detrás, las que escriben');
+  assert.equal(uno('(nth 29 epoch.2).0'), 'a person joins by an invitation', 'las del 3b, hasta la invitación');
+  assert.equal(uno('(nth 30 epoch.2).0'), 'an expiry has expired', 'y la última condición, la de caducar (#71.2)');
+  assert.equal(uno('(nth 31 epoch.2).0'), 'writing a record gives ten P on it', 'y detrás, las que escriben');
   assert.deepEqual(val('epoch.2.0'), reglas.map((r) => r[0][0]), 'el 0 de cada una');
 });
 
@@ -151,7 +152,7 @@ test('reglas como registros: un archivo por regla (su 0 en kebab), id = hash del
   const { REGLAS_DE_EPOCA_DATOS } = await import('../datos/epocas/epocas.js');
   const { hash, canonico } = await import('../src/evento.js');
   const enDisco = reglasDe();
-  assert.equal(enDisco.length, 57, '30 condiciones, 3 que escriben, 14 lecturas y las 10 de los puntos de vista');
+  assert.equal(enDisco.length, 58, '31 condiciones, 3 que escriben, 14 lecturas y las 10 de los puntos de vista');
   for (const { archivo, id, registro } of enDisco) {
     assert.equal(archivo, kebab(registro[0][0]) + '.json');
     assert.equal(id, await hash(canonico(registro)), archivo + ': el id es el hash de su cuerpo canónico, como el de un evento');

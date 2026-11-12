@@ -18,7 +18,7 @@
     ]
   ],
   ["=count (before.3 where first it2.6 = first it.5 and it2 != me) > 0 or (first it.3 != me and count (first it.3).6 > 0)"],
-  ["me"],
+  [["me"], ["person"]],
   ["write"],
   ["3.5.3", "=first me.6"],
   [

@@ -39,7 +39,7 @@
     ]
   ],
   ["=first it.3 = me"],
-  ["me"],
+  [["me"], ["person"]],
   ["write"],
   ["{place}.{position}"],
   [

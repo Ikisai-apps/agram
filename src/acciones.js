@@ -10,7 +10,11 @@
 //                              el registro declara para la identidad que da el parámetro p y su prueba de posesión,
 //                              fuera del payload: así da de alta una cosa con su clave, encargo core-escribe)
 //   2 cuándo se ofrece       BQL mínimo con it = X y me = la identidad que mira (el nombre `me` del contexto)
-//   3 quién la lanza         4 lo que mueve (VG 12-11, decisiones 5 a 7 del estudio BQL-transacciones): las sentencias
+//   3 quién la lanza         (VG 12-11, #71.1: 3.0 quién, «me»; 3.1 su modo de ejecución, si puede lanzarla un agente: «person»
+//                              [defecto: solo una persona], «agent» [un agente de AARPIA escribiendo como identidad: una cosa que su
+//                              dueño declaró agente, epoch.9.0.4] o
+//                              «system» [el sistema solo; exige una revisión del dueño de la época, epoch.9.0.4])
+//                            4 lo que mueve (VG 12-11, decisiones 5 a 7 del estudio BQL-transacciones): las sentencias
 //                              «=…» del BQL mínimo con los cinco verbos (mint transfer lock release burn), una por
 //                              ocupante, evaluadas en orden (bqlm.evaluarPlantilla); «write» si no mueve nada más que el
 //                              coste de escribir (la regla de la época «the cost of writing», que transaccion cobra a
@@ -23,6 +27,8 @@
 //   transaccion(eje, plantilla, params, yo) construye la transacción y la valida en seco: { ok, evento, motivos }
 //   camino(eje, X, yo)                      lo que falta: lo del tutorial, lo que derivan las reglas, las sugerencias
 //   autoejecutar(eje, X, yo, firmar)        lanza los pasos míos en orden mientras pasen
+//   modoDeEjecucion(eje, plantilla)         su modo de ejecución: { declarado, modo, revisado } (system sin revisión se lee agent)
+//   esAgente(eje, identidad)                ¿es una cosa que su dueño declaró agente? (no lanza las plantillas «person»)
 //   estaciones(eje, X)                      lo anunciado en X por estación (E pagar, P decidir, R atender, T trabajar)
 //   ejecuciones(eje, X)                     la fábrica de X para la matriz del 4: cada ejecución con su PV, su posición y su estación
 //
@@ -38,7 +44,7 @@ import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS, ANUNCIADO, esAnun
 import { exigido as exigidoDe, tDelCoste } from './escritura.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
 import { plantilla as plantillaDeDatos, etiqueta as etiquetaDe, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones, celdaDeEjecucion } from './contrato.js';
-import { recuento } from './motor.js';
+import { recuento, cerrado as cerradoDe } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
 
 const RE_ID = /^[0-9a-f]{64}$/;
@@ -55,6 +61,7 @@ const SITIO = Object.freeze({
   identidad: [3, 0], // la plantilla de identidad: su 9 es el tutorial del alta
   recuentos: [9, 0, 0, 1], // las plantillas de recuento: [[nombre], [fórmula]]
   dia: [7, 0, 3, 1], // los segundos de un día del calendario
+  revisiones: [9, 0, 4, 1], // las lecturas de revisión del modo de ejecución: [[nombre], [fórmula]] (VG 12-11, #71.1)
 });
 const en = (raiz, camino) => camino.reduce((n, d) => (Array.isArray(n) ? n[d] : undefined), raiz);
 const hoja = (x) => (Array.isArray(x) ? x[0] : x);
@@ -125,6 +132,65 @@ export function plantillaDeTransaccion(cual, opciones = {}) {
   if (esReferencia(cual)) return todas.find((p) => p.id === cual.ref)?.plantilla ?? null;
   if (typeof cual === 'string') return todas.find((p) => p.nombre === cual || p.id === cual)?.plantilla ?? null;
   return null;
+}
+
+// ---------- 1b. el modo de ejecución (VG 12-11, #71.1; CONVERGENCIA de AARPIA §2.2) ----------
+
+/**
+ * Los tres modos de ejecución de una plantilla (su 3.1), en el canónico (inglés); sus textos, en epoch.9.4 por la clave
+ * «launch mode <modo>» (persona, agente, sistema). `person` es el defecto: solo una persona la lanza.
+ */
+export const MODOS_DE_EJECUCION = Object.freeze(['person', 'agent', 'system']);
+
+/** El modo que una plantilla declara en su 3.1 (`person` si no lo dice o dice un valor que no es uno de los tres). */
+export function modoDeclarado(plantilla) {
+  const v = texto(hoja(hojas(plantilla?.[3])[1]));
+  return MODOS_DE_EJECUCION.includes(v) ? v : 'person';
+}
+
+/**
+ * Los ids de las plantillas de transacción que el dueño de la época revisó para que las lance el sistema solo: la
+ * lectura «reviewed to run by the system» (epoch.9.0.4) con it = el génesis del libro (los registros anclados en su 9.6
+ * con «review execution mode» en su 4, escritos por el autor del génesis, y el id de la plantilla en su 2). Solo lee.
+ */
+export function plantillasRevisadas(eje, opciones = {}) {
+  const g = eje?.genesisId;
+  const formula = g ? formulaDeEjecucion('reviewed to run by the system', opciones) : null;
+  if (!formula) return new Set();
+  return new Set((valores(formula, contextoDe(eje, epocaDe(opciones), {}), g).valores ?? []).filter((x) => typeof x === 'string'));
+}
+
+/** La fórmula de epoch.9.0.4 que se llama así (null si la época no la trae). */
+function formulaDeEjecucion(nombre, opciones) {
+  const lectura = hojas(en(raizDe(epocaDe(opciones)), SITIO.revisiones)).filter(Array.isArray).find((c) => texto(hoja(c[0])) === nombre);
+  const formula = texto(ultima(lectura?.[1]));
+  return esFormula(formula) ? formula : null;
+}
+
+/**
+ * ¿Es `identidad` un agente? Una cosa (su alta la escribió otra) que su dueño ha declarado agente con un registro anclado en
+ * el 9 de su alta que dice «declare agent» en su 4 (la lectura «declared as an agent», epoch.9.0.4). Un agente no lanza las
+ * plantillas de modo `person`; una cosa sin declarar (Core, la cocina de los ejemplos) y una persona, sí.
+ */
+export function esAgente(eje, identidad, opciones = {}) {
+  if (typeof identidad !== 'string' || !identidad || eje?.esPersona?.(identidad) !== false) return false;
+  const formula = formulaDeEjecucion('declared as an agent', opciones);
+  return Boolean(formula) && valores(formula, contextoDe(eje, epocaDe(opciones), {}), identidad).valores?.[0] === true;
+}
+
+/**
+ * El modo de ejecución de una plantilla (su nombre, su id o su décupla): { declarado, modo, revisado, id }. `declarado`
+ * es el que dice su 3.1; `modo`, el que rige: «system» solo rige si el dueño de la época lo revisó (un registro anclado
+ * sobre el génesis que nombra el id de la plantilla, `plantillasRevisadas`); sin revisión, una plantilla que declara
+ * «system» se lee «agent». Cambiar la plantilla le cambia el id y anula su revisión. null si no hay tal plantilla.
+ */
+export function modoDeEjecucion(eje, cual, opciones = {}) {
+  const plantilla = plantillaDeTransaccion(cual, opciones);
+  if (!plantilla) return null;
+  const id = plantillasDeTransaccion(opciones).find((p) => p.plantilla === plantilla)?.id ?? null;
+  const declarado = modoDeclarado(plantilla);
+  const revisado = declarado === 'system' && id !== null && plantillasRevisadas(eje, opciones).has(id);
+  return { declarado, modo: declarado === 'system' && !revisado ? 'agent' : declarado, revisado, id };
 }
 
 /**
@@ -319,9 +385,19 @@ export function acciones(eje, X, k, yo, opciones = {}) {
       porDefecto: fuera.length === 0,
       lectura: esLectura(plantilla),
       camino: esCamino(plantilla),
+      ...modoParaLanzar(eje, plantilla, yo, opciones),
     });
   }
   return fuera;
+}
+
+/**
+ * Lo que el modo de ejecución de una plantilla dice de quien la lanza: { modo, puedeLanzar }. Una plantilla «person» no la
+ * lanza un agente (una cosa que su dueño declaró agente: `esAgente`); las de modo «agent» y «system», cualquiera.
+ */
+function modoParaLanzar(eje, plantilla, yo, opciones) {
+  const { modo } = modoDeEjecucion(eje, plantilla, opciones);
+  return { modo, puedeLanzar: modo !== 'person' || !esAgente(eje, yo, opciones) };
 }
 
 /** El reloj con que se fecha una candidata: el que se pide, o el mayor t del libro. */
@@ -440,8 +516,21 @@ function motivosDelEje(eje, textos, ev, idioma, opciones) {
  * (read) devuelve ok con `lectura`; una que lanza el camino (path), el paso que lanzaría (o todos, con path all).
  */
 export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
-  const epoca = epocaDe(opciones);
   const plantilla = plantillaDeTransaccion(cual, opciones);
+  const modo = plantilla ? modoDeEjecucion(eje, plantilla, opciones) : null;
+  // El modo de ejecución (VG 12-11, #71.1): una plantilla «person» no la lanza un agente (una cosa que su dueño declaró agente); lo demás, como antes.
+  if (modo && modo.modo === 'person' && esAgente(eje, yo, opciones)) {
+    const epoca = epocaDe(opciones);
+    const idioma = idiomaDe(eje, yo, opciones);
+    const nombre = nombreDeAccion(plantilla);
+    return { ok: false, evento: null, modo: modo.modo, motivos: [{ regla: nombre, mensaje: motivoDe('only a person launches', { name: nombre, who: yo, mode: textoDe(eje, claves.modo(modo.modo), idioma, { original: modo.modo, epoca }) }, { idioma, epoca }) }] };
+  }
+  const r = await construirTransaccion(eje, plantilla, cual, params, yo, opciones);
+  return modo ? { ...r, modo: modo.modo } : r;
+}
+
+async function construirTransaccion(eje, plantilla, cual, params, yo, opciones) {
+  const epoca = epocaDe(opciones);
   const idioma = idiomaDe(eje, yo, opciones);
   if (!plantilla) return { ok: false, evento: null, motivos: [{ regla: null, mensaje: motivoDe('unknown template', { template: String(Array.isArray(cual) ? cual[0] : cual?.ref ?? cual) }, { idioma, epoca }) }] };
   const nombre = nombreDeAccion(plantilla);
@@ -773,7 +862,9 @@ export async function camino(eje, X, yo, opciones = {}) {
 
   // (2) Las reglas: lo anunciado y pendiente, por estación.
   const estacionDe = new Map(estacionesDeLaEpoca(opciones).map((e) => [e.familia, e]));
-  const pendientes = (valores('("' + ev.id + '").4.8', ctx).valores ?? []).filter((x) => typeof x === 'string').map((id) => eje.obtener(id)).filter(Boolean);
+  // Un proceso cerrado con error o caducado (VG 12-11, #71.2) no pide pasos: lo anunciado que quedó pendiente ya no se espera.
+  const sinPasos = ['error', 'caducado'].includes(cerradoDe(eje, ev.id).fin);
+  const pendientes = sinPasos ? [] : (valores('("' + ev.id + '").4.8', ctx).valores ?? []).filter((x) => typeof x === 'string').map((id) => eje.obtener(id)).filter(Boolean);
   for (const anuncio of pendientes) {
     const a = anuncioDe(anuncio);
     if (!a) continue;
@@ -794,7 +885,7 @@ export async function camino(eje, X, yo, opciones = {}) {
   // El recuento del dueño, si lo declara y no pasa.
   const recuentos = hojas(en(raiz, SITIO.recuentos)).filter(Array.isArray).map((x) => hoja(x[0]));
   const criterio = (valores('(("' + ev.id + '").2 where count it.5 = 0)', ctx).valores ?? []).concat(valores('(("' + ev.id + '").2.2 where count it.5 = 0)', ctx).valores ?? []);
-  if (criterio.some((x) => recuentos.includes(x))) {
+  if (!sinPasos && criterio.some((x) => recuentos.includes(x))) {
     const c = recuento(eje, ev.id);
     if (c.pasa === false) {
       const que = 'the tally of ' + ev.autor + ' (' + c.plantilla + ') gives ' + c.valor + ' and asks above ' + c.umbral;

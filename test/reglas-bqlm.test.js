@@ -52,7 +52,9 @@ export const DEL_3B = Object.freeze([
   'T only goes to things',
 ]);
 // Las condiciones de la época que traducen una condición JS retirada: las que el 3b no cambió.
-const REGLAS = EPOCA_0_BTML.condiciones.filter((r) => !DEL_3B.includes(r[0][0]));
+/** Las condiciones de #71.2 (12-11): caducar; solo lee el libro y no traduce ninguna condición JS (test/motor.test.js). */
+export const DE_71 = Object.freeze(['an expiry has expired']);
+const REGLAS = EPOCA_0_BTML.condiciones.filter((r) => !DEL_3B.includes(r[0][0]) && !DE_71.includes(r[0][0]));
 const nombreDe = (r) => r[0][0];
 const DIVERGENCIAS = process.env.AGRAM_DIVERGENCIAS === '1';
 /** Las reglas de la clave y la firma (B4): se ejercitan en un eje con claves, no en el fuzz de demostración. */
@@ -182,8 +184,9 @@ async function repasar(eje, cuenta) {
 
 // ---------- la época ----------
 
-test('las reglas de economía: 30 condiciones en epoch.2 en el orden de su 8; las 21 que el 3b no cambió, cada una con su condición JS', async () => {
-  assert.equal(EPOCA_0_BTML.condiciones.length, 30);
+test('las reglas de economía: 31 condiciones en epoch.2 en el orden de su 8; las 21 que el 3b no cambió, cada una con su condición JS', async () => {
+  assert.equal(EPOCA_0_BTML.condiciones.length, 31);
+  assert.deepEqual(DE_71.filter((n) => EPOCA_0_BTML.condiciones.some((r) => nombreDe(r) === n)), [...DE_71], 'la de #71.2 está en la época, sin condición JS');
   assert.deepEqual(DEL_3B.filter((n) => EPOCA_0_BTML.condiciones.some((r) => nombreDe(r) === n)), [...DEL_3B], 'las del 3b están todas en la época');
   assert.equal(REGLAS.length, 21);
   const js = await motivosJS(new Eje(), { autor: 'g', sobre: null, t: '2026-11-07T09:00:00Z', movimientos: [], payload: ['x'], contexto: { genesis: true } });

@@ -42,7 +42,7 @@
     ]
   ],
   ["=first it.5 = first me.6"],
-  ["me"],
+  [["me"], ["person"]],
   ["write"],
   ["3.{zone}.2", "=first me.6"],
   [

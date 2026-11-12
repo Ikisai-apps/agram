@@ -78,7 +78,7 @@
     ]
   ],
   ["=count (me.2.1 where it2.0 = first it.5 and (count it2.5 = 0 or first it2.5 = 1) and it2.1 > 0) > 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["=mint first memo.1.1 E.(me).(first memo.1.0).(it) to me price first memo.1.2"],
   ["1"],
   [
