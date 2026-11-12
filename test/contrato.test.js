@@ -648,8 +648,10 @@ test('diario: cada entrada con el PV de X del que cuelga (su «en», o la posici
   assert.equal(de(c.compra).pv, 0, 'X mismo, el centro');
   assert.equal(de(c.cuenta).pv, 1, 'la cuenta modifica el 1 de la compra');
   assert.equal(de(c.pagar).pv, 4, 'un anuncio del 4.1');
-  assert.deepEqual([de(c.manana).pv, de(c.semana).pv, de(c.plazo).pv, de(c.cohorte).pv], [7, 7, 7, 8]);
-  assert.deepEqual([de(c.manana).estado, de(c.cuenta).estado], [{ tipo: 'previsto', fecha: '2026-11-08T13:30:00Z', serie: 'T:futuro', cantidad: 1 }, null]);
+  // VG 12-11 (#64 c): «declare future T» es un anuncio de T con fecha en el 4.1 (cuelga del 4), previsto en su fecha.
+  assert.deepEqual([de(c.manana).pv, de(c.semana).pv, de(c.plazo).pv, de(c.cohorte).pv], [4, 4, 7, 8]);
+  assert.deepEqual([de(c.manana).estado, de(c.cuenta).estado], [{ tipo: 'previsto', fecha: '2026-11-08T13:30:00Z', serie: 'T:minuto', cantidad: 1 }, null]);
+  assert.deepEqual(de(c.nochebuena).estado, { tipo: 'previsto', fecha: '2026-12-24T20:00:00Z', serie: 'T:futuro', cantidad: 3 }, 'el T futuro informativo de antes se lee igual');
   // anclada en la raíz del menú, la compra se refiere a su 1 ({ ref: menu, dir: '1000000000' }): cuelga del 1 del menú
   assert.equal(C.pvDeEntrada(c.eje, c.menu.id, c.compra.id), 1);
   assert.equal(C.pvDeEntrada(c.eje, c.compra.id, c.menu.id), null, 'el menú no cuelga de la compra');
@@ -663,7 +665,9 @@ test('diario: cada entrada con el PV de X del que cuelga (su «en», o la posici
 test('estadoDeEntrada: previsto (T futuro con su «when»), bloqueado hasta y liberado (un bloqueo con fecha), caduca y caducado (la caducidad de una emisión de E o la quema de E propia)', async () => {
   const c = await conFuturo();
   // En BQL desde VG 12-11: los estados de epoch.7.4 sobre el movimiento con fecha (X.7.9); el previsto también dice su serie.
-  assert.deepEqual(C.estadoDeEntrada(c.eje, c.semana.id), { tipo: 'previsto', fecha: '2026-11-12T20:00:00Z', serie: 'T:futuro', cantidad: 2 });
+  // «declare future T» anuncia T real con fecha (VG 12-11, #64 c): previsto, con la serie anunciada; el T futuro de antes, igual.
+  assert.deepEqual(C.estadoDeEntrada(c.eje, c.semana.id), { tipo: 'previsto', fecha: '2026-11-12T20:00:00Z', serie: 'T:minuto', cantidad: 2 });
+  assert.deepEqual(C.estadoDeEntrada(c.eje, c.nochebuena.id), { tipo: 'previsto', fecha: '2026-12-24T20:00:00Z', serie: 'T:futuro', cantidad: 3 });
   const plazo = C.estadoDeEntrada(c.eje, c.plazo.id);
   assert.deepEqual([plazo.tipo, plazo.fecha, plazo.cantidad], ['bloqueado', '2026-11-30T12:00:00Z', 5]);
   assert.equal(c.eje.bloqueado('huesped', plazo.serie, plazo.fecha), 5, 'sigue bloqueado en el libro');
@@ -845,4 +849,42 @@ test('verificado: además del sello, trae la altura de su bloque, la profundidad
   assert.deepEqual(['altura', 'profundidad', 'enFirme'].map((k) => C.verificado(eje, otro)[k]), [840005, 1, false]);
   // leer del 5 lo trae igual.
   assert.equal(C.leer(eje, compra.id, 5).verificado.profundidad, 6);
+});
+
+// ---------- ejecutar desde el 4 (VG 12-11, decisión 7 de #49): el valor del registro y el botón por rango ----------
+
+test('valorDeRegistro y valorDeCelda (VG 12-11, decisión 7): el valor de un registro crece con sus transacciones (todas suman: la T real que movió él y lo anclado debajo); la celda enseña la suma', async () => {
+  const c = await ejemploCompra();
+  const t = (m) => '2026-11-08T11:' + String(m).padStart(2, '0') + ':00Z';
+  const raiz = await c.eje.escribir({ autor: 'cocina', sobre: c.compra.id, en: '4000000000', t: t(0), movimientos: [minuto('cocina')], payload: [['Turno']] });
+  assert.deepEqual(C.valorDeRegistro(c.eje, raiz.id), { segundos: 60, transacciones: 1 }, 'el coste de escribirlo');
+  const trabajo = await c.eje.escribir({ autor: 'cocina', sobre: raiz.id, t: t(1), movimientos: [minuto('cocina'), { token: 'T', escala: 'hora', cantidad: 1, de: 'cocina', a: null }], payload: [['Trabajo']] });
+  const dado = await c.eje.escribir({ autor: 'cocina', sobre: trabajo.id, t: t(2), movimientos: [minuto('cocina'), { token: 'T', escala: 'minuto', cantidad: 11, de: 'cocina', a: null }], payload: [['Remate']] });
+  assert.deepEqual(C.valorDeRegistro(c.eje, dado.id), { segundos: 60 + 660, transacciones: 1 });
+  assert.deepEqual(C.valorDeRegistro(c.eje, raiz.id), { segundos: 60 + (60 + 3600) + (60 + 660), transacciones: 3 }, 'todas suman: 1 h 11 min más lo de escribir');
+  // lo anunciado aún no se mueve: no suma hasta que se cumple
+  const anuncio = await c.eje.escribir({ autor: 'cocina', sobre: raiz.id, en: '4100000000', t: t(3), movimientos: [minuto('cocina'), { token: 'T', escala: 'hora', cantidad: 5, de: 'cocina', a: null, estado: 'anunciado', refiere: '2026-12-01T10:00:00Z' }], payload: [['Mañana']] });
+  assert.deepEqual(C.valorDeRegistro(c.eje, anuncio.id), { segundos: 60, transacciones: 1 });
+  assert.deepEqual(C.valorDeCelda(c.eje, [dado.id, { ref: anuncio.id }, 'pagar']), { segundos: 720 + 60, transacciones: 2, registros: 2 }, 'lo que no es un registro no suma');
+  assert.equal(C.valorDeRegistro(c.eje, 'no-existe'), null);
+  assert.deepEqual(C.valorDeCelda(c.eje, []), { segundos: 0, transacciones: 0, registros: 0 });
+});
+
+test('botonDeEjecutar (VG 12-11, decisión 7): cambia con el rango del 8: apagado (pero pulsable) al principio, marcado al llegar al 3, efectos al subir', async () => {
+  const c = await ejemploCompra();
+  const apagado = C.botonDeEjecutar(c.eje, c.compra.id);
+  assert.deepEqual([apagado.estado, apagado.pulsable, apagado.peldano, apagado.marca, apagado.subida], ['apagado', true, 0, { peldano: 3, nivel: 3, grado: 1 }, 0]);
+  // administrar acuñando R propia (la posición 2): la celda 2 · 3 a cuatro de profundidad, una más que su peldaño (2.1): sube al 3 (3.1)
+  const darR = () => [minuto('huesped'), { token: 'R', emisor: 'huesped', cantidad: 1, de: null, a: 'huesped' }];
+  const coordina = await cadenaDe(c.eje, c.compra.id, 4, { autor: 'huesped', en: '2000000000', movimientos: darR });
+  assert.equal(C.rango(c.eje, c.compra.id).peldano, 3);
+  const marcado = C.botonDeEjecutar(c.eje, c.compra.id);
+  assert.deepEqual([marcado.estado, marcado.peldano, `${marcado.nivel}.${marcado.grado}`, marcado.subida], ['marcado', 3, '3.1', 0]);
+  // planear con T futuro: el peldaño 6 (4.2), tres por encima de la marca
+  await cadenaDe(c.eje, c.compra.id, 1, { autor: 'cocina', en: '6000000000', movimientos: planear, desde: 30 });
+  const efectos = C.botonDeEjecutar(c.eje, c.compra.id);
+  assert.deepEqual([efectos.estado, efectos.peldano, efectos.subida], ['efectos', 6, 3]);
+  assert.equal(C.botonDeEjecutar(c.eje, coordina[3].id).estado, 'apagado', 'lo último de la cadena no tiene nada debajo');
+  assert.deepEqual([C.botonDeEjecutar(c.eje, 'no-existe').estado, C.botonDeEjecutar(c.eje, 'no-existe').peldano], ['apagado', null]);
+  assert.deepEqual(C.BOTON_DE_EJECUTAR.estados, ['apagado', 'marcado', 'efectos']);
 });

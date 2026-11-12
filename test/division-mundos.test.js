@@ -817,7 +817,8 @@ test('celdaDeEjecucion: el oficio por la plantilla, la estación o la posición;
   assert.deepEqual(celda(c.pagar), [4, 1, 'estacion', 'token E']);
   assert.deepEqual(celda(c.respaldo), [2, 2, 'plantilla', 'token P'], '«commit P» bloquea P: administrar · P');
   assert.deepEqual(celda(c.capacidad), [2, 0, 'plantilla', 'content']);
-  assert.deepEqual(celda(c.manana), [7, 7, 'plantilla', 'scale futuro'], '«declare future T»: planear · proyección al futuro');
+  // VG 12-11 (#64 c): «declare future T» anuncia T con fecha: sigue en planear · proyección al futuro, ahora por la fecha
+  assert.deepEqual(celda(c.manana), [7, 7, 'plantilla', 'dated'], '«declare future T»: planear · proyección al futuro');
   assert.deepEqual(celda(c.plazo), [7, 7, 'plantilla', 'dated'], '«commit time» bloquea hasta una fecha');
   assert.deepEqual(celda(c.cohorte), [8, 8, 'plantilla', 'content at 8'], '«change cohort» escribe en el 8 sin mover nada');
   assert.deepEqual(celda(c.nochebuena), [4, 7, 'posicion', 'scale futuro'], 'a mano, sin plantilla: el oficio es la posición que modifica');
@@ -850,9 +851,10 @@ test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del 
   };
   // por su «when»: mañana en «día», el 12 en «semana», hasta fin de mes en «ciclo», Nochebuena en «año»
   assert.deepEqual([c.manana, c.semana, c.plazo, c.nochebuena, c.vales].map((x) => donde(x.id)?.franja), ['día', 'semana', 'ciclo', 'año', 'día']);
-  // los hilos: la fábrica (4) y los recursos (1) de la compra; lo declarado en el 7 mismo no cuelga de ninguno de los cuatro
-  assert.deepEqual([donde(c.nochebuena.id).hilo, donde(c.vales.id).hilo], [4, 1]);
-  assert.deepEqual([donde(c.manana.id).hilo, donde(c.manana.id).o.hiloSupuesto], [r7.hilos[0].pv, true]);
+  // los hilos: la fábrica (4) y los recursos (1) de la compra; lo declarado en el 7 mismo no cuelga de ninguno de los cuatro.
+  // El T futuro anunciado (VG 12-11, #64 c) va en el 4.1: cuelga de la fábrica, como cualquier anuncio.
+  assert.deepEqual([donde(c.nochebuena.id).hilo, donde(c.vales.id).hilo, donde(c.manana.id).hilo], [4, 1, 4]);
+  assert.deepEqual([donde(c.plazo.id).hilo, donde(c.plazo.id).o.hiloSupuesto], [r7.hilos[0].pv, true]);
   assert.ok(new Set(r7.bandas.flatMap((b) => b.cruces.filter((x) => x.items.length).map((x) => x.hilo))).size > 1, 'en más de un hilo');
   // el estado del futuro; la «incongruencia de escala» (declara un minuto y por su fecha le toca otra franja) se retiró
   // (VG 12-11, #42): ninguna cuenta es rara mientras no haya más reloj que el del libro (X.6.8)
@@ -860,7 +862,8 @@ test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del 
   assert.equal(donde(c.semana.id).o.incongruente, undefined);
   assert.equal(r7.bandas.some((b) => b.items.some((o) => o.rara)), false);
   const h7 = rejillaHtml(html(a7));
-  assert.match(h7, /class="ocupante cuenta supuesta"[^>]*data-estado="previsto"/);
+  assert.match(h7, /class="ocupante cuenta supuesta"[^>]*data-estado="bloqueado"/);
+  assert.match(h7, /class="ocupante cuenta"[^>]*data-estado="previsto"/);
   assert.ok(!h7.includes('cuenta-rara') && !h7.includes('incongruente'));
   assert.match(h7, new RegExp(`<small class="cuenta-estado">${t('estadoBloqueado', { fecha: '' }).replace(/\s+$/, '')}`));
   // el 6: cada entrada del diario en el hilo de la posición que modificó (la fábrica en el 4, los recursos en el 1…)

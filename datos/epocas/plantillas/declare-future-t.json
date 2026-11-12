@@ -23,7 +23,7 @@
       ["encargo 3c-2a: parámetro de «declare future T»"],
       ["required"],
       [2],
-      ["the date it refers to"]
+      ["the date the T is announced for (when it will be worked)"]
     ],
     [
       ["units"],
@@ -35,7 +35,7 @@
       ["encargo 3c-2a: parámetro de «declare future T»"],
       ["required"],
       [3],
-      [1, "how many units of future T"]
+      [60, "how many minutes of T will be worked on that date (an announcement: nothing moves until the worked T anchors on it)"]
     ],
     [
       ["actions"],
@@ -76,15 +76,16 @@
   ],
   ["=count it.5 > 0"],
   ["me"],
-  ["=burn first memo.1.1 T.8 from me when first memo.1.0"],
-  ["7"],
+  ["=burn first memo.1.1 T.1 from me when first memo.1.0"],
+  ["4.1"],
   [
     "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
     "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
     "T informativo (VG, 8-11): se consume y queda registrado con la fecha a la que se refiere (el segundo ocupante del 2 del movimiento)",
-    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). La lista de antes (un movimiento por décupla) convivió con las sentencias mientras duró la migración y se retiró al fundir con PV3, cuando todas las plantillas dieron el mismo evento por las dos vías (doble ejecución; lo que movía la lista quedó en test/doble-ejecucion-esperada.json). Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
+    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). La lista de antes (un movimiento por décupla) convivió con las sentencias mientras duró la migración y se retiró al fundir con PV3, cuando todas las plantillas dieron el mismo evento por las dos vías (doble ejecución; lo que movía la lista quedó en test/doble-ejecucion-esperada.json). Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición",
+    "VG 12-11 (#64 c, «Adelante»; dentro del encargo del botón de ejecutar del 4, decisión 7 de #49): declarar T futuro es un ANUNCIO de T con fecha, como los anuncios de pago (decisión 8): el registro va en el 4.1 de X y lleva un movimiento anunciado (burn … when: la quema de los minutos de T que se trabajarán, estado «anunciado», sin tocar saldos; estación «propuesta»); lo cumple el T real trabajado que se ancla sobre él al llegar la fecha (un registro con una quema real de T sobre el anuncio, «deliver»: estación «ejecutada»). Por qué: el T informativo con fecha (T.8, el futuro) no se cumplía nunca: era una nota; como anuncio entra en las estaciones del 4 y en el camino como cualquier otro, y el T que se trabaja de verdad es lo que lo cierra. Los T informativos ya escritos (pasado, futuro, inventado) se siguen leyendo igual"
   ],
   ["epoch 0"],
   [7, 2],
-  ["declare future T: {me} declares future time on {first it.0}"]
+  ["declare future T: {me} announces {first ev.1.1} minutes of T for {first ev.1.0} on {first it.0}"]
 ]

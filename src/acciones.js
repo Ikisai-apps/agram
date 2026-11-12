@@ -20,7 +20,8 @@
 //   6 procedencia  7 época  8 [punto de vista, orden] (la primera de cada uno es la acción por defecto)  9 mensaje
 //
 //   acciones(eje, X, k, yo)                 las plantillas del punto de vista k cuya condición pasa para yo sobre X
-//   transaccion(eje, plantilla, params, yo) construye la transacción y la valida en seco: { ok, evento, motivos }
+//   transaccion(eje, plantilla, params, yo) construye la transacción y la valida en seco: { ok, evento, motivos, ejecucion }
+//   ejecucion(eje, plantilla, params, yo)   lo que exige en T cada parte y la denominación propuesta (el 4 ejecuta; decisión 7)
 //   camino(eje, X, yo)                      lo que falta: lo del tutorial, lo que derivan las reglas, las sugerencias
 //   autoejecutar(eje, X, yo, firmar)        lanza los pasos míos en orden mientras pasen
 //   estaciones(eje, X)                      lo anunciado en X por estación (E pagar, P decidir, R atender, T trabajar)
@@ -34,8 +35,10 @@ import { EPOCA_0_BTML } from './epocas.js';
 import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla, evaluarPlantilla } from './bqlm.js';
 import { crearEvento } from './evento.js';
-import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS, ANUNCIADO, esAnunciado, claveToken } from './tokens.js';
-import { exigido as exigidoDe, tDelCoste } from './escritura.js';
+import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS, ESCALAS_REALES, SEGUNDOS, ANUNCIADO, esAnunciado, claveToken } from './tokens.js';
+import { exigido as exigidoDe, tDelCoste, escalaQueAlcanza, REGLA_DEL_COSTE } from './escritura.js';
+import { escalaQueCubre } from './tiempo.js';
+import { contarPosiciones } from './modos.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
 import { plantilla as plantillaDeDatos, etiqueta as etiquetaDe, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones, celdaDeEjecucion } from './contrato.js';
 import { recuento } from './motor.js';
@@ -405,6 +408,113 @@ export function costeDe(payload, yo, { epoca, escala, eje } = {}) {
   return { exigido: segundos, movimiento: t ? { token: 'T', escala: t.escala, cantidad: t.cantidad, de: yo, a: null } : null };
 }
 
+// ---------- 3 bis. ejecutar desde el 4 (VG 12-11, decisión 7 de #49 y #65) ----------
+
+/** Lo que una pieza de T vale en segundos del calendario (epoch.7.0); 0 si la escala no es real. */
+const segundosDe = (escala, cantidad) => (ESCALAS_REALES.includes(escala) ? cantidad * SEGUNDOS[escala] : 0);
+
+/**
+ * La denominación de T que cubre `segundos` empezando por la escala `desde` (una real): lo que cabe entero en ella y el
+ * resto en las menores, hasta el segundo (330 minutos desde la hora: 5 h 30 min; desde el minuto: 330 min); si la escala
+ * es mayor que lo exigido, una unidad suya (se paga de más: subir de escala). → [{ escala, cantidad }] (de mayor a
+ * menor), [] si no se exige nada. Es el ajuste del 4: a escalas menores (1 h 11 min) o mayores (el desplegable de las
+ * escalas del calendario, epoch.7).
+ */
+export function denominacion(segundos, desde) {
+  if (!ESCALAS_REALES.includes(desde)) throw new Error('la denominación va en una escala real (' + ESCALAS_REALES.join(', ') + '), no «' + desde + '»');
+  if (!(segundos > 0)) return [];
+  if (SEGUNDOS[desde] >= segundos) return [{ escala: desde, cantidad: Math.ceil(segundos / SEGUNDOS[desde] - 1e-9) }];
+  const piezas = [];
+  let resto = segundos;
+  for (const escala of ESCALAS_REALES.slice(0, ESCALAS_REALES.indexOf(desde) + 1).reverse()) {
+    const n = escala === 'segundo' ? Math.ceil(resto - 1e-9) : Math.floor(resto / SEGUNDOS[escala] + 1e-9);
+    if (n > 0) { piezas.push({ escala, cantidad: n }); resto -= n * SEGUNDOS[escala]; }
+    if (resto <= 1e-9) break;
+  }
+  return piezas;
+}
+
+/** ¿Alcanza el saldo de T de `yo` el día de `t` para cada pieza de una denominación (eje.saldoT, por escala)? */
+function alcanzaPara(eje, yo, piezas, t) {
+  if (typeof eje?.saldoT !== 'function') return true;
+  return piezas.every((p) => eje.saldoT(yo, p.escala, t) >= p.cantidad);
+}
+
+/** Una denominación pedida: la escala de la que parte (un texto) o las piezas tal cual ([{ escala, cantidad }]). */
+function piezasPedidas(pedida, segundos) {
+  if (typeof pedida === 'string') return denominacion(segundos, pedida);
+  if (!Array.isArray(pedida)) throw new Error('la denominación es una escala real o una lista de piezas { escala, cantidad }');
+  for (const p of pedida) {
+    if (!ESCALAS_REALES.includes(p?.escala) || !(p.cantidad > 0)) throw new Error('una pieza de la denominación es { escala real, cantidad > 0 }, no ' + JSON.stringify(p));
+  }
+  return pedida.map((p) => ({ escala: p.escala, cantidad: p.cantidad }));
+}
+
+/**
+ * Lo que la transacción exige en T y la denominación que lo cubre (VG 12-11, decisión 7: el 4 recopila y propone).
+ * Cada parte exige o no: el coste de escribir (la regla de la época «the cost of writing», por posición) y lo que la
+ * plantilla mueve de T real de quien la lanza (sus sentencias: lo que da, bloquea o quema; lo anunciado no, que aún no
+ * se mueve). La denominación paga el coste: la propuesta parte de la escala que cubre lo emitido (tiempo.escalaQueCubre
+ * de las posiciones, #65) y baja a las menores (1 h 11 min); si el saldo del día no la alcanza, la de una sola escala que
+ * sí (escritura.escalaQueAlcanza). `pedida` (opciones.denominacion) la ajusta: la escala de la que parte o las piezas.
+ */
+function resumenDeEjecucion(eje, { payload, movimientos, yo, t, epoca, nombre, pedida }) {
+  const coste = exigidoDe(payload, { epoca, eje });
+  const posiciones = contarPosiciones(payload);
+  const reales = movimientos.filter((m) => m.token === 'T' && ESCALAS_REALES.includes(m.escala) && m.de === yo && m.estado !== ANUNCIADO && m.estado !== 'liberacion');
+  const dePlantilla = reales.reduce((s, m) => s + segundosDe(m.escala, m.cantidad), 0);
+  const partes = [
+    { parte: 'coste', regla: REGLA_DEL_COSTE, posiciones, segundos: coste },
+    { parte: 'plantilla', plantilla: nombre, segundos: dePlantilla, movimientos: reales.map((m) => ({ escala: m.escala, cantidad: m.cantidad })) },
+  ];
+  const escala = escalaQueCubre(posiciones);
+  let propuesta = { desde: escala, piezas: denominacion(coste, escala) };
+  if (coste > 0 && !alcanzaPara(eje, yo, propuesta.piezas, t)) {
+    const otra = escalaQueAlcanza(eje, yo, payload, t, { epoca });
+    propuesta = { desde: otra, piezas: [tDelCoste(coste, otra)] };
+  }
+  const piezas = pedida === undefined || pedida === null ? propuesta.piezas : piezasPedidas(pedida, coste);
+  const paga = piezas.reduce((s, p) => s + segundosDe(p.escala, p.cantidad), 0);
+  return {
+    partes, coste, exigido: coste + dePlantilla, posiciones,
+    propuesta: { ...propuesta, segundos: propuesta.piezas.reduce((s, p) => s + segundosDe(p.escala, p.cantidad), 0) },
+    denominacion: piezas, paga, cubre: paga >= coste - 1e-9, alcanza: alcanzaPara(eje, yo, piezas, t),
+    escalas: [...ESCALAS_REALES],
+  };
+}
+
+/**
+ * Lo que exige en T ejecutar una plantilla sobre X y la denominación de T que lo cubre (VG 12-11, decisión 7 de #49;
+ * #65): la mitad «recopilar y proponer» del 4, sin construir el evento ni validarlo (síncrono: la carta la pinta junto al
+ * botón de ejecutar). `opciones.denominacion` la ajusta: la escala de la que parte («hora»: 5 h 30 min) o las piezas
+ * ([{ escala, cantidad }]). → { ok, motivos, partes: [{ parte: 'coste', regla, posiciones, segundos }, { parte:
+ * 'plantilla', plantilla, segundos, movimientos }], coste, exigido (la suma, en segundos), posiciones, propuesta: {
+ * desde, piezas, segundos }, denominacion (las piezas que se quemarían), paga, cubre, alcanza, escalas } o, si la
+ * plantilla no escribe o algo falla, { ok: false, motivos }. Ejecutar es transaccion con la misma `denominacion`.
+ */
+export function ejecucion(eje, cual, params = {}, yo, opciones = {}) {
+  const epoca = epocaDe(opciones);
+  const plantilla = plantillaDeTransaccion(cual, opciones);
+  if (!plantilla || esLectura(plantilla) || esCamino(plantilla)) return { ok: false, motivos: [] };
+  const idioma = idiomaDe(eje, yo, opciones);
+  const { X: cualX, ...dados } = params;
+  const X = eventoDe(eje, cualX);
+  if (!X || !eje?.obtener(X.id) || typeof yo !== 'string' || !yo) return { ok: false, motivos: [] };
+  const t = relojDe(eje, opciones);
+  const nombre = nombreDeAccion(plantilla);
+  try {
+    const prep = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
+    if (prep.motivos.length) return { ok: false, motivos: prep.motivos };
+    const hecha = movimientosBql(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
+    if (hecha.motivos.length) return { ok: false, motivos: hecha.motivos };
+    const payload = prep.payload;
+    if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, prep.candidata, yo, X);
+    return { ok: true, motivos: [], ...resumenDeEjecucion(eje, { payload, movimientos: hecha.movimientos, yo, t, epoca, nombre, pedida: opciones.denominacion }) };
+  } catch (e) {
+    return { ok: false, motivos: [{ regla: nombre, mensaje: nombre + ': ' + e.message }] };
+  }
+}
+
 /**
  * El mensaje de una plantilla (su 9) relleno sobre la candidata, X y yo. Con `idioma`, el traducido de epoch.9.4
  * («template <nombre> message», con los mismos huecos); sin él, el canónico, que es lo que se escribe en el 0 del
@@ -477,13 +587,18 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, prep.candidata, yo, X);
   // El coste de escribir (VG 12-11, decisión 7): una regla de la época para toda candidata, por posición; va delante,
   // donde iba el minuto copiado. La escala, la pedida (opciones.escala) o la menor que lo cubre.
+  // Ejecutar desde el 4 (VG 12-11, decisión 7): con `opciones.denominacion` (la escala de la que parte o las piezas, lo
+  // que el 4 propone y el usuario ajusta), la T del coste se quema en esas piezas; el resumen va en el resultado.
   let coste;
+  let resumen;
   try {
     coste = costeDe(payload, yo, { epoca, escala: opciones.escala, eje });
+    resumen = resumenDeEjecucion(eje, { payload, movimientos, yo, t, epoca, nombre, pedida: opciones.denominacion });
   } catch (e) {
     return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: nombre + ': ' + e.message }] };
   }
-  if (coste.movimiento) movimientos.unshift(coste.movimiento);
+  if (opciones.denominacion !== undefined && opciones.denominacion !== null) movimientos.unshift(...resumen.denominacion.map((p) => ({ token: 'T', escala: p.escala, cantidad: p.cantidad, de: yo, a: null })));
+  else if (coste.movimiento) movimientos.unshift(coste.movimiento);
   // Las claves que el registro declara y sus pruebas de posesión (un parámetro con «key {p}» o «proof {p}» en su 4): la
   // clave va en el contexto (el 5 del evento, dentro del cuerpo), la prueba fuera del cuerpo, como la firma; así una
   // persona da de alta una cosa con la clave de la cosa (la prueba la firma la cosa sobre el id de este registro).
@@ -508,7 +623,7 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   }
   const textos = await eje.validar(evento);
   const delEje = motivosDelEje(eje, textos, evento, idioma, opciones);
-  return { ok: delEje.length === 0, evento, motivos: delEje, exigido: coste.exigido };
+  return { ok: delEje.length === 0, evento, motivos: delEje, exigido: coste.exigido, ejecucion: resumen };
 }
 
 // ---------- 3b. las opiniones como registros ----------

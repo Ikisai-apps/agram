@@ -24,6 +24,7 @@ import { raizDeAmbito } from '../src/tokens.js';
 import { generarClaves, firmar as firmarEvento } from '../src/autoridad.js';
 import { costeT, exigido, tDelCoste } from '../src/escritura.js';
 import { pagaElCoste } from './ayudas-coste.js';
+import { escalaQueCubre } from '../src/tiempo.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 const T1 = '2026-11-08T12:00:00Z';
@@ -529,7 +530,9 @@ const EXTRA = {
  * La doble ejecución, cerrada (VG 12-11, decisión 10; fusión de BQL-escritura con PV3): todas las plantillas dieron el
  * mismo evento por la lista de antes (una décupla por movimiento) y por sus sentencias en BQL, y la lista se retiró del
  * 4 de las plantillas y de src/acciones.js. Lo que movía la lista en cada caso quedó escrito, generado con ella antes de
- * retirarla, en test/doble-ejecucion-esperada.json: las sentencias han de seguir moviendo exactamente eso.
+ * retirarla, en test/doble-ejecucion-esperada.json: las sentencias han de seguir moviendo exactamente eso. Salvo «declare
+ * future T», que cambió de lo que mueve por decisión de VG (12-11, #64 c): ahora anuncia 60 minutos de T con su fecha
+ * (un movimiento anunciado) en lugar de quemar T informativo; sus dos casos se reescribieron con eso.
  */
 const DOBLE = new URL('./doble-ejecucion-esperada.json', import.meta.url);
 /** Los ids del libro, por su lugar en el orden del eje (#n): así un caso no depende del id de la época ni del de sus registros. */
@@ -683,4 +686,95 @@ test('el anuncio es un movimiento anunciado del libro: no toca saldos, lo lee mo
   });
   const r = await A.transaccion(eje, 'anchor here', { X: encargo.id, title: 'otro anuncio' }, 'cocina', { t: T1, epoca: anuncia });
   assert.deepEqual(r.evento.movimientos[1], { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 3, de: 'huesped', a: 'cocina', estado: 'anunciado', refiere: '2026-11-21T10:00:00Z' });
+});
+
+// ---------- ejecutar desde el 4 (VG 12-11, decisión 7 de #49, #65) y el T futuro como anuncio (#64 c) ----------
+
+test('ejecutar desde el 4 (VG 12-11, decisión 7): el 4 recopila lo que exige cada parte (el coste por posición y la T de la plantilla), propone la denominación que lo cubre (escalaQueCubre) y se ajusta a escalas menores (1 h 11 min) o mayores; interactuar no acuña', async () => {
+  const c = await ejemploCompra();
+  const antes = c.eje.orden.length;
+  const params = { X: c.compra.id, what: 'servir', when: '2026-12-01T00:00:00Z' };
+  const e = A.ejecucion(c.eje, 'declare future T', params, 'huesped', { t: T1 });
+  assert.equal(e.ok, true, JSON.stringify(e.motivos));
+  const r = await A.transaccion(c.eje, 'declare future T', params, 'huesped', { t: T1 });
+  assert.equal(r.ok, true, JSON.stringify(r.motivos));
+  assert.deepEqual([e.coste, e.coste], [r.exigido, e.posiciones * 60], 'lo exigido por posición es lo de la regla del coste: un minuto por posición');
+  assert.deepEqual(e.partes.map((p) => [p.parte, p.segundos]), [['coste', e.coste], ['plantilla', 0]], 'lo anunciado aún no se mueve: la plantilla no exige T');
+  assert.equal(e.exigido, e.coste);
+  assert.equal(e.propuesta.desde, escalaQueCubre(e.posiciones), 'la propuesta parte de la escala que cubre lo emitido (#65)');
+  assert.deepEqual(e.propuesta.piezas, A.denominacion(e.coste, e.propuesta.desde));
+  assert.ok(e.propuesta.segundos >= e.coste && e.cubre && e.alcanza);
+  assert.deepEqual(e.escalas, ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio'], 'el desplegable: las escalas del calendario');
+  assert.deepEqual(r.ejecucion.propuesta, e.propuesta, 'transaccion devuelve el mismo resumen');
+  assert.equal(c.eje.orden.length, antes, 'ni ejecucion ni transaccion asientan: interactuar no acuña');
+  // la denominación por escalas: lo que cabe entero en la escala de partida y el resto en las menores
+  assert.deepEqual(A.denominacion(4260, 'hora'), [{ escala: 'hora', cantidad: 1 }, { escala: 'minuto', cantidad: 11 }], '1 h 11 min');
+  assert.deepEqual(A.denominacion(4260, 'minuto'), [{ escala: 'minuto', cantidad: 71 }]);
+  assert.deepEqual(A.denominacion(4290, 'hora'), [{ escala: 'hora', cantidad: 1 }, { escala: 'minuto', cantidad: 11 }, { escala: 'segundo', cantidad: 30 }]);
+  assert.deepEqual(A.denominacion(4260, 'dia'), [{ escala: 'dia', cantidad: 1 }], 'una escala mayor que lo exigido: una unidad (se paga de más)');
+  assert.deepEqual(A.denominacion(0, 'hora'), []);
+  assert.throws(() => A.denominacion(60, 'futuro'), /escala real/);
+  // ajustada a una escala menor (segundos), a una mayor (una hora) o pieza a pieza: ejecutar quema esas piezas
+  const minutos = e.coste / 60;
+  const casos = [
+    ['segundo', [{ escala: 'segundo', cantidad: e.coste }]],
+    ['hora', [{ escala: 'hora', cantidad: 1 }]],
+    [[{ escala: 'minuto', cantidad: minutos - 1 }, { escala: 'segundo', cantidad: 60 }], [{ escala: 'minuto', cantidad: minutos - 1 }, { escala: 'segundo', cantidad: 60 }]],
+  ];
+  for (const [pedida, piezas] of casos) {
+    const x = A.ejecucion(c.eje, 'declare future T', params, 'huesped', { t: T1, denominacion: pedida });
+    assert.deepEqual([x.denominacion, x.cubre], [piezas, true], JSON.stringify(pedida));
+    const hecha = await A.transaccion(c.eje, 'declare future T', params, 'huesped', { t: T1, denominacion: pedida });
+    assert.equal(hecha.ok, true, JSON.stringify(hecha.motivos));
+    assert.deepEqual(hecha.evento.movimientos.slice(0, piezas.length), piezas.map((p) => ({ token: 'T', ...p, de: 'huesped', a: null })), 'las piezas, delante: la T que se quema al ejecutar');
+    assert.deepEqual(hecha.ejecucion.denominacion, piezas);
+  }
+  // menos de lo exigido no pasa: lo rechaza la regla del coste (una sola tarifa, #64 b)
+  const corta = await A.transaccion(c.eje, 'declare future T', params, 'huesped', { t: T1, denominacion: [{ escala: 'minuto', cantidad: minutos - 1 }] });
+  assert.equal(corta.ok, false);
+  assert.equal(corta.ejecucion.cubre, false);
+  assert.ok(corta.motivos.some((m) => m.regla === "writing burns today's T"), JSON.stringify(corta.motivos));
+  // una plantilla que mueve T de quien la lanza: su parte suma (dar de alta una cosa con una hora de T)
+  const cosa = await generarClaves();
+  const alta = A.ejecucion(c.eje, 'register a thing', { X: c.eje.alta('casa').id, thing: 'robot', minutes: 60, key: cosa.publica }, 'casa', { t: T1 });
+  assert.equal(alta.ok, true, JSON.stringify(alta.motivos));
+  assert.deepEqual(alta.partes[1], { parte: 'plantilla', plantilla: 'register a thing', segundos: 3600, movimientos: [{ escala: 'minuto', cantidad: 60 }] });
+  assert.equal(alta.exigido, alta.coste + 3600, 'todas las partes suman');
+  // lo que no escribe no se ejecuta
+  assert.equal(A.ejecucion(c.eje, 'view thread', { X: c.compra.id }, 'huesped').ok, false);
+});
+
+test('declarar T futuro (VG 12-11, #64 c): un anuncio de T con fecha en el 4.1 (estación propuesta, previsto en su fecha); lo cumple el T real trabajado que se ancla sobre él (deliver: estación ejecutada); el T informativo de antes se sigue leyendo', async () => {
+  const c = await ejemploCompra();
+  const cuando = '2026-12-01T10:00:00Z';
+  const r = await A.transaccion(c.eje, 'declare future T', { X: c.compra.id, what: 'servir', when: cuando, units: 90 }, 'huesped', { t: T1 });
+  assert.equal(r.ok, true, JSON.stringify(r.motivos));
+  const anuncio = await c.eje.anadir(r.evento);
+  assert.equal(anuncio.en, '4100000000', 'en el 4.1 de X, como los anuncios de pago');
+  assert.deepEqual(anuncio.movimientos.filter((m) => m.estado === 'anunciado'), [{ token: 'T', escala: 'minuto', cantidad: 90, de: 'huesped', a: null, estado: 'anunciado', refiere: cuando }]);
+  assert.ok(!anuncio.movimientos.some((m) => m.escala === 'futuro'), 'ya no es T informativo');
+  assert.equal(A.estacionDeAnuncio(c.eje, anuncio.id), 'propuesta');
+  const deT = () => A.estaciones(c.eje, c.compra.id).find((x) => x.familia === 'T');
+  assert.deepEqual([deT().pendientes.includes(anuncio.id), deT().estacionDe[anuncio.id]], [true, 'propuesta']);
+  assert.deepEqual(C.estadoDeEntrada(c.eje, anuncio.id), { tipo: 'previsto', fecha: cuando, serie: 'T:minuto', cantidad: 90 }, 'el 7 lo enseña previsto en su fecha');
+  assert.deepEqual(A.ejecuciones(c.eje, c.compra.id).find((x) => x.ocupante?.ref === anuncio.id)?.estacion, 'propuesta', 'la celda del 4 lo enseña con su estación');
+  // el camino: trabajarlo me toca a mí (la plantilla de la estación de T)
+  const { pasos } = await A.camino(c.eje, c.compra.id, 'huesped', { t: T1 });
+  assert.equal(pasos.find((p) => p.anuncio === anuncio.id)?.hacer?.plantilla, 'deliver');
+  // al llegar la fecha, el T real trabajado se ancla sobre el anuncio y lo cumple
+  const hecho = await A.transaccion(c.eje, 'deliver', { X: c.compra.id, announcement: { ref: anuncio.id } }, 'huesped', { t: '2026-12-01T11:00:00Z' });
+  assert.equal(hecho.ok, true, JSON.stringify(hecho.motivos));
+  assert.equal(hecho.evento.sobre, anuncio.id);
+  assert.ok(hecho.evento.movimientos.some((m) => m.token === 'T' && m.escala === 'minuto' && m.cantidad === 90 && m.de === 'huesped' && m.a === null && !m.estado), 'quema de verdad lo anunciado');
+  await c.eje.anadir(hecho.evento);
+  assert.equal(A.estacionDeAnuncio(c.eje, anuncio.id), 'ejecutada');
+  assert.deepEqual([deT().hechos.includes(anuncio.id), deT().pendientes.includes(anuncio.id)], [true, false]);
+  // un registro anclado sobre el anuncio sin quemar lo anunciado no lo cumple
+  const otro = await A.transaccion(c.eje, 'declare future T', { X: c.compra.id, what: 'otra vez', when: cuando, units: 600 }, 'huesped', { t: T1 });
+  const segundo = await c.eje.anadir(otro.evento);
+  await c.eje.escribir({ autor: 'huesped', sobre: segundo.id, en: '4000000000', t: T1, movimientos: [minuto('huesped')], payload: [['nota']] });
+  assert.equal(A.estacionDeAnuncio(c.eje, segundo.id), 'propuesta');
+  // lo anunciado no se gasta hoy: anunciar más T de la que queda en el día pasa (la regla del coste solo cuenta lo que se mueve ya)
+  const mucho = await A.transaccion(c.eje, 'declare future T', { X: c.compra.id, what: 'la semana', when: cuando, units: 5000 }, 'huesped', { t: T1 });
+  assert.equal(mucho.ok, true, JSON.stringify(mucho.motivos));
 });

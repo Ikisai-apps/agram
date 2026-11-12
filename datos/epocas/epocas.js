@@ -386,7 +386,7 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "7fb35f34e4f17df4fc652762d9aeb91a8d6cdbf83d247be0cb66da1fa770805a"
+      "ref": "106a623313d80e8e101c43ed20e479ef1c4671f08281ea8a810c71d59bf0b4dc"
     },
     {
       "ref": "342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d"
@@ -515,7 +515,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "3391bd026c160cb3a4ed261ca4a61366c72777b17616a9f2393a6852af1132b0"
     },
     {
-      "ref": "18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71"
+      "ref": "3252f748943f49747d491709009569d8258e87ccb0baf49743d427e3d16c68f4"
     },
     {
       "ref": "6ca50905d9242646b8c92ebf365d470b079504a010a36f7e17ac349425e59d75"
@@ -5197,16 +5197,16 @@ export const EPOCA_0_BTML_DATOS = [
           "template declare future T param what label: qué",
           "template declare future T param what help: lo que se hará",
           "template declare future T param when label: cuándo",
-          "template declare future T param when help: la fecha a la que se refiere",
-          "template declare future T param units label: unidades",
-          "template declare future T param units help: cuántas unidades de T futuro",
+          "template declare future T param when help: la fecha para la que se anuncia el T (cuándo se trabajará)",
+          "template declare future T param units label: minutos",
+          "template declare future T param units help: cuántos minutos de T se trabajarán en esa fecha (un anuncio: no se mueve nada hasta que el T trabajado se ancle sobre él)",
           "template declare future T param actions label: acción",
           "template declare future T param actions help: la acción",
           "template declare future T param criteria label: criterio",
           "template declare future T param criteria help: la plantilla de cerrado del registro",
           "template declare future T param who label: quién",
           "template declare future T param who help: quién escribe",
-          "template declare future T message: declare future T: {me} declara tiempo futuro sobre {first it.0}",
+          "template declare future T message: declare future T: {me} anuncia {first ev.1.1} minutos de T para el {first ev.1.0} sobre {first it.0}",
           "template deliver: entregar",
           "template deliver param announcement label: anuncio",
           "template deliver param announcement help: el movimiento anunciado mío que no es E (T por trabajar, P por decidir, R por atender; en el 4.1 de X) que entrego",
@@ -5877,7 +5877,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d"
         },
         {
-          "ref": "9808b64208592f3cc8e1b3a91697353d7232e8b880b0387d0808fef04d5506e6"
+          "ref": "46d4f4f21a62ce049e25dfca95013199e6ead82ac0bdbe1cfaaeae6d1c9053c3"
         },
         {
           "ref": "67190905e2d72019dd88fccfd87807208f436bba54a5573f09c46dabc10696f4"
@@ -5898,7 +5898,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "27bd5e96f15c5f91184679cd55f26da0a3ffec65f80bb17a5488356ac7e1c878"
         },
         {
-          "ref": "e7e921de0693c079bdd5296bc687afcfc1316f71bb633d2de2958c96a7e431fb"
+          "ref": "93618b3ea9eef8b126110b93870580b47318f43c36871bda61780018badeb7ee"
         },
         {
           "ref": "c054ee665e44c695182f5bd38f0e636bb0fe32f446b941a952a6a7fcfd7c216a"
@@ -7570,7 +7570,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "dated-movement.json",
-    "id": "18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71",
+    "id": "3252f748943f49747d491709009569d8258e87ccb0baf49743d427e3d16c68f4",
     "registro": [
       [
         "dated movement"
@@ -7581,7 +7581,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.7.4"
       ],
       [
-        "=first (moves it where T in it2.0.0.0 and epoch.1.3.1.(it2.0.0.1).0 = \"futuro\" and count (first it2.7.1).0 > 0 or lock in it2.4 and count it2.7.2 > 0 or mint in it2.4 and E in it2.0.0.0 and count (first it2.7.0).0 > 0 or burn in it2.4 and E in it2.0.0.0 and it2.3.0 = first it2.0.0.1)"
+        "=first (moves it where T in it2.0.0.0 and epoch.1.3.1.(it2.0.0.1).0 = \"futuro\" and count (first it2.7.1).0 > 0 or T in it2.0.0.0 and \"anunciado\" in it2.2 and count (first it2.7.1).0 > 0 or lock in it2.4 and count it2.7.2 > 0 or mint in it2.4 and E in it2.0.0.0 and count (first it2.7.0).0 > 0 or burn in it2.4 and E in it2.0.0.0 and it2.3.0 = first it2.0.0.1)"
       ],
       [
         "X.7.9"
@@ -7595,7 +7595,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
         "El primer asiento del registro que lo refiere a una fecha, el que da su estado del futuro (los estados, epoch.7.4): el T futuro declarado (la escala «futuro» de epoch.1.3.1) con la fecha a la que se refiere (7.1); lo bloqueado hasta una fecha (7.2, lo que hace «commit time»); la emisión de E con caducidad (7.0); la quema de E propia (lo que hace «expire something mine»: su fecha es la del registro, 6.0)",
-        "Antes lo buscaba contrato.estadoDeEntrada en JavaScript entre los movimientos declarados; ahora se lee del libro con moves. Se materializa en X.7.9 (el 7, cómo: por qué movimiento tiene fecha; Core, pendiente de revisar VG)"
+        "Antes lo buscaba contrato.estadoDeEntrada en JavaScript entre los movimientos declarados; ahora se lee del libro con moves. Se materializa en X.7.9 (el 7, cómo: por qué movimiento tiene fecha; Core, pendiente de revisar VG)",
+        "VG 12-11 (#64 c): el anuncio de T con fecha (lo que escribe ahora «declare future T»: un movimiento anunciado de T con su when) refiere el registro a esa fecha como el T futuro de antes: su estado es «previsto» (epoch.7.4) y el 7 lo coloca en la franja de su fecha"
       ],
       [
         "epoch 0"
@@ -9403,7 +9404,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "7fb35f34e4f17df4fc652762d9aeb91a8d6cdbf83d247be0cb66da1fa770805a",
+    "id": "106a623313d80e8e101c43ed20e479ef1c4671f08281ea8a810c71d59bf0b4dc",
     "registro": [
       [
         "writing burns today's T"
@@ -9414,7 +9415,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.3.1"
       ],
       [
-        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and ((sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.0.1) each 1) * epoch.7.0.0.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.1.1) each 1) * epoch.7.0.1.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.2.1) each 1) * epoch.7.0.2.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.3.1) each 1) * epoch.7.0.3.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.4.1) each 1) * epoch.7.0.4.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.5.1) each 1) * epoch.7.0.5.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.6.1) each 1) * epoch.7.0.6.1) >= first (first ev.8).6.1 * first epoch.7.0.1.1 or count (moves ev where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3 and count epoch.7.0.(it.0.0.1) = 1) = 0) and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0 or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > sum (first ev.3).1.(it.0).1) = 0))"
+        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3) >= 1 and ((sum ((moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.0.1) each 1) * epoch.7.0.0.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.1.1) each 1) * epoch.7.0.1.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.2.1) each 1) * epoch.7.0.2.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.3.1) each 1) * epoch.7.0.3.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.4.1) each 1) * epoch.7.0.4.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.5.1) each 1) * epoch.7.0.5.1 + sum ((moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and epoch.7.0.(it.0.0.1).1 = epoch.7.0.6.1) each 1) * epoch.7.0.6.1) >= first (first ev.8).6.1 * first epoch.7.0.1.1 or count (moves ev where T in it.0.0.0 and burn in it.4 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and count epoch.7.0.(it.0.0.1) = 1) = 0) and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and not \"anunciado\" in it2.2 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0 or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and not \"anunciado\" in it.2 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and not \"anunciado\" in it2.2 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > sum (first ev.3).1.(it.0).1) = 0))"
       ],
       [
         "ev.3"
@@ -9432,7 +9433,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla",
         "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño",
         "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)",
-        "VG, 12-11, #64 b: la condición exige lo calculado por la regla «the cost of writing»: lo que el autor quema de T en las escalas del calendario (cantidad por los segundos de su escala, epoch.7.0) ha de llegar a lo que esa regla da para el payload (un minuto por posición, A3); una sola tarifa venga de donde venga el registro. Más vale; menos se rechaza. Cada escala se reconoce por sus segundos en el calendario (epoch.7.0.(escala).1 = epoch.7.0.k.1), no por su dígito, para que la regla no lleve números que la época tenga (A3). La quema se lee de `moves ev` (los movimientos de la candidata, sin lo que el payload tenga en su 1) y no de `ev.1`, porque cada lectura de `ev.1` expande también el payload y, siete veces, pasa el presupuesto de cálculo en un registro de mil posiciones. Si el autor no quema nada de T real (solo T informativo: pasado, futuro, inventado), el registro es una memoria o un plan, gratis en T real y no presente (VG, 8-11: el T informativo paga la escritura), y la regla no le exige el coste. La cuenta del coste repite la de la lectura (first (first ev.8).6.1 * first epoch.7.0.1.1) porque una regla no llama a otra: lo comprueba test/coste-exigido.test.js"
+        "VG, 12-11, #64 b: la condición exige lo calculado por la regla «the cost of writing»: lo que el autor quema de T en las escalas del calendario (cantidad por los segundos de su escala, epoch.7.0) ha de llegar a lo que esa regla da para el payload (un minuto por posición, A3); una sola tarifa venga de donde venga el registro. Más vale; menos se rechaza. Cada escala se reconoce por sus segundos en el calendario (epoch.7.0.(escala).1 = epoch.7.0.k.1), no por su dígito, para que la regla no lleve números que la época tenga (A3). La quema se lee de `moves ev` (los movimientos de la candidata, sin lo que el payload tenga en su 1) y no de `ev.1`, porque cada lectura de `ev.1` expande también el payload y, siete veces, pasa el presupuesto de cálculo en un registro de mil posiciones. Si el autor no quema nada de T real (solo T informativo: pasado, futuro, inventado), el registro es una memoria o un plan, gratis en T real y no presente (VG, 8-11: el T informativo paga la escritura), y la regla no le exige el coste. La cuenta del coste repite la de la lectura (first (first ev.8).6.1 * first epoch.7.0.1.1) porque una regla no llama a otra: lo comprueba test/coste-exigido.test.js",
+        "VG 12-11, #64 c (el T futuro como anuncio): lo anunciado (estado «anunciado», con su when) aún no se mueve, así que ni paga la escritura ni gasta lo que queda hoy: las sumas solo cuentan lo que se mueve ya"
       ],
       [
         "epoch 0"
@@ -14423,7 +14425,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "deliver.json",
-    "id": "9808b64208592f3cc8e1b3a91697353d7232e8b880b0387d0808fef04d5506e6",
+    "id": "46d4f4f21a62ce049e25dfca95013199e6ead82ac0bdbe1cfaaeae6d1c9053c3",
     "registro": [
       [
         "deliver"
@@ -14569,7 +14571,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        "=count (moves (first memo.1) where \"anunciado\" in it2.2) = 0 and transfer last (first memo.1).1 before.4.(last (first memo.1).0) from last (first memo.1).3.0 to last (first memo.1).3.1 or count ((moves (first memo.1)) where \"anunciado\" in it2.2 and transfer in it2.4 and it2.3.0 = me and transfer it2.1 it2.0 from it2.3.0 to it2.3.1) >= 0"
+        "=count (moves (first memo.1) where \"anunciado\" in it2.2) = 0 and transfer last (first memo.1).1 before.4.(last (first memo.1).0) from last (first memo.1).3.0 to last (first memo.1).3.1 or count ((moves (first memo.1)) where \"anunciado\" in it2.2 and it2.3.0 = me and (transfer in it2.4 and transfer it2.1 it2.0 from it2.3.0 to it2.3.1 or burn in it2.4 and burn it2.1 it2.0 from it2.3.0)) >= 0"
       ],
       [
         "4",
@@ -14580,7 +14582,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
         "Las estaciones de trabajar (T), decidir (P) y atender (R): mueve lo anunciado que me toca y no es E (la lectura «stage», X.4.8, con before.4 para la familia); lo de E lo mueve «pay»",
         "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). La lista de antes (un movimiento por décupla) convivió con las sentencias mientras duró la migración y se retiró al fundir con PV3, cuando todas las plantillas dieron el mismo evento por las dos vías (doble ejecución; lo que movía la lista quedó en test/doble-ejecucion-esperada.json). Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición",
-        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js). Lee lo anunciado en la lectura «stage» ((first it.4).8: solo los anuncios; lo demás que haya en el 4.8 de X no es un registro que moves sepa leer)"
+        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js). Lee lo anunciado en la lectura «stage» ((first it.4).8: solo los anuncios; lo demás que haya en el 4.8 de X no es un registro que moves sepa leer)",
+        "VG 12-11 (#64 c): lo anunciado como quema (el anuncio de T futuro de «declare future T»: los minutos de T que se trabajarán) se cumple quemándolo: entregar es trabajar ese T, anclado sobre el anuncio"
       ],
       [
         "epoch 0"
@@ -15815,7 +15818,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "declare-future-t.json",
-    "id": "e7e921de0693c079bdd5296bc687afcfc1316f71bb633d2de2958c96a7e431fb",
+    "id": "93618b3ea9eef8b126110b93870580b47318f43c36871bda61780018badeb7ee",
     "registro": [
       [
         "declare future T"
@@ -15882,7 +15885,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             2
           ],
           [
-            "the date it refers to"
+            "the date the T is announced for (when it will be worked)"
           ]
         ],
         [
@@ -15914,8 +15917,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             3
           ],
           [
-            1,
-            "how many units of future T"
+            60,
+            "how many minutes of T will be worked on that date (an announcement: nothing moves until the worked T anchors on it)"
           ]
         ],
         [
@@ -16025,16 +16028,17 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        "=burn first memo.1.1 T.8 from me when first memo.1.0"
+        "=burn first memo.1.1 T.1 from me when first memo.1.0"
       ],
       [
-        "7"
+        "4.1"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
         "T informativo (VG, 8-11): se consume y queda registrado con la fecha a la que se refiere (el segundo ocupante del 2 del movimiento)",
-        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). La lista de antes (un movimiento por décupla) convivió con las sentencias mientras duró la migración y se retiró al fundir con PV3, cuando todas las plantillas dieron el mismo evento por las dos vías (doble ejecución; lo que movía la lista quedó en test/doble-ejecucion-esperada.json). Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). La lista de antes (un movimiento por décupla) convivió con las sentencias mientras duró la migración y se retiró al fundir con PV3, cuando todas las plantillas dieron el mismo evento por las dos vías (doble ejecución; lo que movía la lista quedó en test/doble-ejecucion-esperada.json). Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición",
+        "VG 12-11 (#64 c, «Adelante»; dentro del encargo del botón de ejecutar del 4, decisión 7 de #49): declarar T futuro es un ANUNCIO de T con fecha, como los anuncios de pago (decisión 8): el registro va en el 4.1 de X y lleva un movimiento anunciado (burn … when: la quema de los minutos de T que se trabajarán, estado «anunciado», sin tocar saldos; estación «propuesta»); lo cumple el T real trabajado que se ancla sobre él al llegar la fecha (un registro con una quema real de T sobre el anuncio, «deliver»: estación «ejecutada»). Por qué: el T informativo con fecha (T.8, el futuro) no se cumplía nunca: era una nota; como anuncio entra en las estaciones del 4 y en el camino como cualquier otro, y el T que se trabaja de verdad es lo que lo cierra. Los T informativos ya escritos (pasado, futuro, inventado) se siguen leyendo igual"
       ],
       [
         "epoch 0"
@@ -16044,7 +16048,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         2
       ],
       [
-        "declare future T: {me} declares future time on {first it.0}"
+        "declare future T: {me} announces {first ev.1.1} minutes of T for {first ev.1.0} on {first it.0}"
       ]
     ]
   },
@@ -16934,7 +16938,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "a0fb512deacf5ad643795f4001f02ee4130494e0a7b21d409d93310366c8ae31";
+export const EPOCA_0_BTML_ID = "8108eb491ad06ab40933d94e4b2a5dcd23602229fb2c331d634be9b41a877e3d";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

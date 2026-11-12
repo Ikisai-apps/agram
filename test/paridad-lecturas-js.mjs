@@ -43,7 +43,8 @@ export function estadoJS(eje, id, t) {
   const serieDe = (m) => { try { return claveToken(m); } catch { return null; } };
   for (const m of ev.movimientos) {
     if (!m || typeof m !== 'object') continue;
-    if (m.token === 'T' && m.escala === futuro && esInstante(m.refiere)) return { tipo: 'previsto', fecha: m.refiere, cantidad: m.cantidad };
+    // VG 12-11 (#64 c): el anuncio de T con fecha (lo que escribe «declare future T») está previsto como el T futuro de antes.
+    if (m.token === 'T' && (m.escala === futuro || m.estado === 'anunciado') && esInstante(m.refiere)) return { tipo: 'previsto', fecha: m.refiere, cantidad: m.cantidad };
     if (m.estado === 'bloqueo' && esInstante(m.salida)) {
       const serie = serieDe(m);
       const sigue = serie !== null && eje.bloqueado(m.de, serie, m.salida) > 0;

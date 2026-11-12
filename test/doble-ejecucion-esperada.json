@@ -165,10 +165,11 @@
       },
       {
         "token": "T",
-        "escala": "futuro",
-        "cantidad": 1,
+        "escala": "minuto",
+        "cantidad": 60,
         "de": "casa",
         "a": null,
+        "estado": "anunciado",
         "refiere": "2026-12-01T00:00:00Z"
       }
     ],
@@ -368,10 +369,11 @@
       },
       {
         "token": "T",
-        "escala": "futuro",
-        "cantidad": 1,
+        "escala": "minuto",
+        "cantidad": 60,
         "de": "huesped",
         "a": null,
+        "estado": "anunciado",
         "refiere": "2026-12-01T00:00:00Z"
       }
     ],

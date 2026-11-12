@@ -49,7 +49,7 @@ import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, resolver, direccion, ARIDAD } from './btml.js';
 import { ocupantes as ocupantesDe } from './encaje.js';
-import { ESCALAS_T, ESCALAS_INFORMATIVAS, partirClave, franjaDe, capacidadDe, claveToken } from './tokens.js';
+import { ESCALAS_T, ESCALAS_INFORMATIVAS, ESCALAS_REALES, SEGUNDOS, ANUNCIADO, partirClave, franjaDe, capacidadDe, claveToken } from './tokens.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { HITOS, cajaDeCuota, confluir, situar, SIN_BASE_ESCRITA } from './bases.js';
 import { pasoDe } from './pasos.js';
@@ -779,6 +779,84 @@ export function rango(eje, X, { tope = Infinity, celdas: memoDado, ...opciones }
     exacto: Boolean(mejor && mejor.peldano === peldano && mejor.profundidad === pasos[mejor.peldano].profundidad),
     celdas, disponibles: pasos.slice(0, peldano + 1).map((x) => x.indice),
   };
+}
+
+// ---------- 4.2 ter: ejecutar desde el 4: el valor del registro y el botón por rango (VG 12-11, decisión 7 de #49) ----------
+
+/** Lo que mueve de T real la transacción de un registro, en segundos del calendario: lo quemado, dado o bloqueado (lo anunciado aún no, la asignación del día no). */
+function tDeTransaccion(ev) {
+  let segundos = 0;
+  for (const m of Array.isArray(ev?.movimientos) ? ev.movimientos : []) {
+    if (m?.token !== 'T' || !ESCALAS_REALES.includes(m.escala) || m.estado === ANUNCIADO || m.estado === 'liberacion' || !m.de) continue;
+    segundos += (Number(m.cantidad) || 0) * SEGUNDOS[m.escala];
+  }
+  return segundos;
+}
+
+/**
+ * El valor de un registro (VG 12-11, decisión 7: «el valor del registro crece con sus transacciones; todas suman»): la T
+ * real que movió su propia transacción (el coste de escribirlo y lo que su plantilla dio, quemó o bloqueó) más la de cada
+ * registro anclado debajo, a cualquier profundidad (hasta `tope` registros). En segundos del calendario (epoch.7.0).
+ * → { segundos, transacciones } (cuántas transacciones sumaron algo), o null si el registro no está en el eje.
+ */
+export function valorDeRegistro(eje, id, { tope = 10000 } = {}) {
+  const raiz = eje?.obtener?.(esReferencia(id) ? id.ref : id);
+  if (!raiz) return null;
+  let segundos = 0;
+  let transacciones = 0;
+  const pendientes = [raiz];
+  const vistos = new Set();
+  while (pendientes.length && vistos.size < tope) {
+    const h = pendientes.shift();
+    if (vistos.has(h.id)) continue;
+    vistos.add(h.id);
+    const s = tDeTransaccion(h);
+    if (s > 0) { segundos += s; transacciones += 1; }
+    for (const hijo of eje.sobre(h.id)) pendientes.push(hijo);
+  }
+  return { segundos, transacciones };
+}
+
+/**
+ * El valor de una celda de la matriz del 4 (VG 12-11, decisión 7): la suma del valor de sus ejecuciones (valorDeRegistro de
+ * cada registro; lo que no es un registro no suma). → { segundos, transacciones, registros }.
+ */
+export function valorDeCelda(eje, ids, opciones = {}) {
+  let segundos = 0;
+  let transacciones = 0;
+  let registros = 0;
+  for (const id of Array.isArray(ids) ? ids : []) {
+    const v = typeof id === 'string' || esReferencia(id) ? valorDeRegistro(eje, id, opciones) : null;
+    if (!v) continue;
+    segundos += v.segundos;
+    transacciones += v.transacciones;
+    registros += 1;
+  }
+  return { segundos, transacciones, registros };
+}
+
+/**
+ * Los estados del botón de ejecutar del 4 (VG 12-11, decisión 7: «apagado pero pulsable al principio, marcado al llegar al
+ * 3, efectos/segundo borde al subir»), por el nivel del rango (el del 8, rango()): `marca`, el nivel que lo marca. Core:
+ * el 3 es el nivel 3 de la escalera (su primer peldaño, 3.1); «subir» es cualquier peldaño por encima.
+ */
+export const BOTON_DE_EJECUTAR = Object.freeze({ marca: 3, estados: Object.freeze(['apagado', 'marcado', 'efectos']) });
+
+/**
+ * El botón de ejecutar del 4 sobre X (VG 12-11, decisión 7): cambia con el rango de X (el del 8, rango()). Siempre se puede
+ * pulsar; `estado` es 'apagado' por debajo del nivel 3, 'marcado' en el primer peldaño del nivel 3 y 'efectos' (segundo
+ * borde, o la capa de efectos en animado) al subir de ahí; `subida`, cuántos peldaños por encima de la marca (0 si no).
+ * → { estado, pulsable: true, peldano, nivel, grado, nombre, marca: { peldano, nivel, grado } | null, subida }; sin rango
+ * (X fuera del eje o sin escalera en la época), apagado con peldaño null.
+ */
+export function botonDeEjecutar(eje, X, opciones = {}) {
+  const pasos = escalera(opciones);
+  const marcado = pasos.find((p) => p.nivel === BOTON_DE_EJECUTAR.marca) ?? null;
+  const r = rango(eje, X, opciones);
+  const marca = marcado ? { peldano: marcado.indice, nivel: marcado.nivel, grado: marcado.grado } : null;
+  if (!r) return { estado: 'apagado', pulsable: true, peldano: null, nivel: null, grado: null, nombre: null, marca, subida: 0 };
+  const estado = !marca || r.peldano < marca.peldano ? 'apagado' : r.peldano === marca.peldano ? 'marcado' : 'efectos';
+  return { estado, pulsable: true, peldano: r.peldano, nivel: r.nivel, grado: r.grado, nombre: r.nombre, marca, subida: marca && r.peldano > marca.peldano ? r.peldano - marca.peldano : 0 };
 }
 
 /**

@@ -124,11 +124,11 @@ test('las diez, una a una sobre un registro: 0 sus representaciones, 1 lo movido
   assert.deepEqual(new Set(der(c.agram, 8)), new Set([c.menu, c.altaCore]));
   assert.deepEqual(der(c.alta, 9), C.leer(c.eje, c.alta, 9).derivado.map((x) => x.valor));
   assert.ok(der(c.alta, 9).length > 0 && der(c.alta, 9).every((n) => typeof n === 'string'), 'el tutorial del alta: nombres de acciones');
-  // 7: el T futuro declarado, con la fecha a la que se refiere
+  // 7: el T futuro declarado, con la fecha a la que se refiere (VG 12-11, #64 c: un anuncio de T con fecha, en el 4.1 de AGRAM)
   const futuro = await acciones.transaccion(c.eje, 'declare future T', { X: c.agram, what: 'revisar', when: '2026-12-01T10:00:00Z', units: 2 }, c.yo, { t: c.t(), firmar: c.firmar });
   assert.equal(futuro.ok, true, JSON.stringify(futuro.motivos));
   const ev = await c.eje.anadir(futuro.evento);
-  assert.deepEqual(C.leer(c.eje, c.agram, 7).anclado, [{ ref: ev.id }], 'en AGRAM está anclado en su 7 (lo derivado no lo repite)');
+  assert.equal(ev.en, '4100000000', 'el anuncio va en el 4.1 de AGRAM');
   const siete = C.leer(c.eje, c.alta, 7).derivado;
   assert.deepEqual(valores(siete), [ev.id]);
   assert.equal(C.estadoDeEntrada(c.eje, ev.id).fecha, '2026-12-01T10:00:00Z', 'la fecha a la que se refiere, la de su estado del futuro');
