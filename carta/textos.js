@@ -381,6 +381,14 @@ export const TEXTOS = Object.freeze({
     verificadoTitulo: 'verificado: su sello de tiempo está en un bloque comprobado, el transporte dio su recibo de llegada y los tres relojes van en orden',
     pendienteDeSello: 'pendiente de sello',
     pendienteDeSelloTitulo: 'movido, pero sin verificar: el eje tiene sello de tiempo y a lo que lo cumple aún le falta su sello comprobado; se queda en autorizado hasta que lo tenga (no se rechaza nada)',
+    // el segundo factor (VG 12/13-11, #66, #70): la app de StateArk autoriza lo que pasa del umbral de mi 2.4
+    pendienteDeSegundoFactor: 'pendiente de segundo factor',
+    pendienteDeSegundoFactorTitulo: 'movido, pero lo que mueve pasa del umbral de tu segundo factor: se queda en autorizado hasta que tu cosa titular lo autorice desde StateArk (no se rechaza nada)',
+    avisoSegundoFactor: 'esto pedirá el segundo factor: lo que mueve pasa de tu umbral y se quedará en autorizado hasta que {titulares} lo autorice desde StateArk',
+    segundoFactor: 'segundo factor',
+    segundoFactorAyuda: 'desde qué cantidad lo que ejecutas desde el 4 espera la autorización de una cosa tuya (la que custodia StateArk): un criterio en el 2.4 de tu alta; deja la familia vacía para no escribir otro',
+    segundoFactorCriterio: '{familias} desde {cantidad} → {titular}',
+    segundoFactorNinguno: 'sin segundo factor: lo que ejecutas desde el 4 no espera a nadie',
     // el contexto que se manda con cada pregunta
     ctxModo: 'pantalla: {ancho}×{alto} px · modo {modo} ({forma}) · render {render} · idioma {idioma}',
     ctxApilada: 'franjas apiladas',

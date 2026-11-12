@@ -1,0 +1,37 @@
+[
+  [
+    "second factor"
+  ],
+  [
+    "X.2.4",
+    "second factor",
+    "moves"
+  ],
+  [
+    "=(down (first (first it.3).6)) where last (first it2.6).5 = \"2400000000\" and \"second factor\" in (payload(it2)).4 and first it2.3 = first it.3 and count ((moves it) where not (\"anunciado\" in it3.2) and it3.3.0 = first it.3 and (first it3.0 in (payload(it2)).1 or \"E\" in (payload(it2)).1 and E in it3.0.0.0 or \"P\" in (payload(it2)).1 and P in it3.0.0.0 or \"R\" in (payload(it2)).1 and R in it3.0.0.0 or \"T\" in (payload(it2)).1 and T in it3.0.0.0)) > 0 and sum (((moves it) where not (\"anunciado\" in it3.2) and it3.3.0 = first it.3 and (first it3.0 in (payload(it2)).1 or \"E\" in (payload(it2)).1 and E in it3.0.0.0 or \"P\" in (payload(it2)).1 and P in it3.0.0.0 or \"R\" in (payload(it2)).1 and R in it3.0.0.0 or \"T\" in (payload(it2)).1 and T in it3.0.0.0)) each 1) >= first (payload(it2)).2"
+  ],
+  [
+    "X.6.8.7"
+  ],
+  [
+    "read"
+  ],
+  [
+    "*"
+  ],
+  [
+    "VG 12/13-11 (#66, #70): la app de StateArk es el SEGUNDO FACTOR; se dispara al ejecutar desde el 4 un registro que mueve cierto token o cierta cantidad, según un criterio del propio usuario en el 2.4 de su alta (la plantilla PV2 «second factor»); lo ejecutado queda en la estación «autorizada» («pendiente de segundo factor») hasta que el titular lo autoriza",
+    "Con it = un registro X (o la candidata): los criterios «second factor» de su autor (los registros que el propio autor ancla en el 2.4 de su alta con «second factor» en su 4) que X alcanza: lo que el autor mueve en X (sus asientos del libro, moves, con él como origen y sin lo anunciado, que aún no se mueve) de la familia o la serie del 1 del criterio suma su 2 o más; el coste de escribir cuenta (es T que el autor quema en X) y «si mueve E» es la cantidad 0 de la familia E (exige al menos un movimiento)",
+    "Lectura, no condición: solo lee y no rechaza nada (#62, sin verificar no se ejecuta por grados, como «sealed»). El SIP 0 de StateArk la escribe como condición («second factor»: sin la autorización, la transacción no pasa); en AGRAM, VG 13-11: el registro se escribe y su estación queda en «autorizada» hasta que llega la autorización. La familia se compara con el símbolo del libro (E, P, R, T) y la serie por su clave; las cantidades se suman tal cual en las unidades de su serie, sin pasar a sats (H15 del SIP: BQL no suma productos)",
+    "Se materializa en X.6.8.7, junto a las otras comprobaciones de lo ejecutado (6.8.4 «received», 6.8.5 «sealed», 6.8.6 «paid»); decisión de Core AGRAM 13-11"
+  ],
+  [
+    "epoch 0"
+  ],
+  [
+    "after paid"
+  ],
+  [
+    "second factor: {first ev.3} moves what one of their own criteria protects (a second factor in the 2.4 of their alta)"
+  ]
+]

@@ -472,7 +472,9 @@ const tituloVerificado = (o) => (o.enFirme ? t('enFirmeTitulo', { n: o.confirmac
 const htmlVerificado = (o) => `<small class="verificado"${o.enFirme ? ' data-en-firme' : ''}${o.confirmaciones ? ` data-confirmaciones="${attr(o.confirmaciones)}"` : ''} title="${attr(tituloVerificado(o))}">◆ ${escapar(textoVerificado(o))}</small>`;
 /** «pendiente de sello» (encargo «verificado-regla», #50 y #67): movido, pero el eje tiene sello y aún no está «sealed». */
 const htmlPendienteDeSello = () => `<small class="pendiente-sello" title="${attr(t('pendienteDeSelloTitulo'))}">${escapar(t('pendienteDeSello'))}</small>`;
-const marcaVerificado = (o) => (o?.verificado ? htmlVerificado(o) : o?.pendienteDeSello ? htmlPendienteDeSello() : '');
+/** «pendiente de segundo factor» (VG 12/13-11, #66, #70): movido, pero espera la autorización del titular; su title, el motivo del núcleo si lo hay. */
+const htmlPendienteDeSegundoFactor = (o) => `<small class="pendiente-segundo-factor" title="${attr(o?.motivoSegundoFactor || t('pendienteDeSegundoFactorTitulo'))}">${escapar(t('pendienteDeSegundoFactor'))}</small>`;
+const marcaVerificado = (o) => (o?.verificado ? htmlVerificado(o) : o?.pendienteDeSello ? htmlPendienteDeSello() : '') + (o?.pendienteDeSegundoFactor ? htmlPendienteDeSegundoFactor(o) : '');
 
 /**
  * Lo de dentro de una celda de la matriz (encargo «datos2», issue #11: la celda es la lista de ejecuciones): cada una
@@ -560,9 +562,11 @@ function htmlEjecucion(e) {
     .concat(plantilla?.anunciado > 0 ? [`<li data-parte="anunciado">${escapar(t('exigidoAnunciado', { t: textoDeSegundos(plantilla.anunciado) }))}</li>`] : [])
     .concat([`<li data-parte="total"><b>${escapar(t('exigidoTotal', { t: textoDeSegundos(e.exigido) }))}</b></li>`]);
   const opciones = e.escalas.map((x) => `<option value="${attr(x)}"${x === e.escala ? ' selected' : ''}>${escapar(t('escala_' + x))}${x === e.propuesta.desde ? ' ' + escapar(t('escalaPropuesta')) : ''}</option>`).join('');
+  // El segundo factor (VG 12/13-11, #66, #70): lo que movería alcanza un criterio de quien ejecuta; se avisa antes de ejecutar.
+  const segundo = e.segundoFactor ? `<p class="aviso-segundo-factor" role="note">${escapar(t('avisoSegundoFactor', { titulares: e.segundoFactor.titulares.join(', ') }))}</p>` : '';
   const avisos = (e.incompleto ? `<small class="aviso">${escapar(t('exigidoIncompleto'))}</small>` : '') + (e.cubre ? '' : `<small class="aviso">${escapar(t('denominacionNoCubre'))}</small>`) + (e.alcanza ? '' : `<small class="aviso">${escapar(t('denominacionNoAlcanza'))}</small>`);
   return `<section class="ejecucion-t" aria-label="${attr(t('ejecucionTitulo'))}"><h3>${escapar(t('ejecucionTitulo'))}</h3><ul class="exigido">${partes.join('')}</ul>
-      <p class="denominacion"><label>${escapar(t(e.elegida ? 'denominacionElegida' : 'denominacionPropuesta'))} <select data-denominacion aria-label="${attr(t('denominacionEscala'))}">${opciones}</select></label> <b class="piezas" data-piezas="${attr(JSON.stringify(e.denominacion))}">${escapar(textoDePiezas(e.denominacion))}</b>${avisos}</p></section>`;
+      <p class="denominacion"><label>${escapar(t(e.elegida ? 'denominacionElegida' : 'denominacionPropuesta'))} <select data-denominacion aria-label="${attr(t('denominacionEscala'))}">${opciones}</select></label> <b class="piezas" data-piezas="${attr(JSON.stringify(e.denominacion))}">${escapar(textoDePiezas(e.denominacion))}</b>${avisos}</p>${segundo}</section>`;
 }
 
 /** La matriz del 4: la esquina, la ejecución arriba (o los diez tipos de interacción), y cada fila con su oficio (o su posición) delante; la diagonal (la escalera) marcada con su peldaño; cada celda con ocupante, una estación con su estado (y su sello si está ejecutada, solo CSS), que se abre al pulsarla; encima, la abierta; debajo, lo que no tiene celda. */
@@ -939,7 +943,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${cero}${voltear}</header>
       ${puntos}
       <p class="tipo">${c.plantilla ? `${t('plantilla')} <b>${escapar(c.plantilla)}</b>` : t('sinPlantilla')}${c.t ? ` · <time>${escapar(c.t)}</time>` : ''}</p>
-      ${ancla}${c.verificado ? `<p class="verificado-linea">${htmlVerificado(c)}</p>` : c.pendienteDeSello ? `<p class="verificado-linea">${htmlPendienteDeSello()}</p>` : ''}
+      ${ancla}${c.verificado ? `<p class="verificado-linea">${htmlVerificado(c)}</p>` : c.pendienteDeSello ? `<p class="verificado-linea">${htmlPendienteDeSello()}</p>` : ''}${c.pendienteDeSegundoFactor ? `<p class="verificado-linea">${htmlPendienteDeSegundoFactor(c)}</p>` : ''}
       ${htmlOcupantes(c.ocupantes, { pv: c.pv })}
       <label class="campo campo-5"${nodo('campo', { d: 5 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.plantilla ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
       ${pasos}${validacion}${efectos}${marco}
@@ -1097,12 +1101,27 @@ function htmlAjustesExterior(g) {
 }
 
 /**
+ * El desplegable «segundo factor» de la configuración (VG 12/13-11, #66, #70; personaje del 0 → 2): los criterios que ya
+ * tengo y los campos de la plantilla «second factor» (familia o serie, cantidad, titular entre mis cosas), sin `name`: la
+ * app los lee por data-segundo-factor-campo y, si la familia está escrita, lanza la plantilla sobre mi alta.
+ */
+function htmlSegundoFactor(sf) {
+  if (!sf) return '';
+  const control = (c) => (c.tipo === 'identity' && c.opciones?.length
+    ? `<select id="segundo-factor-${attr(c.nombre)}" data-segundo-factor-campo="${attr(c.nombre)}" title="${attr(c.ayuda)}">${c.opciones.map((o) => `<option value="${attr(o.valor)}"${String(o.valor) === String(c.valor ?? '') ? ' selected' : ''}>${escapar(o.texto)}</option>`).join('')}</select>`
+    : `<input id="segundo-factor-${attr(c.nombre)}" data-segundo-factor-campo="${attr(c.nombre)}" type="text" value="${attr(c.valor ?? '')}" title="${attr(c.ayuda)}" autocomplete="off" spellcheck="false">`);
+  const campos = sf.campos.map((c) => `<div class="campo"${nodo('control')}><label for="segundo-factor-${attr(c.nombre)}">${escapar(c.etiqueta)}</label>${control(c)}<small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('');
+  const actuales = sf.criterios.length ? `<ul class="segundo-factor-actuales">${sf.criterios.map((c) => `<li>${escapar(t('segundoFactorCriterio', { familias: c.familias.join(' '), cantidad: c.cantidad, titular: c.titular }))}</li>`).join('')}</ul>` : `<p class="ayuda">${escapar(t('segundoFactorNinguno'))}</p>`;
+  return `<details class="segundo-factor"${nodo('control')}${sf.criterios.length ? ' open' : ''}><summary>${t('segundoFactor')}</summary><p class="ayuda">${escapar(t('segundoFactorAyuda'))}</p>${actuales}<fieldset class="guia-ajustes">${campos}</fieldset></details>`;
+}
+
+/**
  * El formulario de la configuración, generado desde la plantilla «preferences»: cada campo por su clave, con su
  * etiqueta en el idioma. En una cuenta (`claveLectura` es una cadena, quizá vacía), además el campo aparte de la clave
  * de lectura del libro compartido: sin `name` (no entra en el registro de preferencias: la app lo lee por
  * data-clave-lectura y lo guarda en el almacén local de la cuenta, nunca en el eje).
  */
-export function htmlConfiguracion(p, { motivos = [], claveLectura, guia, exterior } = {}) {
+export function htmlConfiguracion(p, { motivos = [], claveLectura, guia, exterior, segundoFactor } = {}) {
   if (!p) return '';
   // Un campo con opciones (el modelo, #4) es un desplegable con ellas; los demás, texto.
   const control = (c) => (c.opciones
@@ -1111,7 +1130,8 @@ export function htmlConfiguracion(p, { motivos = [], claveLectura, guia, exterio
   const campos = p.campos.map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label>${control(c)}<small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('')
     + (typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '')
     + htmlAjustesGuia(guia)
-    + htmlAjustesExterior(exterior);
+    + htmlAjustesExterior(exterior)
+    + htmlSegundoFactor(segundoFactor);
   return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion"${nodo('configuracion')} data-configuracion aria-label="${attr(t('configuracion'))}">
     <header><h2>${t('miConfiguracion')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     <p class="ayuda">${escapar(t('configuracionAyuda', { plantilla: p.nombre }))}</p>
@@ -1304,7 +1324,7 @@ export function html(arbol, extra = {}) {
     ${htmlAro(a.aro)}
     ${htmlSitio(a.sitio, a, extra)}
     ${htmlFormulario(a.formulario)}
-    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes, exterior: extra.exteriorAjustes }) : ''}
+    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes, exterior: extra.exteriorAjustes, segundoFactor: extra.segundoFactor }) : ''}
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}
     ${htmlCopia(extra.copia)}
   </div>`;

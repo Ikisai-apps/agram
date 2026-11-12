@@ -2515,6 +2515,8 @@ function hermanosDe(eje, ev, opciones) {
  *   (a) si la posición nombra la plantilla (el 5: B4), las plantillas que hay (epoch.9.2, epoch.9.3 y las del eje); si su
  *       tipo (contrato.tipo) es `ref` y nombra una plantilla, los registros del eje de esa plantilla; si es `identity`,
  *       las identidades del eje; cada uno con su legible;
+ *       en un parámetro de identidad con validación, solo las identidades que la cumplen (VG 12/13-11: el titular del
+ *       segundo factor se elige entre las cosas de quien mira);
  *   (b) si es una enumeración de la época: la que escribe su validación («="a" in it… or "b" in it…», como el pintado;
  *       un rango pequeño de enteros, «=it >= 0 and it <= 9», como los dígitos), los niveles si su tipo es `level`
  *       (epoch.8.4) o, en un parámetro de una acción, la lista de la que su defecto «=first …» toma el primero (los
@@ -2574,7 +2576,13 @@ export function opciones(eje, X, pv, { yo, idioma, parametro, ...resto } = {}) {
     if (nombrada) return unicas((eje?.orden ?? []).filter((r) => plantilla(eje, r, o) === nombrada.registro).map((r) => ({ valor: r, texto: leer({ ref: r }) })));
   }
   if (t0 === TIPO.identidad) {
-    const ids = eje?.identidades?.() ?? [];
+    let ids = eje?.identidades?.() ?? [];
+    // Un parámetro de identidad con validación: solo las identidades que admite (VG 12/13-11: el titular del segundo
+    // factor, «una cosa mía», se elige entre las cosas de quien mira).
+    if (parametro && typeof formula === 'string' && formula.startsWith('=')) {
+      const ctx = new ContextoEje(eje, { epoch: epoca, me: yo });
+      ids = ids.filter((i) => { const r = evaluar(formula, ctx, { sujeto: i }); return r.estado === 'RESUELTO' && r.valor.length === 1 && r.valor[0] === true; });
+    }
     if (ids.length) return unicas(ids.map((i) => ({ valor: i, texto: leer(i, [TIPO.identidad]) })));
   }
   // Lo que no es de un tipo simple (una décupla) se edita en BTML: sin lista.

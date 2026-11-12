@@ -382,7 +382,7 @@ for (const r of escrituras) {
 ```
 
 ```text
-31 condiciones, 3 reglas que escriben y 17 lecturas
+31 condiciones, 3 reglas que escriben y 19 lecturas
 no pasa: E is minted by and to its issuer: huesped mints E of casa, or to someone else
 no pasa: P is repositioned one step at a time: huesped mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent, a child or one of its views, keeping its origin
 no pasa: minting E needs own R issued: huesped mints E and has never issued R of its own

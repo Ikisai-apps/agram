@@ -157,7 +157,9 @@
     {"ref":"d48a6bf425b648515f3a21f2f1c761080fd2e5583e6632563f261d51bb5056ce"},
     {"ref":"c2929237612e7b1144e7c449d45b09bc9ece5137e7139523ecc5b60f8f10ffb1"},
     {"ref":"03ccc721272e9d7b44c684b44edb1edd66b6ed7a3d9127c87418aa84aa47d072"},
-    {"ref":"eb97d9921ed09044e08a20c981d3376aa6ebbdfecd6708a2eb524fd2849aed79"},
+    {"ref":"5d716a36add1de913cd6e0c8fcae273ef6f924bb86c9b288f3017aebe85c6de9"},
+    {"ref":"e954e0cd193b6da1a4c4f63d8bb39021ef0ada790ac02285d5944ab2c3f652bb"},
+    {"ref":"60f652f52326cc07f9fee1e92eda7ed13e0f197b4e5eb8ad26a0f897418eabf3"},
     {"ref":"5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"},
     {"ref":"9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"},
     {"ref":"f80ebc8da31aa6f366a0ceb043598b2e9885c20123aa6b81386879297893fffb"},
@@ -229,18 +231,23 @@
         "stations of an announced movement",
         "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48, #50): el anuncio es un movimiento anunciado del libro (estado «anunciado»: no toca saldos) que el registro que se ancla sobre él cumple moviendo lo mismo; las estaciones por las que pasa son datos de la época y el motor solo comprueba. Una fila por estación, en su orden: [[nombre], [lo que la comprueba: una fórmula del BQL mínimo con it = el anuncio, o epoch.9.0.0, el recuento del anuncio con el criterio de su dueño (motor.recuento)]]; la estación de un anuncio es la última que se cumple (acciones.estacionDeAnuncio). Los nombres son los de la fábrica (la carta los pinta con su color)",
         "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, todo lo que lo cumplió (lo anclado sobre el anuncio) está «sealed» (X.6.8.5, la regla de la época que comprueba el sello de tiempo copiado en X.6.8.2). Core, pendiente de revisar VG",
-        "«Sin verificar no se ejecuta», por grados (VG 12-11, #50, #64 d y #67; encargo «verificado-regla»; sprint 1 = solo leer): ejecutada exige, además de que se movió, que todo lo que lo cumple esté «sealed» o que el eje NO tenga sello configurado (sin «seal url» en los ajustes del exterior de la cuenta raíz, before.8.3, no hay verificación posible y la estación se comporta como antes; esa condición es decisión de Core AGRAM). Con sello configurado y lo que cumple sin sellar, se cumple la segunda «autorizada» (movido y con sello configurado) y no «ejecutada»: el anuncio se queda en autorizada y la carta lo pinta con «pendiente de sello». Nada se rechaza (#62): el libro asienta lo movido igual; la estación solo lee"
+        "«Sin verificar no se ejecuta», por grados (VG 12-11, #50, #64 d y #67; encargo «verificado-regla»; sprint 1 = solo leer): ejecutada exige, además de que se movió, que todo lo que lo cumple esté «sealed» o que el eje NO tenga sello configurado (sin «seal url» en los ajustes del exterior de la cuenta raíz, before.8.3, no hay verificación posible y la estación se comporta como antes; esa condición es decisión de Core AGRAM). Con sello configurado y lo que cumple sin sellar, se cumple la segunda «autorizada» (movido y con sello configurado) y no «ejecutada»: el anuncio se queda en autorizada y la carta lo pinta con «pendiente de sello». Nada se rechaza (#62): el libro asienta lo movido igual; la estación solo lee",
+        "El segundo factor (VG 12/13-11, #66, #70): ejecutada y verificada exigen además que nada de lo que lo cumple espere su segundo factor: que cada criterio «second factor» de su autor que alcanza (X.6.8.7, la lectura «second factor») tenga su autorización del titular (X.6.8.8, «authorized by the holder»). Si falta, se cumple la tercera «autorizada» (movido y con un segundo factor pendiente): el anuncio se queda en autorizada y la carta lo pinta con «pendiente de segundo factor». Nada se rechaza: lo movido está movido"
       ],
       [["propuesta"], ["=count it.5 > 0"]],
       [["autorizada"], ["epoch.9.0.0"]],
       [["autorizada"], ["=not (it in (first (first (up it)).4).8) and count before.8.3 > 0"]],
       [
+        ["autorizada"],
+        ["=not (it in (first (first (up it)).4).8) and count ((down it) where count (first it2.6).8.7 != count (first it2.6).8.8) > 0"]
+      ],
+      [
         ["ejecutada"],
-        ["=not (it in (first (first (up it)).4).8) and (count before.8.3 = 0 or count ((down it) where not first (first it2.6).8.5) = 0)"]
+        ["=not (it in (first (first (up it)).4).8) and (count before.8.3 = 0 or count ((down it) where not first (first it2.6).8.5) = 0) and count ((down it) where count (first it2.6).8.7 != count (first it2.6).8.8) = 0"]
       ],
       [
         ["verificada"],
-        ["=not (it in (first (first (up it)).4).8) and count (down it) > 0 and count ((down it) where not first (first it2.6).8.5) = 0"]
+        ["=not (it in (first (first (up it)).4).8) and count (down it) > 0 and count ((down it) where not first (first it2.6).8.5) = 0 and count ((down it) where count (first it2.6).8.7 != count (first it2.6).8.8) = 0"]
       ]
     ]
   ],
@@ -2010,6 +2017,8 @@
           "sealed: la prueba del sello de tiempo copiada en el 6.8.2 del registro no cuadra (la hoja, el camino de Merkle, el compromiso Taproot, la transacción de anclaje, la cabecera del bloque, la prueba de trabajo, la altura, o una cabecera que no firmó un observador declarado)",
           "received: el recibo de llegada copiado en el 6.8.1 del registro no lo firma su relé",
           "paid: el recibo de pago copiado en el 6.8.3 del registro no prueba que su transacción, en un bloque firmado por un observador declarado, pague el importe al destino (y apunte a este registro, si trae puntero), o no lo firma su emisor",
+          "second factor: {first ev.3} mueve lo que protege uno de sus propios criterios (un segundo factor en el 2.4 de su alta)",
+          "authorized by the holder: la autorización anclada sobre el registro no la escribe y firma el titular del criterio que alcanza",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
           "how much: lo que se mueve en el nodo y en lo que cuelga de él, también lo que su dueño acuña o se mueve a sí mismo",
           "on what condition: los criterios sobre el nodo, lo anclado en su 2",
@@ -2440,6 +2449,16 @@
           "template register a thing param actions label: acción",
           "template register a thing param actions help: la acción",
           "template register a thing message: {last ev.3.1}",
+          "template second factor: segundo factor",
+          "template second factor param family label: familia o serie",
+          "template second factor param family help: lo que lo dispara: una familia (E, P, R o T: «si mueve E») o una serie concreta (E:casa/EUR); si son varias, una por ocupante",
+          "template second factor param amount label: cantidad",
+          "template second factor param amount help: el umbral: desde esta cantidad (lo que muevo de esa familia o serie en un registro, sumando lo que cuesta escribirlo y lo que mueve la plantilla) la ejecución espera el segundo factor; 0 es «si lo mueve, aunque sea poco»",
+          "template second factor param holder label: titular",
+          "template second factor param holder help: el titular: una de mis cosas (dada de alta con «dar de alta una cosa»), cuya clave custodia StateArk; escribe y firma la autorización",
+          "template second factor param actions label: acción",
+          "template second factor param actions help: la acción",
+          "template second factor message: {last ev.4}",
           "template reposition P toward X: reposicionar P hacia X",
           "template reposition P toward X param from label: desde",
           "template reposition P toward X param from help: la serie de P que se mueve: P mío sobre el padre o un hijo de X",
@@ -2640,6 +2659,8 @@
           "reason anchor not a position: {name}: el ancla no es una posición ({path})",
           "reason position without value: {name}: la posición {position} del registro no tiene valor",
           "reason no series: {name}: no hay serie para un movimiento de {amount}",
+          "reason second factor missing: falta la autorización de {holder}: lo que mueves ({family}, {amount} o más) lo protege tu segundo factor; hasta que {holder} lo autorice desde StateArk, se queda en autorizado (pendiente de segundo factor)",
+          "reason second factor not by the holder: la autorización la escribe {author} y la firma {signer}, y solo vale la que escribe y firma el titular, {holder}; sigue pendiente de segundo factor",
           "reason unknown template: plantilla de transacción desconocida: {template}",
           "reason X not in ledger: {name}: X no es un registro del libro",
           "reason who launches: {name}: quien la lanza (yo) tiene que ser una identidad",
@@ -2752,6 +2773,8 @@
           "reason anchor not a position: {name}: the anchor is not a position ({path})",
           "reason position without value: {name}: position {position} of the record has no value",
           "reason no series: {name}: no series for a movement of {amount}",
+          "reason second factor missing: the authorization of {holder} is missing: what you move ({family}, {amount} or more) is protected by your second factor; until {holder} authorizes it from StateArk, it stays authorized (second factor pending)",
+          "reason second factor not by the holder: the authorization is written by {author} and signed by {signer}, and only the one written and signed by the holder, {holder}, counts; the second factor is still pending",
           "reason unknown template: unknown transaction template: {template}",
           "reason X not in ledger: {name}: X is not a record of the ledger",
           "reason who launches: {name}: who launches it (yo) is an identity",
@@ -2803,7 +2826,8 @@
         {"ref":"4d99b6d20183362b9e8c7e5d8a7210810a8f01da90b5ff44108f46b9f9d8475e"},
         {"ref":"798ff09d61ae05fca865e2c762a7949ebeb194382ee2fa7331072e08f8103fb6"},
         {"ref":"b40303bc43dc30509c33bc4059a4cc818fc86816f74a1dee1ee944f70d62e7f8"},
-        {"ref":"8910e5fcc97fe3b1f683a028a57531a6b01d5d3c31351fd8a6f53b7b4e15cb56"},
+        {"ref":"5406df02fbad0393dc5af250b2dcb3ec7ff8550c95abdd4b5726548005e1a436"},
+        {"ref":"f75da136da35d13e0cda76d5cde3daa342b32248f85af6f0c4dc29b4e47650d3"},
         {"ref":"96aae23d02047c4736acdeb2c411304ccf85b4f9882e286a62306bfa678c51d3"},
         {"ref":"375eff5f32856431cecccf32785ef357e762c93b3511b7d60511a081842fc2c0"},
         {"ref":"4485f1d067dc579b5ccdb906a423417f0e53dc97460ac6e1ec05c8396fd44a22"},

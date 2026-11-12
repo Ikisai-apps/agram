@@ -1644,7 +1644,7 @@ epoch.1.3.1.2.1 → 24
 epoch.1.3.1.4.2 → 7
 epoch.5.1.1.0 → cuánto
 (first epoch.2).0 → writing burns today's T
-count epoch.2 → 61
+count epoch.2 → 63
 epoch.8.0 → 1, 2, 3, 4, 6, 10, 16, 26, 42
 epoch.9.1 → 5, 4, 1, 7, 2, 8, 9, 3, segunda alta
 ```

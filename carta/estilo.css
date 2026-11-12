@@ -589,6 +589,9 @@ html.mapped body{padding:0}
 .verificado{flex:none;font-size:9px;color:var(--ok);opacity:.8;white-space:nowrap;letter-spacing:.02em}
 .verificado-linea{margin:2px 0}
 .pendiente-sello{flex:none;font-size:9px;color:var(--warn);opacity:.8;white-space:nowrap;letter-spacing:.02em}
+.pendiente-segundo-factor{flex:none;font-size:9px;color:var(--warn);opacity:.9;white-space:nowrap;letter-spacing:.02em;font-weight:600}
+.aviso-segundo-factor{margin:6px 0 0;padding:4px 6px;border-left:3px solid var(--warn);font-size:12px;color:var(--warn)}
+.segundo-factor-actuales{margin:4px 0;padding-left:18px;font-size:12px}
 .ejecucion .quien,.ejecucion .celda-abrir{display:none}
 .rejilla-matriz .hijo-cuerpo:has(>.ejecuciones){align-items:flex-start;justify-content:flex-start;overflow:hidden}
 .ejecucion-mas{font-size:9px;color:var(--muted);text-align:center}

@@ -1,0 +1,67 @@
+[
+  ["second factor"],
+  [
+    [
+      ["family"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["VG 12/13-11 (#66, #70): parámetro de «second factor»"],
+      ["required"],
+      [1],
+      ["what triggers it: a family (E, P, R or T: «if it moves E») or a concrete series (E:casa/EUR); several, one per occupant"]
+    ],
+    [
+      ["amount"],
+      ["number"],
+      ["=it >= 0"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["VG 12/13-11 (#66, #70): parámetro de «second factor»"],
+      ["required"],
+      [2],
+      [0, "the threshold: from this amount (what I move of that family or series in one record, adding what writing costs and what the template moves) the execution waits for the second factor; 0 is «if it moves it at all»"]
+    ],
+    [
+      ["holder"],
+      ["identity"],
+      ["=first (first it.6).3 = me and it != me"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["VG 12/13-11 (#66, #70): parámetro de «second factor»"],
+      ["required"],
+      [3],
+      ["=first (((moves me) where T in it2.0.0.0 and it2.3.0 = me and it2.3.1 != me and first (first it2.3.1.6).3 = me) each 3.1)", "the holder: one of my things (registered with «register a thing»), whose key StateArk keeps; it writes and signs the authorization"]
+    ],
+    [
+      ["actions"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["4"],
+      ["VG 12/13-11 (#66, #70): parámetro de «second factor»"],
+      ["required"],
+      [4],
+      ["second factor", "the action"]
+    ]
+  ],
+  ["=first it.5 = first me.6"],
+  [["me"], ["person"]],
+  ["write"],
+  ["2.4"],
+  [
+    "VG 12-11 y 13-11 (#66, #70, en las sesiones de Core State y Core StateArk): la app de StateArk es el SEGUNDO FACTOR. Se dispara al ejecutar desde el 4 un registro que mueve cierto token o cierta cantidad, configurable en los criterios de mi 2 («si mueve E», «si la suma pasa de N»); StateArk enseña lo ejecutado y el titular lo firma allí: el paso de autorizado pendiente a ejecutado",
+    "Por qué un criterio y no un ajuste: el umbral es un criterio del usuario sobre la ejecución, y el 2 sigue el patrón del 3 (3.d = sobre d): 2.4 = criterios sobre lo que se hace (el 4). Core AGRAM 12-11 (#70): vive en el 2.4 de mi alta y es esta plantilla PV2; el SIP 0 de StateArk escribe el mismo objeto («segundo factor»: 0 nombre, 1 familia o serie, 2 cantidad, 3 titular)",
+    "La forma, sin huecos (VG 13-11, #77): 0 el nombre («second factor»: el mensaje de la plantilla es su 4, la acción, así que el 0 del registro es lo que es, #75), 1 la familia o la serie que lo dispara (una por ocupante si son varias: una lista de hojas, sin posiciones que leer), 2 la cantidad desde la que se exige, 3 el titular (una COSA mía: su alta la escribí yo, «register a thing», #46; su clave la custodia StateArk) y 4 la acción, como en «register a thing». No es un registro de ajustes ([[nombre],[claves],[valores],[quién],[ayuda],[tipo]]): las cuatro posiciones las lee una regla por su número, y son las del objeto del SIP",
+    "Cómo rige (lecturas de la época, solo leen; nada se rechaza, #62): «second factor» (X.6.8.7) da, de un registro, los criterios de su autor que alcanza (lo que el autor mueve en él de esa familia o serie, sin lo anunciado, suma la cantidad o más); «authorized by the holder» (X.6.8.8), los que ya tienen su autorización: un registro anclado sobre él, escrito y firmado por el titular (la cosa), con 0 «autorización», 1 lo autorizado (el propio registro), 2 «StateArk/SecondFactor/v1» y 3 el titular. Mientras falte una, la estación queda en «autorizada» (epoch.4.3) y la carta dice «pendiente de segundo factor»",
+    "Su 4 es «write»: no mueve nada más que el coste de escribir, que cobra a toda candidata la regla de la época «the cost of writing», por posición"
+  ],
+  ["epoch 0"],
+  [2, 5],
+  ["{last ev.4}"]
+]

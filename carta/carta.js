@@ -124,9 +124,13 @@ function marcaDeVerificado(eje, X, opciones) {
   const v = contrato.verificado(eje, X, opciones);
   // «pendiente de sello» (encargo «verificado-regla», #50 y #67): el eje tiene sello configurado y la regla del sello aún
   // no lo da por bueno porque le falta el dato (contrato.verificado, pendienteDeSello); nada se rechaza.
-  if (v?.pendienteDeSello) return { pendienteDeSello: true };
-  if (!v?.ok) return {};
-  return { verificado: true, ...(v.profundidad !== null ? { confirmaciones: v.profundidad } : {}), ...(v.enFirme ? { enFirme: true, minimas: exterior.ajustesDelEje(eje, opciones).confirmaciones } : {}) };
+  // «pendiente de segundo factor» (VG 12/13-11, #66, #70): lo que el registro mueve alcanza un criterio de su autor y aún
+  // falta la autorización de su titular (acciones.segundoFactor); con su motivo, para el title.
+  const sf = acciones.segundoFactor(eje, X, opciones);
+  const segundo = sf?.pendiente ? { pendienteDeSegundoFactor: true, motivoSegundoFactor: sf.motivo } : {};
+  if (v?.pendienteDeSello) return { pendienteDeSello: true, ...segundo };
+  if (!v?.ok) return segundo;
+  return { verificado: true, ...(v.profundidad !== null ? { confirmaciones: v.profundidad } : {}), ...(v.enFirme ? { enFirme: true, minimas: exterior.ajustesDelEje(eje, opciones).confirmaciones } : {}), ...segundo };
 }
 
 function tamanoQueCabe(px, medidas, opciones) {
@@ -788,6 +792,8 @@ function ejecucionDe(eje, X, accion, yo, valores, o) {
     escala: escala ?? e.propuesta.desde, elegida: Boolean(escala), cubre: e.cubre, alcanza: e.alcanza, escalas: e.escalas,
     incompleto: Boolean(e.incompleto), // faltan parámetros: lo exigido es el de lo que ya hay
     boton: contrato.botonDeEjecutar(eje, X, o),
+    // el segundo factor (VG 12/13-11, #66, #70): lo que movería alcanza un criterio de quien ejecuta; se avisa antes
+    ...(e.segundoFactor?.exige ? { segundoFactor: { titulares: e.segundoFactor.titulares } } : {}),
   };
 }
 
@@ -830,6 +836,21 @@ export function plantillaDePreferencias(opciones = {}) {
   if (!sitio) return null;
   const donde = direccion(indicesDe(sitio).slice(0, -1));
   return contrato.plantillas(null, opciones).find((x) => x.donde === donde) ?? null;
+}
+
+/**
+ * El desplegable «segundo factor» de la configuración (VG 12/13-11, #66, #70; personaje del 0 → 2): el formulario de la
+ * plantilla PV2 «second factor» sobre mi alta (sus campos con sus opciones: el titular, entre mis cosas, por
+ * contrato.opciones) y los criterios que ya tengo (acciones.criteriosDeSegundoFactor). → { X, accion, campos, criterios }
+ * o null si no tengo alta o la época no tiene la plantilla.
+ */
+export function segundoFactorDeConfiguracion(eje, yo, opciones = {}) {
+  const alta = yo ? eje?.alta(yo)?.id : null;
+  if (!alta) return null;
+  const f = formulario(eje, alta, acciones.SEGUNDO_FACTOR.criterio, yo, {}, opciones);
+  if (!f) return null;
+  // El campo que nombra la propia acción (su 4, con su nombre por defecto) no se pide: va siempre igual.
+  return { X: alta, accion: f.accion, campos: f.campos.filter((c) => c.valor !== acciones.SEGUNDO_FACTOR.criterio), criterios: acciones.criteriosDeSegundoFactor(eje, yo) };
 }
 
 /**
@@ -1421,7 +1442,7 @@ function estadosDeEstaciones(eje, R, ctx) {
   const estados = new Map();
   for (const e of acciones.estaciones(eje, R, ctx.opciones)) {
     for (const id of e.pendientes) estados.set(id, (e.autorizados ?? []).includes(id) ? 'autorizada' : 'propuesta');
-    for (const id of e.hechos) estados.set(id, (e.pendientesDeSello ?? []).includes(id) ? e.estacionDe?.[id] ?? 'autorizada' : 'ejecutada');
+    for (const id of e.hechos) estados.set(id, [...(e.pendientesDeSello ?? []), ...(e.pendientesDeSegundoFactor ?? [])].includes(id) ? e.estacionDe?.[id] ?? 'autorizada' : 'ejecutada');
   }
   return estados;
 }
@@ -1479,10 +1500,12 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
       n.accion = x.accion;
       if (n.X) {
         // En la matriz, «pendiente de sello» solo lo movido que su estación deja en autorizada (acciones.ejecuciones), no todo lo que aún no tiene sello.
-        const { pendienteDeSello: _sinSello, ...marca } = marcaDeVerificado(eje, n.X, ctx.opciones);
+        const { pendienteDeSello: _sinSello, pendienteDeSegundoFactor: _sinSegundo, motivoSegundoFactor: _motivo, ...marca } = marcaDeVerificado(eje, n.X, ctx.opciones);
         Object.assign(n, marca);
       }
       if (x.pendienteDeSello) n.pendienteDeSello = true;
+      // El segundo factor (#66, #70): lo que su estación deja en autorizada porque espera la autorización del titular.
+      if (x.pendienteDeSegundoFactor) n.pendienteDeSegundoFactor = true;
       const [fila, columna] = conEjes ? [x.oficio, x.ejecucion] : [x.posicion, x.pv];
       const celda = fila === null || fila === undefined || columna === null || columna === undefined ? null : celdas.find((c) => c.fila === fila && c.columna === columna);
       if (celda) celda.ocupantes.push(n);

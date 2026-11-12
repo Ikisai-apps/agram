@@ -539,7 +539,13 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "03ccc721272e9d7b44c684b44edb1edd66b6ed7a3d9127c87418aa84aa47d072"
     },
     {
-      "ref": "eb97d9921ed09044e08a20c981d3376aa6ebbdfecd6708a2eb524fd2849aed79"
+      "ref": "5d716a36add1de913cd6e0c8fcae273ef6f924bb86c9b288f3017aebe85c6de9"
+    },
+    {
+      "ref": "e954e0cd193b6da1a4c4f63d8bb39021ef0ada790ac02285d5944ab2c3f652bb"
+    },
+    {
+      "ref": "60f652f52326cc07f9fee1e92eda7ed13e0f197b4e5eb8ad26a0f897418eabf3"
     },
     {
       "ref": "5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"
@@ -765,7 +771,8 @@ export const EPOCA_0_BTML_DATOS = [
         "stations of an announced movement",
         "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48, #50): el anuncio es un movimiento anunciado del libro (estado «anunciado»: no toca saldos) que el registro que se ancla sobre él cumple moviendo lo mismo; las estaciones por las que pasa son datos de la época y el motor solo comprueba. Una fila por estación, en su orden: [[nombre], [lo que la comprueba: una fórmula del BQL mínimo con it = el anuncio, o epoch.9.0.0, el recuento del anuncio con el criterio de su dueño (motor.recuento)]]; la estación de un anuncio es la última que se cumple (acciones.estacionDeAnuncio). Los nombres son los de la fábrica (la carta los pinta con su color)",
         "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, todo lo que lo cumplió (lo anclado sobre el anuncio) está «sealed» (X.6.8.5, la regla de la época que comprueba el sello de tiempo copiado en X.6.8.2). Core, pendiente de revisar VG",
-        "«Sin verificar no se ejecuta», por grados (VG 12-11, #50, #64 d y #67; encargo «verificado-regla»; sprint 1 = solo leer): ejecutada exige, además de que se movió, que todo lo que lo cumple esté «sealed» o que el eje NO tenga sello configurado (sin «seal url» en los ajustes del exterior de la cuenta raíz, before.8.3, no hay verificación posible y la estación se comporta como antes; esa condición es decisión de Core AGRAM). Con sello configurado y lo que cumple sin sellar, se cumple la segunda «autorizada» (movido y con sello configurado) y no «ejecutada»: el anuncio se queda en autorizada y la carta lo pinta con «pendiente de sello». Nada se rechaza (#62): el libro asienta lo movido igual; la estación solo lee"
+        "«Sin verificar no se ejecuta», por grados (VG 12-11, #50, #64 d y #67; encargo «verificado-regla»; sprint 1 = solo leer): ejecutada exige, además de que se movió, que todo lo que lo cumple esté «sealed» o que el eje NO tenga sello configurado (sin «seal url» en los ajustes del exterior de la cuenta raíz, before.8.3, no hay verificación posible y la estación se comporta como antes; esa condición es decisión de Core AGRAM). Con sello configurado y lo que cumple sin sellar, se cumple la segunda «autorizada» (movido y con sello configurado) y no «ejecutada»: el anuncio se queda en autorizada y la carta lo pinta con «pendiente de sello». Nada se rechaza (#62): el libro asienta lo movido igual; la estación solo lee",
+        "El segundo factor (VG 12/13-11, #66, #70): ejecutada y verificada exigen además que nada de lo que lo cumple espere su segundo factor: que cada criterio «second factor» de su autor que alcanza (X.6.8.7, la lectura «second factor») tenga su autorización del titular (X.6.8.8, «authorized by the holder»). Si falta, se cumple la tercera «autorizada» (movido y con un segundo factor pendiente): el anuncio se queda en autorizada y la carta lo pinta con «pendiente de segundo factor». Nada se rechaza: lo movido está movido"
       ],
       [
         [
@@ -793,10 +800,18 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         [
+          "autorizada"
+        ],
+        [
+          "=not (it in (first (first (up it)).4).8) and count ((down it) where count (first it2.6).8.7 != count (first it2.6).8.8) > 0"
+        ]
+      ],
+      [
+        [
           "ejecutada"
         ],
         [
-          "=not (it in (first (first (up it)).4).8) and (count before.8.3 = 0 or count ((down it) where not first (first it2.6).8.5) = 0)"
+          "=not (it in (first (first (up it)).4).8) and (count before.8.3 = 0 or count ((down it) where not first (first it2.6).8.5) = 0) and count ((down it) where count (first it2.6).8.7 != count (first it2.6).8.8) = 0"
         ]
       ],
       [
@@ -804,7 +819,7 @@ export const EPOCA_0_BTML_DATOS = [
           "verificada"
         ],
         [
-          "=not (it in (first (first (up it)).4).8) and count (down it) > 0 and count ((down it) where not first (first it2.6).8.5) = 0"
+          "=not (it in (first (first (up it)).4).8) and count (down it) > 0 and count ((down it) where not first (first it2.6).8.5) = 0 and count ((down it) where count (first it2.6).8.7 != count (first it2.6).8.8) = 0"
         ]
       ]
     ]
@@ -4997,6 +5012,8 @@ export const EPOCA_0_BTML_DATOS = [
           "sealed: la prueba del sello de tiempo copiada en el 6.8.2 del registro no cuadra (la hoja, el camino de Merkle, el compromiso Taproot, la transacción de anclaje, la cabecera del bloque, la prueba de trabajo, la altura, o una cabecera que no firmó un observador declarado)",
           "received: el recibo de llegada copiado en el 6.8.1 del registro no lo firma su relé",
           "paid: el recibo de pago copiado en el 6.8.3 del registro no prueba que su transacción, en un bloque firmado por un observador declarado, pague el importe al destino (y apunte a este registro, si trae puntero), o no lo firma su emisor",
+          "second factor: {first ev.3} mueve lo que protege uno de sus propios criterios (un segundo factor en el 2.4 de su alta)",
+          "authorized by the holder: la autorización anclada sobre el registro no la escribe y firma el titular del criterio que alcanza",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
           "how much: lo que se mueve en el nodo y en lo que cuelga de él, también lo que su dueño acuña o se mueve a sí mismo",
           "on what condition: los criterios sobre el nodo, lo anclado en su 2",
@@ -5427,6 +5444,16 @@ export const EPOCA_0_BTML_DATOS = [
           "template register a thing param actions label: acción",
           "template register a thing param actions help: la acción",
           "template register a thing message: {last ev.3.1}",
+          "template second factor: segundo factor",
+          "template second factor param family label: familia o serie",
+          "template second factor param family help: lo que lo dispara: una familia (E, P, R o T: «si mueve E») o una serie concreta (E:casa/EUR); si son varias, una por ocupante",
+          "template second factor param amount label: cantidad",
+          "template second factor param amount help: el umbral: desde esta cantidad (lo que muevo de esa familia o serie en un registro, sumando lo que cuesta escribirlo y lo que mueve la plantilla) la ejecución espera el segundo factor; 0 es «si lo mueve, aunque sea poco»",
+          "template second factor param holder label: titular",
+          "template second factor param holder help: el titular: una de mis cosas (dada de alta con «dar de alta una cosa»), cuya clave custodia StateArk; escribe y firma la autorización",
+          "template second factor param actions label: acción",
+          "template second factor param actions help: la acción",
+          "template second factor message: {last ev.4}",
           "template reposition P toward X: reposicionar P hacia X",
           "template reposition P toward X param from label: desde",
           "template reposition P toward X param from help: la serie de P que se mueve: P mío sobre el padre o un hijo de X",
@@ -5627,6 +5654,8 @@ export const EPOCA_0_BTML_DATOS = [
           "reason anchor not a position: {name}: el ancla no es una posición ({path})",
           "reason position without value: {name}: la posición {position} del registro no tiene valor",
           "reason no series: {name}: no hay serie para un movimiento de {amount}",
+          "reason second factor missing: falta la autorización de {holder}: lo que mueves ({family}, {amount} o más) lo protege tu segundo factor; hasta que {holder} lo autorice desde StateArk, se queda en autorizado (pendiente de segundo factor)",
+          "reason second factor not by the holder: la autorización la escribe {author} y la firma {signer}, y solo vale la que escribe y firma el titular, {holder}; sigue pendiente de segundo factor",
           "reason unknown template: plantilla de transacción desconocida: {template}",
           "reason X not in ledger: {name}: X no es un registro del libro",
           "reason who launches: {name}: quien la lanza (yo) tiene que ser una identidad",
@@ -5742,6 +5771,8 @@ export const EPOCA_0_BTML_DATOS = [
           "reason anchor not a position: {name}: the anchor is not a position ({path})",
           "reason position without value: {name}: position {position} of the record has no value",
           "reason no series: {name}: no series for a movement of {amount}",
+          "reason second factor missing: the authorization of {holder} is missing: what you move ({family}, {amount} or more) is protected by your second factor; until {holder} authorizes it from StateArk, it stays authorized (second factor pending)",
+          "reason second factor not by the holder: the authorization is written by {author} and signed by {signer}, and only the one written and signed by the holder, {holder}, counts; the second factor is still pending",
           "reason unknown template: unknown transaction template: {template}",
           "reason X not in ledger: {name}: X is not a record of the ledger",
           "reason who launches: {name}: who launches it (yo) is an identity",
@@ -5933,7 +5964,10 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "b40303bc43dc30509c33bc4059a4cc818fc86816f74a1dee1ee944f70d62e7f8"
         },
         {
-          "ref": "8910e5fcc97fe3b1f683a028a57531a6b01d5d3c31351fd8a6f53b7b4e15cb56"
+          "ref": "5406df02fbad0393dc5af250b2dcb3ec7ff8550c95abdd4b5726548005e1a436"
+        },
+        {
+          "ref": "f75da136da35d13e0cda76d5cde3daa342b32248f85af6f0c4dc29b4e47650d3"
         },
         {
           "ref": "96aae23d02047c4736acdeb2c411304ccf85b4f9882e286a62306bfa678c51d3"
@@ -7634,6 +7668,46 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "authorized-by-the-holder.json",
+    "id": "e954e0cd193b6da1a4c4f63d8bb39021ef0ada790ac02285d5944ab2c3f652bb",
+    "registro": [
+      [
+        "authorized by the holder"
+      ],
+      [
+        "X.6.8.7",
+        "autorización",
+        "StateArk/SecondFactor/v1"
+      ],
+      [
+        "=(first it.6).8.7 where count ((down it) where \"autorización\" in (payload(it3)).0 and \"StateArk/SecondFactor/v1\" in (payload(it3)).2 and first (payload(it3)).1 = first it.5 and first (payload(it3)).3 = first (payload(it2)).3 and first it3.3 = first (payload(it2)).3 and nth 1 it3.3 = first (payload(it2)).3) > 0"
+      ],
+      [
+        "X.6.8.8"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12/13-11 (#66, #70; SIP 0 de StateArk, objeto «autorización» en modo segundo factor): lo que pasa una ejecución de «autorizada» a «ejecutada» es un registro de AUTORIZACIÓN anclado sobre ella, escrito y firmado por el titular; su firma de registro, sobre su id, que referencia lo autorizado, es el segundo factor (sin `signed`: la firma la comprueba el suelo al asentar)",
+        "Con it = un registro X: de los criterios que X alcanza (X.6.8.7, «second factor»), los que ya tienen su autorización: un registro anclado sobre X cuyo 0 dice «autorización», su 1 es X (lo autorizado, su «sobre»), su 2 la etiqueta de uso «StateArk/SecondFactor/v1» y su 3 el titular del criterio, y cuyo autor y firmante (el segundo ocupante del 3: «nadie» si no va firmado) son ese titular, la cosa del usuario. Una autorización del propio usuario, de otro o sin firmar no cuenta",
+        "Core AGRAM 13-11: el titular es la identidad de la cosa (su alta, «register a thing»), no su clave x-only como en el SIP: en AGRAM la clave la declara el alta y la firma la comprueba el suelo («who has a key signs»); un titular sin clave no puede firmar, así que nunca autoriza. Se materializa en X.6.8.8"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after second factor"
+      ],
+      [
+        "authorized by the holder: the authorization anchored on the record is not written and signed by the holder of the criterion it reaches"
+      ]
+    ]
+  },
+  {
     "archivo": "by-when.json",
     "id": "cd8c375175c656c4c902ebc420b043e942d15779825914a349b7103af3dd35cb",
     "registro": [
@@ -9054,6 +9128,47 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "second-factor.json",
+    "id": "5d716a36add1de913cd6e0c8fcae273ef6f924bb86c9b288f3017aebe85c6de9",
+    "registro": [
+      [
+        "second factor"
+      ],
+      [
+        "X.2.4",
+        "second factor",
+        "moves"
+      ],
+      [
+        "=(down (first (first it.3).6)) where last (first it2.6).5 = \"2400000000\" and \"second factor\" in (payload(it2)).4 and first it2.3 = first it.3 and count ((moves it) where not (\"anunciado\" in it3.2) and it3.3.0 = first it.3 and (first it3.0 in (payload(it2)).1 or \"E\" in (payload(it2)).1 and E in it3.0.0.0 or \"P\" in (payload(it2)).1 and P in it3.0.0.0 or \"R\" in (payload(it2)).1 and R in it3.0.0.0 or \"T\" in (payload(it2)).1 and T in it3.0.0.0)) > 0 and sum (((moves it) where not (\"anunciado\" in it3.2) and it3.3.0 = first it.3 and (first it3.0 in (payload(it2)).1 or \"E\" in (payload(it2)).1 and E in it3.0.0.0 or \"P\" in (payload(it2)).1 and P in it3.0.0.0 or \"R\" in (payload(it2)).1 and R in it3.0.0.0 or \"T\" in (payload(it2)).1 and T in it3.0.0.0)) each 1) >= first (payload(it2)).2"
+      ],
+      [
+        "X.6.8.7"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12/13-11 (#66, #70): la app de StateArk es el SEGUNDO FACTOR; se dispara al ejecutar desde el 4 un registro que mueve cierto token o cierta cantidad, según un criterio del propio usuario en el 2.4 de su alta (la plantilla PV2 «second factor»); lo ejecutado queda en la estación «autorizada» («pendiente de segundo factor») hasta que el titular lo autoriza",
+        "Con it = un registro X (o la candidata): los criterios «second factor» de su autor (los registros que el propio autor ancla en el 2.4 de su alta con «second factor» en su 4) que X alcanza: lo que el autor mueve en X (sus asientos del libro, moves, con él como origen y sin lo anunciado, que aún no se mueve) de la familia o la serie del 1 del criterio suma su 2 o más; el coste de escribir cuenta (es T que el autor quema en X) y «si mueve E» es la cantidad 0 de la familia E (exige al menos un movimiento)",
+        "Lectura, no condición: solo lee y no rechaza nada (#62, sin verificar no se ejecuta por grados, como «sealed»). El SIP 0 de StateArk la escribe como condición («second factor»: sin la autorización, la transacción no pasa); en AGRAM, VG 13-11: el registro se escribe y su estación queda en «autorizada» hasta que llega la autorización. La familia se compara con el símbolo del libro (E, P, R, T) y la serie por su clave; las cantidades se suman tal cual en las unidades de su serie, sin pasar a sats (H15 del SIP: BQL no suma productos)",
+        "Se materializa en X.6.8.7, junto a las otras comprobaciones de lo ejecutado (6.8.4 «received», 6.8.5 «sealed», 6.8.6 «paid»); decisión de Core AGRAM 13-11"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after paid"
+      ],
+      [
+        "second factor: {first ev.3} moves what one of their own criteria protects (a second factor in the 2.4 of their alta)"
+      ]
+    ]
+  },
+  {
     "archivo": "share.json",
     "id": "5ca7bfab617100a3ecd4f1d94031dbd9ce96b2e8507e88d8a6cbdf1e9091620c",
     "registro": [
@@ -9391,7 +9506,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "what-it-is.json",
-    "id": "eb97d9921ed09044e08a20c981d3376aa6ebbdfecd6708a2eb524fd2849aed79",
+    "id": "60f652f52326cc07f9fee1e92eda7ed13e0f197b4e5eb8ad26a0f897418eabf3",
     "registro": [
       [
         "what it is"
@@ -9421,7 +9536,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after paid"
+        "after authorized by the holder"
       ],
       [
         "what it is: what the node is, its representations (its text or its resource)"
@@ -12064,8 +12179,184 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "second-factor.json",
+    "id": "5406df02fbad0393dc5af250b2dcb3ec7ff8550c95abdd4b5726548005e1a436",
+    "registro": [
+      [
+        "second factor"
+      ],
+      [
+        [
+          [
+            "family"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "VG 12/13-11 (#66, #70): parámetro de «second factor»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "what triggers it: a family (E, P, R or T: «if it moves E») or a concrete series (E:casa/EUR); several, one per occupant"
+          ]
+        ],
+        [
+          [
+            "amount"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it >= 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "VG 12/13-11 (#66, #70): parámetro de «second factor»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            0,
+            "the threshold: from this amount (what I move of that family or series in one record, adding what writing costs and what the template moves) the execution waits for the second factor; 0 is «if it moves it at all»"
+          ]
+        ],
+        [
+          [
+            "holder"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "=first (first it.6).3 = me and it != me"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "VG 12/13-11 (#66, #70): parámetro de «second factor»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first (((moves me) where T in it2.0.0.0 and it2.3.0 = me and it2.3.1 != me and first (first it2.3.1.6).3 = me) each 3.1)",
+            "the holder: one of my things (registered with «register a thing»), whose key StateArk keeps; it writes and signs the authorization"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "VG 12/13-11 (#66, #70): parámetro de «second factor»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "second factor",
+            "the action"
+          ]
+        ]
+      ],
+      [
+        "=first it.5 = first me.6"
+      ],
+      [
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
+      ],
+      [
+        "write"
+      ],
+      [
+        "2.4"
+      ],
+      [
+        "VG 12-11 y 13-11 (#66, #70, en las sesiones de Core State y Core StateArk): la app de StateArk es el SEGUNDO FACTOR. Se dispara al ejecutar desde el 4 un registro que mueve cierto token o cierta cantidad, configurable en los criterios de mi 2 («si mueve E», «si la suma pasa de N»); StateArk enseña lo ejecutado y el titular lo firma allí: el paso de autorizado pendiente a ejecutado",
+        "Por qué un criterio y no un ajuste: el umbral es un criterio del usuario sobre la ejecución, y el 2 sigue el patrón del 3 (3.d = sobre d): 2.4 = criterios sobre lo que se hace (el 4). Core AGRAM 12-11 (#70): vive en el 2.4 de mi alta y es esta plantilla PV2; el SIP 0 de StateArk escribe el mismo objeto («segundo factor»: 0 nombre, 1 familia o serie, 2 cantidad, 3 titular)",
+        "La forma, sin huecos (VG 13-11, #77): 0 el nombre («second factor»: el mensaje de la plantilla es su 4, la acción, así que el 0 del registro es lo que es, #75), 1 la familia o la serie que lo dispara (una por ocupante si son varias: una lista de hojas, sin posiciones que leer), 2 la cantidad desde la que se exige, 3 el titular (una COSA mía: su alta la escribí yo, «register a thing», #46; su clave la custodia StateArk) y 4 la acción, como en «register a thing». No es un registro de ajustes ([[nombre],[claves],[valores],[quién],[ayuda],[tipo]]): las cuatro posiciones las lee una regla por su número, y son las del objeto del SIP",
+        "Cómo rige (lecturas de la época, solo leen; nada se rechaza, #62): «second factor» (X.6.8.7) da, de un registro, los criterios de su autor que alcanza (lo que el autor mueve en él de esa familia o serie, sin lo anunciado, suma la cantidad o más); «authorized by the holder» (X.6.8.8), los que ya tienen su autorización: un registro anclado sobre él, escrito y firmado por el titular (la cosa), con 0 «autorización», 1 lo autorizado (el propio registro), 2 «StateArk/SecondFactor/v1» y 3 el titular. Mientras falte una, la estación queda en «autorizada» (epoch.4.3) y la carta dice «pendiente de segundo factor»",
+        "Su 4 es «write»: no mueve nada más que el coste de escribir, que cobra a toda candidata la regla de la época «the cost of writing», por posición"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        "{last ev.4}"
+      ]
+    ]
+  },
+  {
     "archivo": "attach-a-file.json",
-    "id": "8910e5fcc97fe3b1f683a028a57531a6b01d5d3c31351fd8a6f53b7b4e15cb56",
+    "id": "f75da136da35d13e0cda76d5cde3daa342b32248f85af6f0c4dc29b4e47650d3",
     "registro": [
       [
         "attach a file"
@@ -12298,7 +12589,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       ],
       [
         2,
-        5
+        6
       ],
       [
         "attach a file: {me} attaches a file to {first it.0}"
@@ -17843,7 +18134,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "18c02df320abe5c9b9f9abf63932da31f3c3c91452cdaad0268711f679d032e3";
+export const EPOCA_0_BTML_ID = "487bf3a0307e9e836111d174f43f0122aaed6f2afb5fa17445af2b6a69db8df2";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
