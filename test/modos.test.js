@@ -138,3 +138,13 @@ test('ordenDeEscala: segundo 1, minuto 2, hora 3, día 4, semana 5, ciclo 6, añ
   assert.equal(ordenDeEscala('anio'), 7);
   for (const e of ['día', 'mes', '', undefined, 'toString']) assert.throws(() => ordenDeEscala(e), /escala T desconocida/);
 });
+
+test('cinco modos: los de la época (epoch.8.2) y los de modos.js son los mismos, en el mismo orden (VG 12-11, #52)', async () => {
+  const { modos } = await import('../src/contrato.js');
+  assert.deepEqual(modos().map((m) => m.nombre.toLowerCase()), Object.keys(MODOS), 'Pointed, Sequenced, Mapped, Scened, Be');
+  assert.deepEqual(Object.values(MODOS).map((m) => m.orden), [1, 2, 3, 4, 5]);
+  // la herencia de las formas va por ese orden: cada modo hereda del anterior donde la hoja es «-»
+  const { formaDe } = await import('../src/contrato.js');
+  for (const modo of Object.keys(MODOS).slice(2)) assert.equal(formaDe(null, 1, modo).forma, 'cruceta', modo);
+  assert.equal(formaDe(null, 1, 'pointed').forma, null);
+});

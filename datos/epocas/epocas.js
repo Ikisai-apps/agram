@@ -2649,7 +2649,11 @@ export const EPOCA_0_BTML_DATOS = [
             0
           ],
           [
-            "lente"
+            "-",
+            "lente",
+            "lente",
+            "-",
+            "-"
           ],
           [
             "-"
@@ -2678,7 +2682,11 @@ export const EPOCA_0_BTML_DATOS = [
             0
           ],
           [
-            "json"
+            "-",
+            "json",
+            "json",
+            "-",
+            "-"
           ],
           [
             "-"
@@ -2710,7 +2718,11 @@ export const EPOCA_0_BTML_DATOS = [
             4
           ],
           [
-            "cruceta"
+            "-",
+            "cruceta",
+            "cruceta",
+            "-",
+            "-"
           ],
           [
             "epoch.9.2",
@@ -2748,8 +2760,11 @@ export const EPOCA_0_BTML_DATOS = [
             5
           ],
           [
-            "escalera",
-            "columnas"
+            "-",
+            "escalera > columnas",
+            "escalera > columnas",
+            "-",
+            "-"
           ],
           [
             "epoch.1.1",
@@ -2788,8 +2803,11 @@ export const EPOCA_0_BTML_DATOS = [
             2
           ],
           [
-            "rejilla",
-            "conversacion"
+            "-",
+            "rejilla > conversacion",
+            "rejilla > conversacion",
+            "-",
+            "-"
           ],
           [
             "groups",
@@ -2820,7 +2838,11 @@ export const EPOCA_0_BTML_DATOS = [
             1
           ],
           [
-            "matriz"
+            "-",
+            "matriz",
+            "matriz",
+            "-",
+            "-"
           ],
           [
             "office",
@@ -2906,7 +2928,11 @@ export const EPOCA_0_BTML_DATOS = [
             1
           ],
           [
-            "franjas"
+            "-",
+            "franjas",
+            "franjas",
+            "-",
+            "-"
           ],
           [
             "epoch.1.3",
@@ -2943,7 +2969,11 @@ export const EPOCA_0_BTML_DATOS = [
             1
           ],
           [
-            "franjas"
+            "-",
+            "franjas",
+            "franjas",
+            "-",
+            "-"
           ],
           [
             "epoch.1.3",
@@ -2981,7 +3011,11 @@ export const EPOCA_0_BTML_DATOS = [
             1
           ],
           [
-            "cielo"
+            "-",
+            "cielo",
+            "cielo",
+            "-",
+            "-"
           ],
           [
             "hitos",
@@ -3022,7 +3056,11 @@ export const EPOCA_0_BTML_DATOS = [
             1
           ],
           [
-            "camino"
+            "-",
+            "camino",
+            "camino",
+            "-",
+            "-"
           ],
           [
             "hitos",
@@ -3049,7 +3087,8 @@ export const EPOCA_0_BTML_DATOS = [
         "VG, 11-11 (#18): la posición 9 (la décima, detrás del enlace) es el orden de las listas verticales del 6 y el 7 (un orden de 8.5): el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian; «-» en los demás",
         "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): el 1 mide epoch.9.2 (el coste: lo que el registro declara en el <dígito>.2 del hijo, «a qué precio» en el 1.2 de «purchase» y de «booking»), capacity (la capacidad: el último «declare capacity or threshold» del dueño o el 2 del registro más cercano de su hilo que la declara, con lo comprometido del E atado a él, por franja) y epoch.4.0 (lo que entra y sale de E y de T por las primitivas, visto desde el dueño); su enlace es qué hijo mide qué: 1 cuánto ↔ el coste, 2 con qué condición ↔ la capacidad, 3 con quién ↔ lo que entra y sale (cada movimiento tiene un de y un a), 4 qué se hace ↔ nada (lo que se hace es la fábrica, el 4) (docs/CONTRATO.md §4.2)",
         "Encargo «datos3» (issue #11, tercera parte; Core, pendiente de revisar VG): el 7 mide «cuando» antes de «escala» (dos pasos de epoch.9.8, en su orden): cada entrada va en la franja de la fecha a la que se refiere (el «when» de «declare future T», la salida con fecha de un bloqueo, la caducidad de una emisión de E; la escala del calendario de su distancia al reloj del libro) y, si no se refiere a ninguna, en la de la escala del T que quema; es incongruente si las dos no coinciden. El 8 mide «cohort»: los comparables de la cohorte (la que se pida o la que eligió el dueño con «change cohort»: siblings, project o genesis), cada uno en la caja de su cuota en ella, con quién escribió la base de la cohorte (docs/CONTRATO.md §4.2)",
-        "VG, 12-11 (#39, #40, #41; encargo el4): el orden de ver es 1 2 3 4, así que los hilos del 6 y el 7 son 1 2 3 4 de arriba abajo. La matriz del 4: filas = los diez oficios (0 mostrar, 1 gestionar, 2 administrar, 3 coordinar, 4 hacer, 5 verificar, 6 registrar, 7 planear, 8 medir, 9 guiar), columnas = la ejecución (0 contenido que se muestra, 1 E, 2 P, 3 R, 4 T, 5 verificación sin token propio, 6 adjudicación al pasado, 7 proyección al futuro, 8 crecimiento que genera rangos, 9 contenido que guía); sus nombres van en el enlace de la fila del 4, [[oficios], [[ejecución, criterio…]…]], con lo que coloca cada ejecución en su columna (Core, pendiente de revisar VG: token F, lo que mueve de esa familia; scale s, el T de esa escala de epoch.1.3.1 (pasado, futuro); dated, lo que tiene fecha; content at k, nada movido escrito en la posición k; content, nada movido). La escalera dulce: el enlace de la fila del 8, una dirección por caja: la fila k ↔ el dígito k+1 repetido k+1 veces con ceros detrás (la fila es el tipo de acción y la dirección el intercambio hecho, un dígito más porque cambiar es más que ver); 5555500000 → 3.2, el punto dulce; diez ceros → 5.3, el ciclo da la vuelta; en la matriz del 4 las filas se pintan 0 … 9 y las columnas 1 … 9 y el 0 al final (VG 12-11), con lo que 0.3 queda en mostrar · E, 3.2 en hacer · verificación y 5.3 en guiar · contenido, de arriba-izquierda a abajo-derecha (un foco currado del todo, una época). Un solo rango, el del 8 (contrato.rango); un desajuste puntúa hacia arriba; el 9 se sitúa entre las posiciones que ese rango deja, sin rango declarado (docs/CONTRATO.md §4.2)"
+        "VG, 12-11 (#39, #40, #41; encargo el4): el orden de ver es 1 2 3 4, así que los hilos del 6 y el 7 son 1 2 3 4 de arriba abajo. La matriz del 4: filas = los diez oficios (0 mostrar, 1 gestionar, 2 administrar, 3 coordinar, 4 hacer, 5 verificar, 6 registrar, 7 planear, 8 medir, 9 guiar), columnas = la ejecución (0 contenido que se muestra, 1 E, 2 P, 3 R, 4 T, 5 verificación sin token propio, 6 adjudicación al pasado, 7 proyección al futuro, 8 crecimiento que genera rangos, 9 contenido que guía); sus nombres van en el enlace de la fila del 4, [[oficios], [[ejecución, criterio…]…]], con lo que coloca cada ejecución en su columna (Core, pendiente de revisar VG: token F, lo que mueve de esa familia; scale s, el T de esa escala de epoch.1.3.1 (pasado, futuro); dated, lo que tiene fecha; content at k, nada movido escrito en la posición k; content, nada movido). La escalera dulce: el enlace de la fila del 8, una dirección por caja: la fila k ↔ el dígito k+1 repetido k+1 veces con ceros detrás (la fila es el tipo de acción y la dirección el intercambio hecho, un dígito más porque cambiar es más que ver); 5555500000 → 3.2, el punto dulce; diez ceros → 5.3, el ciclo da la vuelta; en la matriz del 4 las filas se pintan 0 … 9 y las columnas 1 … 9 y el 0 al final (VG 12-11), con lo que 0.3 queda en mostrar · E, 3.2 en hacer · verificación y 5.3 en guiar · contenido, de arriba-izquierda a abajo-derecha (un foco currado del todo, una época). Un solo rango, el del 8 (contrato.rango); un desajuste puntúa hacia arriba; el 9 se sitúa entre las posiciones que ese rango deja, sin rango declarado (docs/CONTRATO.md §4.2)",
+        "VG, 12-11 (#52): las formas van POR MODO. La posición 3 de cada fila (las formas) es una LISTA (no una décupla) con una hoja por modo, en el orden de los modos de epoch.8.2: Pointed, Sequenced, Mapped, Scened, Be. Cada hoja lleva la forma de cada nivel separadas por «>» (la última se repite: «escalera > columnas»); «-» donde el modo no declara la suya y hereda la del modo anterior (Sequenced de Pointed, Mapped de Sequenced, Scened de Mapped, Be de Scened: contrato.formaDe). Hoy Pointed no tiene forma propia (la fila del elemento no es una forma de la división), Sequenced y Mapped llevan lo de siempre (en Sequenced, la misma forma apilada en una columna cuando no cabe a lo ancho) y Scened y Be heredan de Mapped. El PV de la primera profundidad sigue definiendo cómo se ve a cualquier profundidad"
       ]
     ]
   ],
@@ -16934,7 +16973,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "a0fb512deacf5ad643795f4001f02ee4130494e0a7b21d409d93310366c8ae31";
+export const EPOCA_0_BTML_ID = "c1341120ab83570cca7d4be27b1d953d9c9ef0f116380cdd9b4e999e2e4d321b";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
