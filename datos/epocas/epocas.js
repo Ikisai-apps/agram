@@ -536,7 +536,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "c2929237612e7b1144e7c449d45b09bc9ece5137e7139523ecc5b60f8f10ffb1"
     },
     {
-      "ref": "27e73a65848d13d36a74d9fbb15e07d1b0b99fbc9477c2ef56ca6a2f619599b5"
+      "ref": "03ccc721272e9d7b44c684b44edb1edd66b6ed7a3d9127c87418aa84aa47d072"
     },
     {
       "ref": "eb97d9921ed09044e08a20c981d3376aa6ebbdfecd6708a2eb524fd2849aed79"
@@ -4996,7 +4996,7 @@ export const EPOCA_0_BTML_DATOS = [
           "clocks out of order: el reloj del libro, la marca de Nostr y el bloque de Bitcoin no van en orden",
           "sealed: la prueba del sello de tiempo copiada en el 6.8.2 del registro no cuadra (la hoja, el camino de Merkle, el compromiso Taproot, la transacción de anclaje, la cabecera del bloque, la prueba de trabajo, la altura, o una cabecera que no firmó un observador declarado)",
           "received: el recibo de llegada copiado en el 6.8.1 del registro no lo firma su relé",
-          "paid: el recibo de pago copiado en el 6.8.3 del registro no prueba que su transacción, en el bloque que nombra, pague el importe al destino, o no lo firma su emisor",
+          "paid: el recibo de pago copiado en el 6.8.3 del registro no prueba que su transacción, en un bloque firmado por un observador declarado, pague el importe al destino (y apunte a este registro, si trae puntero), o no lo firma su emisor",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
           "how much: lo que se mueve en el nodo y en lo que cuelga de él, también lo que su dueño acuña o se mueve a sí mismo",
           "on what condition: los criterios sobre el nodo, lo anclado en su 2",
@@ -8765,19 +8765,23 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "paid.json",
-    "id": "27e73a65848d13d36a74d9fbb15e07d1b0b99fbc9477c2ef56ca6a2f619599b5",
+    "id": "03ccc721272e9d7b44c684b44edb1edd66b6ed7a3d9127c87418aa84aa47d072",
     "registro": [
       [
         "paid"
       ],
       [
         "X.6.8.3",
+        "before.8.6",
         "stateark.recibo@1",
         "pago",
-        "bitcoin"
+        "bitcoin",
+        "StateArk/Observador/Cabecera/v1",
+        "puntero",
+        "agram:"
       ],
       [
-        "=signed(bytes(first (first (first it.6).8.3).8), bytes(first (first (first it.6).8.3).7), bytes(first (first (first it.6).8.3).5)) and \"pago\" in (first (first it.6).8.3).0 and hex(first (first tx(bytes(first (first (first it.6).8.3).4.0))).5) in (first (first it.6).8.3).1 and merkle(first (first tx(bytes(first (first (first it.6).8.3).4.0))).5, (first (first it.6).8.3).4.2, (first (first it.6).8.3).4.3, \"bitcoin\") = first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).3 and hex(first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).7) = first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"bloque\") and below(reverse(first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).7), first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).8) and \"sat\" in (first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"cuánto\")).2 and count ((first tx(bytes(first (first (first it.6).8.3).4.0))).2 where first it2.0 = first (first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"cuánto\")).1 and hex(first it2.1) = first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"destino\")) >= 1"
+        "=signed(bytes(first (first (first it.6).8.3).8), bytes(first (first (first it.6).8.3).7), bytes(first (first (first it.6).8.3).5)) and \"pago\" in (first (first it.6).8.3).0 and hex(first (first tx(bytes(first (first (first it.6).8.3).4.0))).5) in (first (first it.6).8.3).1 and merkle(first (first tx(bytes(first (first (first it.6).8.3).4.0))).5, (first (first it.6).8.3).4.5, (first (first it.6).8.3).4.6, \"bitcoin\") = first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).3 and hex(first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).7) = first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"bloque\") and below(reverse(first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).7), first (first cabecera(bytes(first (first (first it.6).8.3).4.1))).8) and hash(le(bytes(first (first (first it.6).8.3).4.3))) = sha256(utf8(first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"altura\"))) and signed(bytes(first (first (first it.6).8.3).4.2), hash(cat(bytes(first (first (first it.6).8.3).4.1), bytes(first (first (first it.6).8.3).4.3)), \"StateArk/Observador/Cabecera/v1\"), bytes(first (first (first it.6).8.3).4.4)) and first (first (first it.6).8.3).4.4 in before.8.6 and \"sat\" in (first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"cuánto\")).2 and count ((first tx(bytes(first (first (first it.6).8.3).4.0))).2 where first it2.0 = first (first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"cuánto\")).1 and hex(first it2.1) = first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"destino\")) >= 1 and (not (\"puntero\" in (first (first it.6).8.3).2) or (first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"puntero\") = first it.5 and count ((first tx(bytes(first (first (first it.6).8.3).4.0))).2 where hex(first it2.1) = hex(cat(bytes(\"6a46\"), utf8(\"agram:\"), utf8(first lookup((first (first it.6).8.3).2, (first (first it.6).8.3).3, \"puntero\")))) ) >= 1))"
       ],
       [
         "X.6.8.6"
@@ -8789,11 +8793,11 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "*"
       ],
       [
-        "Core AGRAM 13-11 (encargo «taproot»; SIP 0 0a445b2, regla «paid»; stateark-app ronda 2, 23-09): el recibo de un pago hecho fuera se comprueba sin fiarse de quien pagó ni de quien lo cuenta: la transacción cruda está en el bloque (su txid, con el camino de Merkle «bitcoin», da la raíz de la cabecera), la cabecera da el bloque que el recibo afirma y cumple su prueba de trabajo, y una de sus salidas paga exactamente «cuánto» al script «destino»",
-        "Core AGRAM 13-11: el recibo es el recibo único de StateArk (stateark.recibo@1, B19) de clase «pago» (la simulación: Carril.reciboPago, firmado con Custodia.firmarRecibo): 0 [\"recibo\", \"pago\"], 1 el txid, 2 las claves y 3 los valores en paralelo (destino, bloque, altura, orden, universo, cuánto como «61000 sat», no afirma…; se leen con lookup, H17), 4 la evidencia [[transacción cruda], [cabecera], lados, hermanos]. Se comprueba además la firma BIP-340 de su emisor sobre el id del sobre (signed)",
+        "Core AGRAM 13-11 (encargo «taproot»; SIP 0 0a445b2, regla «paid»; stateark-app ronda 2, 23-09): el recibo de un pago hecho fuera se comprueba sin fiarse de quien pagó ni de quien lo cuenta: la transacción cruda está en el bloque (su txid, con el camino de Merkle «bitcoin», da la raíz de la cabecera), la cabecera da el bloque que el recibo afirma, cumple su prueba de trabajo y la firmó un observador declarado, y una de sus salidas paga exactamente «cuánto» al script «destino»",
+        "Core AGRAM 13-11: el recibo es el recibo único de StateArk (stateark.recibo@1, B19) de clase «pago» (la simulación, ddcc475: Carril.reciboPago, firmado con Custodia.firmarRecibo): 0 [\"recibo\", \"pago\"], 1 el txid, 2 las claves y 3 los valores en paralelo (destino, bloque, altura, orden, puntero si lo hay, universo, cuánto como «61000 sat», no afirma…; todos los valores son texto; se leen con lookup, H17), 4 la evidencia [[transacción cruda], [cabecera], [firma del observador], [altura LE], [clave del observador], lados, hermanos]: de 4.1 a 4.6, lo mismo que el 7 del sello. Se comprueba además la firma BIP-340 de su emisor sobre el id del sobre (signed)",
         "Core AGRAM 13-11: DÓNDE. El recibo de pago llega DESPUÉS de escrito el registro (el pago se ejecuta y se confirma en un bloque más tarde), así que no puede ir en el D-MOV del movimiento, que es parte del cuerpo firmado, ni ser el payload del registro (la forma del SIP, payload(it), vale para un registro que sea el recibo, en el eje de StateArk). Va, como el sello (6.8.2) y el recibo de llegada (6.8.1), en una vista del libro fuera del cuerpo y del id: X.6.8.3 (eje.marcarPago), la décupla del recibo y detrás 5 el emisor, 6 su t, 7 el id del sobre y 8 la firma (src/sello.js POSICIONES_DEL_PAGO; el id lo recalcula el núcleo al guardarlo, porque el BQL mínimo no serializa décuplas). La lectura se materializa en X.6.8.6, junto a lo que comprueba, como 6.8.4 y 6.8.5. X.6.7, la posición provisional del SIP, es en AGRAM la lectura «informative»",
-        "Sin recibo de pago (un pago aún sin bloque: la simulación lanza «unconfirmed» y no hay evidencia) la lectura queda PENDIENTE (falta el dato), nunca verdadera; una firma que no vale, otra transacción, un camino o una cabecera manipulados, otro importe u otro destino la dejan falsa",
-        "Core AGRAM 13-11, ABIERTO: que la cabecera es de la cadena buena (H9: el recibo no trae la firma del observador; la prueba de trabajo de regtest no lo dice), que el emisor es una clave declarada (como las «observer keys») y que el pago es de este registro (el puntero «agram:<id>» en un OP_RETURN de la transacción, cuando lo lleve)"
+        "Sin recibo de pago (un pago aún sin bloque: la simulación lanza «unconfirmed»; o un bloque que el observador aún no ha firmado: «unobserved»; en los dos no hay evidencia) la lectura queda PENDIENTE (falta el dato), nunca verdadera; una firma que no vale, otra transacción, un camino o una cabecera manipulados, otro importe u otro destino, otra altura, una firma o una clave del observador que no valen o no están declaradas, o un puntero que no es este registro o que la transacción no lleva, la dejan falsa",
+        "Core AGRAM 13-11 (encargo «pago2»; Core StateArk, SIP 0, H9 en el pago): la cabecera la firmó el observador (es de la cadena buena) y su clave es una de las «observer keys» de la cuenta raíz (before.8.6, como en «sealed»: la firma es sobre cabecera ‖ altura LE, con el hash etiquetado «StateArk/Observador/Cabecera/v1»); la altura firmada es la que dice el recibo (su valor es texto: hash de un número es el SHA-256 de su decimal canónico, así que se compara con sha256 del texto en UTF-8). Si el recibo trae «puntero» (el id de AGRAM, en las claves tras «orden»), es el id de este registro (it.5) y una salida de la transacción es 6a46 ‖ utf8(\"agram:\" ‖ id), con 0 sats y en cualquier vout (no es fijo: se cuenta sobre las salidas, como «destino»). Sin puntero, no se exige"
       ],
       [
         "epoch 0"
@@ -8802,7 +8806,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after received"
       ],
       [
-        "paid: the payment receipt copied into 6.8.3 of the record does not prove that its transaction, in the block it names, pays the amount to the destination, or it is not signed by its issuer"
+        "paid: the payment receipt copied into 6.8.3 of the record does not prove that its transaction, in a block signed by a declared observer, pays the amount to the destination (and points to this record, if it carries a pointer), or it is not signed by its issuer"
       ]
     ]
   },
@@ -17839,7 +17843,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "0d0aa20b968ff6fc0977290dbc7627f579ec47f61c6fcbe59bb020796bb81351";
+export const EPOCA_0_BTML_ID = "18c02df320abe5c9b9f9abf63932da31f3c3c91452cdaad0268711f679d032e3";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

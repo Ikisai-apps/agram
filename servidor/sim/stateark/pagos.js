@@ -391,9 +391,12 @@ export class Carril {
    * El recibo único (`stateark.recibo@1`, clase «pago») de un pago ya en un bloque: los campos que firma
    * `Custodia.firmarRecibo`. Lo comprueba la regla «paid» del SIP 0 sin fiarse de quien pagó:
    *   2/3  destino (el script, hex) · bloque (su hash, orden interno) · altura · orden (huella de la orden) ·
+   *        puntero (el id de AGRAM, si lo hay: una salida 6a46 ‖ «agram:<id>», en cualquier vout) ·
    *        universo · cuánto («61000 sat») · no afirma…
-   *   4    la evidencia, una décupla: [[transacción cruda], [cabecera], lados, hermanos] (el camino de Merkle
-   *        «bitcoin» del txid a la raíz de la cabecera, solo si el bloque tiene más de una transacción)
+   *   4    la evidencia, una décupla: [[transacción cruda], [cabecera], [firma del observador], [altura LE],
+   *        [clave del observador], lados, hermanos]. De 4.1 a 4.6, lo mismo que el 7 del sello (7.0 a 7.5): la
+   *        cabecera firmada por el observador a su altura (H9: es de la cadena buena) y el camino de Merkle
+   *        «bitcoin» del txid a su raíz, solo si el bloque tiene más de una transacción. Core AGRAM, 13-11.
    * null si el txid no es de un pago ejecutado aquí; lanza si aún no está en un bloque.
    */
   async reciboPago(txid) {
@@ -403,13 +406,15 @@ export class Carril {
     if (altura === null) throw rechazo('unconfirmed', 'el pago aún no está en un bloque: su recibo no tiene evidencia');
     const vout = tx.salidas.findIndex((s) => s.direccion === base.destino && s.sat === base.importe_sat);
     const b = this.cadena.bloque(altura);
-    const evidencia = [[cruda], [b.cabecera]];
+    const o = this.sellador.observaciones.get(altura);
+    if (!o) throw rechazo('unobserved', 'el observador aún no ha firmado la cabecera de ese bloque');
+    const evidencia = [[cruda], [b.cabecera], [o.firma], [o.altura_le], [o.clave]];
     const { lados, hermanos } = caminoDePasos(await this.cadena.pasosDe(altura, txid));
     if (lados.length) evidencia.push(lados, hermanos);
     return {
       clase: 'pago',
       sujeto: [txid],
-      ata: [['destino', scripts[vout]], ['bloque', b.hash], ['altura', String(altura)], ['orden', base.instruccion.huella]],
+      ata: [['destino', scripts[vout]], ['bloque', b.hash], ['altura', String(altura)], ['orden', base.instruccion.huella], ...(base.puntero ? [['puntero', base.puntero]] : [])],
       universo: UNIVERSO,
       cuanto: [base.importe_sat, 'sat'],
       noAfirma: base.alcance.filter((a) => a.startsWith('NO afirma')).map((a) => a.slice('NO afirma '.length)),

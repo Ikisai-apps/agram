@@ -1,4 +1,4 @@
-// Copia de test/recibo-pago.test.js de stateark-sim (Core StateArk, commit 0ddd6e7: el recibo único «pago» con la transacción cruda), con las rutas adaptadas a este repo (servidor/sim/stateark/ y src/). La regla «paid» de la época, en test/verificado-regla.test.js.
+// Copia de test/recibo-pago.test.js de stateark-sim (Core StateArk, commit ddcc475: el recibo único «pago» con la transacción cruda, la firma del observador y el puntero), con las rutas adaptadas a este repo (servidor/sim/stateark/ y src/). La regla «paid» de la época, en test/verificado-regla.test.js.
 // El recibo único de clase «pago» (stateark.recibo@1) con la transacción cruda de Bitcoin, leído con el código REAL
 // de AGRAM (src/cripto.js: leerTx, leerCabecera, raizMerkle; src/btml.js), como lo comprobará la regla «paid» del
 // SIP 0: la transacción está en el bloque (Merkle «bitcoin» hasta la raíz de la cabecera), la cabecera da el bloque
@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { Simulacion, Custodia, decuplaDeRecibo, firmaSimulada, mensajeAutorizacion, verificarReciboComun, camposDeRecibo } from '../servidor/sim/stateark/index.js';
+import { Simulacion, Custodia, esquemaNoble, decuplaDeRecibo, firmaSimulada, mensajeAutorizacion, verificarReciboComun, camposDeRecibo } from '../servidor/sim/stateark/index.js';
 import { huella } from '../servidor/sim/stateark/canon.js';
 import { sha256Texto } from '../servidor/sim/stateark/hash.js';
 
@@ -31,7 +31,11 @@ async function pagar(c, nombre, titular, ins) {
 }
 
 async function escenario(pagosEnElBloque) {
-  const sim = await Simulacion.crear({ inicio: INICIO, reloj });
+  // El observador firma con BIP-340 de verdad (la noble de AGRAM), como lo comprobará «paid».
+  const { schnorr } = await import(pathToFileURL(`${AGRAM}/vendor/noble-secp256k1.js`).href);
+  const custodia = new Custodia({ esquema: esquemaNoble(schnorr) });
+  await custodia.crearClave('nostr', 'observador');
+  const sim = await Simulacion.crear({ inicio: INICIO, reloj, observador: { custodia, nombre: 'observador' } });
   const c = sim.carril;
   const vg = await sha256Texto('clave vg');
   await c.crearCartera('vg', { titular: vg });
@@ -49,17 +53,22 @@ async function escenario(pagosEnElBloque) {
 
 /** Lo que comprueba «paid», escrito con las primitivas de AGRAM sobre la décupla del recibo. */
 async function paid(d) {
-  const { leerTx, leerCabecera, raizMerkle, deHex, aHex } = await import(pathToFileURL(`${AGRAM}/cripto.js`).href);
+  const { leerTx, leerCabecera, raizMerkle, deHex, aHex, hashEtiquetado, verificarBip340, concatenar } = await import(pathToFileURL(`${AGRAM}/cripto.js`).href);
   const valor = (k) => d[3][d[2].indexOf(k)];
   const tx = leerTx(deHex(d[4][0][0]));
   const cab = leerCabecera(deHex(d[4][1][0]));
-  const lados = d[4][2] ?? [];
-  const hermanos = (d[4][3] ?? []).map(deHex);
+  const lados = d[4][5] ?? [];
+  const hermanos = (d[4][6] ?? []).map(deHex);
   const enElBloque = aHex(raizMerkle(tx.txid, lados.map((l, i) => [l, hermanos[i]]), 'bitcoin')) === aHex(cab.raiz);
   const bloque = aHex(cab.hash) === valor('bloque');
   const sats = Number(valor('cuánto').split(' ')[0]);
   const paga = tx.salidas.some((s) => Number(s.sats) === sats && aHex(s.script) === valor('destino'));
-  return { enElBloque, bloque, paga, txid: aHex(tx.txid) };
+  const [firma, alturaLe, clave] = [d[4][2][0], d[4][3][0], d[4][4][0]];
+  const observado = verificarBip340(deHex(firma), hashEtiquetado('StateArk/Observador/Cabecera/v1', concatenar(deHex(d[4][1][0]), deHex(alturaLe))), deHex(clave))
+    && Number.parseInt(alturaLe.match(/../g).reverse().join(''), 16) === Number(valor('altura'));
+  const p = valor('puntero');
+  const apunta = p === undefined || tx.salidas.some((s) => aHex(s.script) === '6a46' + aHex(new TextEncoder().encode('agram:' + p)));
+  return { enElBloque, bloque, paga, observado, apunta, txid: aHex(tx.txid) };
 }
 
 test('el recibo «pago»: décupla BTML válida según AGRAM, con la evidencia como décupla, firmado y verificable', { skip: !hayAgram && 'no está el repo de AGRAM' }, async () => {
@@ -75,10 +84,11 @@ test('el recibo «pago»: décupla BTML válida según AGRAM, con la evidencia c
     assert.deepEqual(validarPayload(d), { ok: true, errores: [] }, `n=${n}`);
     assert.deepEqual(d[0], ['recibo', 'pago']);
     assert.deepEqual(d[1], [txid]);
-    assert.deepEqual(d[2].slice(0, 5), ['destino', 'bloque', 'altura', 'orden', 'universo']);
+    assert.deepEqual(d[2].slice(0, 6), ['destino', 'bloque', 'altura', 'orden', 'puntero', 'universo']);
     assert.ok(d[2].includes('cuánto') && d[2].includes('no afirma'));
     assert.equal(esDecupla(d[4]), true, 'la evidencia es una décupla: 4.0, 4.1… se pueden leer');
-    assert.equal(d[4].length, n === 1 ? 2 : 4, 'sin camino «bitcoin» si la transacción está sola en su bloque');
+    assert.equal(d[4].length, n === 1 ? 5 : 7, 'sin camino «bitcoin» si la transacción está sola en su bloque');
+    assert.equal(d[2].includes('puntero'), true, 'el primer pago lleva puntero');
     assert.equal(camposDeRecibo(d).cuanto[0], '61000');
   }
 });
@@ -90,15 +100,20 @@ test('«paid» con las primitivas de AGRAM: la transacción cruda da el txid, es
     const dec = decuplaDeRecibo(campos);
     const p = await paid(dec);
     assert.equal(p.txid, txid, 'el txid que lee AGRAM es el del carril (orden interno)');
-    assert.deepEqual([p.enElBloque, p.bloque, p.paga], [true, true, true], `n=${n}`);
+    assert.deepEqual([p.enElBloque, p.bloque, p.paga, p.observado, p.apunta], [true, true, true, true, true], `n=${n}`);
     // Manipulaciones: otro importe, otro destino, otro bloque, otro hermano: falso.
     const otra = (k, v) => { const x = structuredClone(dec); x[3][x[2].indexOf(k)] = v; return x; };
     assert.equal((await paid(otra('cuánto', '61001 sat'))).paga, false);
     assert.equal((await paid(otra('destino', '0014' + '00'.repeat(20)))).paga, false);
     assert.equal((await paid(otra('bloque', '00'.repeat(32)))).bloque, false);
-    if (dec[4][3]) {
+    assert.equal((await paid(otra('altura', '99'))).observado, false, 'la altura afirmada es la firmada');
+    assert.equal((await paid(otra('puntero', 'ab'.repeat(32)))).apunta, false);
+    const sinFirma = structuredClone(dec);
+    sinFirma[4][2][0] = 'ab'.repeat(64);
+    assert.equal((await paid(sinFirma)).observado, false);
+    if (dec[4][6]) {
       const x = structuredClone(dec);
-      x[4][3][0] = '11'.repeat(32);
+      x[4][6][0] = '11'.repeat(32);
       assert.equal((await paid(x)).enElBloque, false);
     }
   }
