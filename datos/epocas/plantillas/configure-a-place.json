@@ -1,0 +1,60 @@
+[
+  ["configure a place"],
+  [
+    [
+      ["place"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["-"],
+      ["encargo pv3 (VG, 12-11, issue #38): parámetro de «configure a place»"],
+      ["required"],
+      [1],
+      ["the place, as a path of digits under X (3.4: the box 4 of its 3)"]
+    ],
+    [
+      ["position"],
+      ["number"],
+      ["=it >= 0 and it <= 9"],
+      ["me"],
+      ["payload"],
+      ["-"],
+      ["encargo pv3 (VG, 12-11, issue #38): parámetro de «configure a place»"],
+      ["required"],
+      [2],
+      ["the position of the place that is set (0 its name, 5 the style of what is below, 9 its guide…)"]
+    ],
+    [
+      ["value"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["0"],
+      ["encargo pv3 (VG, 12-11, issue #38): parámetro de «configure a place»"],
+      ["required"],
+      [3],
+      ["what the position says"]
+    ]
+  ],
+  ["=first it.3 = me"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ]
+  ],
+  ["{place}.{position}"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el personaje es la configuración del sitio: cada cuadrante (un PV o un sub-PV, X.3.d) es un nodo con sus diez posiciones, y configurarlo es escribir en ellas (0 su nombre, 5 el estilo de lo de abajo, X.<sitio>.5.0, que ya existía sin dónde tocarse, 9 su guía…); esta acción ancla el valor en X.<place>.<position> (manda el último del dueño). El 1 y el 8 de una caja del 3 tienen su acción propia («set a minimum», «set a minimum rank»). Acción de configuración (PV 0: no está en el aro; la abre el interrogante, en la cruceta del nodo)"
+  ],
+  ["epoch 0"],
+  [0, 3],
+  ["configure a place: {me} sets a position of a place of {first it.0}"]
+]

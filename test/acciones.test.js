@@ -88,8 +88,10 @@ test('acciones: lo que el aro ofrece a cada identidad en cada PV lo dicen las pl
   // Nada decidido en JS: cambiar el 2 de una plantilla en una copia de la época cambia lo que se ofrece.
   const sinAplicar = epocaCon((e, plantillas) => { plantillas.find((p) => p.registro[0][0] === 'apply a resource').registro[2] = ['=1 = 2']; });
   assert.ok(!nombres(A.acciones(eje, menu.id, 1, 'huesped', { epoca: sinAplicar })).includes('apply a resource'));
-  assert.equal(A.plantillasDeTransaccion().length, 36);
-  assert.deepEqual([...new Set(A.plantillasDeTransaccion().map((p) => p.pv))], [1, 2, 3, 4, 6, 7, 8, 9]);
+  assert.equal(A.plantillasDeTransaccion().length, 42);
+  // el 0: la configuración del sitio (encargo pv3, #37 y #38: no está en el aro; la abre el interrogante del sitio)
+  assert.deepEqual([...new Set(A.plantillasDeTransaccion().map((p) => p.pv))].sort(), [0, 1, 2, 3, 4, 6, 7, 8, 9]);
+  assert.deepEqual(A.plantillasDeTransaccion().filter((p) => p.pv === 0).map((p) => p.nombre), ['set a minimum', 'set a minimum rank', 'configure a place']);
 });
 
 // ---------- 2. construir, validar y asentar ----------
@@ -135,9 +137,9 @@ test('transaccion: los motivos legibles, en el idioma de quien lanza (los parám
   // El mismo motivo en inglés si se pide.
   const en = await A.transaccion(eje, 'issue E tied to X', { X: menu.id, denomination: 'racion', quantity: 5 }, 'cocina', { t: T1, idioma: 'en' });
   assert.ok(en.motivos.some((m) => m.mensaje === 'only persons mint: cocina is a thing (its alta was written by casa), and only persons mint'));
-  // Lo que rechaza el libro (la aritmética) llega con su texto: la huésped no tiene R de la cocina que devolverle.
-  const w = await A.transaccion(eje, 'write to X', { X: menu.id, text: 'hola' }, 'huesped', { t: T1 });
-  assert.deepEqual([w.ok, w.motivos], [false, [{ regla: null, mensaje: 'saldo insuficiente de R:cocina en huesped' }]]);
+  // Lo que rechaza el libro (la aritmética) llega con su texto: diez raciones a doce euros son más de lo que tiene la huésped.
+  const w = await A.transaccion(eje, 'apply a resource', { X: menu.id, quantity: 10, price: [['E:casa/EUR'], [12]] }, 'huesped', { t: T1 });
+  assert.deepEqual([w.ok, w.motivos], [false, [{ regla: null, mensaje: 'saldo insuficiente de E:casa/EUR en huesped' }]]);
   // Una plantilla desconocida, o X que no está en el libro.
   assert.equal((await A.transaccion(eje, 'fly', { X: menu.id }, 'huesped')).ok, false);
   assert.equal((await A.transaccion(eje, 'apply a resource', { X: 'f'.repeat(64) }, 'huesped')).ok, false);
@@ -145,53 +147,87 @@ test('transaccion: los motivos legibles, en el idioma de quien lanza (los parám
 
 // ---------- 3. los seis grupos de R son seis precios ----------
 
-test('write to X: el precio del grupo en que el destinatario pone a quien escribe, leído de los datos (seis casos)', async () => {
+test('write to X: la R es el precio universal (VG, 12-11, encargo pv3): los cinco grupos cobran lo mismo, quien tiene R del destinatario la devuelve y quien no, pone la suya; el vetado no llega', async () => {
   const { eje, g, plaza } = await mundoDeGrupos();
+  await entrarPorInvitacion(eje, { por: 'ana', quien: 'gus', t: T0 }); // un desconocido para g: lo invitó ana, no tiene R de g
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
-  assert.deepEqual(evaluar('("g").3 each 2.0', ctx).valor, ['my R', 'E', 'P', 'their R', 'open record', 'nothing'], 'los seis precios de la época');
+  assert.deepEqual(evaluar('("g").3 each 2.0', ctx).valor, ['their R', 'their R', 'their R', 'their R', 'their R', 'nothing'], 'un solo precio (y el veto)');
   const escribe = (yo) => A.transaccion(eje, 'write to X', { X: plaza.id, text: 'hola g' }, yo, { t: T1 });
-  // Desconocidos: la propia R de g devuelta (la que le guardó la invitación).
-  const ana = await escribe('ana');
-  assert.deepEqual([ana.ok, movs(ana.evento)], [true, [['T', 1, 'ana', null], ['R', 1, 'ana', 'g']]]);
-  assert.equal(ana.evento.movimientos[1].emisor, 'g');
-  assert.deepEqual([ana.evento.sobre, ana.evento.en], [g, '3000000000'], 'anclado en el 3 del alta del destinatario');
-  assert.deepEqual(ana.evento.payload, [['hola g'], ['my R', 1], [{ ref: plaza.id }], ['ana', 'g'], ['write to X']]);
-  // Comercial: E (la cantidad la fija el dueño; el token no se cambia).
-  const bea = await escribe('bea');
-  assert.deepEqual([bea.ok, movs(bea.evento)[1], bea.evento.movimientos[1].denominacion], [true, ['E', 1, 'bea', 'g'], 'vale']);
-  // Expertos: P del remitente sobre el dominio del destinatario (el que carla tiene sobre el 3 del génesis por su R).
-  const carla = await escribe('carla');
-  assert.deepEqual([carla.ok, movs(carla.evento)[1]], [true, ['P', 1, 'carla', 'g']]);
-  assert.ok(eje.hilo(raizDeAmbito(carla.evento.movimientos[1].ambito)).some((e) => e.id === g), 'P sobre un registro del dominio de g');
-  // Cercanos: la propia R del remitente (acuñada en la misma transacción si no la tiene).
-  const dani = await escribe('dani');
-  assert.deepEqual([dani.ok, movs(dani.evento).slice(1)], [true, [['R', 1, null, 'dani'], ['R', 1, 'dani', 'g']]]);
-  // Equipo: sin pago mientras exista un registro abierto entre ambos; sin él, la regla rechaza.
-  const eli = await escribe('eli');
-  assert.deepEqual([eli.ok, movs(eli.evento)], [false, [['T', 1, 'eli', null]]]);
-  assert.deepEqual(eli.motivos.map((m) => m.regla), ['attention has a price']);
-  const trato = await eje.escribir({ autor: 'g', sobre: plaza.id, t: T1, payload: ['Trato con eli', ['x'], ['all announced movements happened'], ['g', 'eli']], movimientos: [minuto('g')] });
-  await eje.escribir({ autor: 'g', sobre: trato.id, en: ANUNCIO, t: T1, payload: [['E:g/vale'], [1], ['pagar'], [['g'], ['eli']]], movimientos: [minuto('g', 4)] });
-  const eli2 = await escribe('eli');
-  assert.deepEqual([eli2.ok, movs(eli2.evento)], [true, [['T', 1, 'eli', null]]], 'con un registro abierto entre los dos, nada que pagar');
-  // Vetados: no se ofrece, y lanzada a mano la rechaza la regla.
+  // Quien tiene R de g (se la guardó la invitación) paga devolviéndosela, en cualquier grupo: cerrar el canal es devolver.
+  const de = {};
+  for (const quien of ['ana', 'bea', 'carla', 'dani', 'eli']) {
+    de[quien] = await escribe(quien);
+    assert.deepEqual([de[quien].ok, movs(de[quien].evento), de[quien].evento.movimientos[1].emisor], [true, [['T', 1, quien, null], ['R', 1, quien, 'g']], 'g'], quien);
+  }
+  assert.deepEqual([de.ana.evento.sobre, de.ana.evento.en], [g, '3000000000'], 'anclado en el 3 del alta del destinatario');
+  assert.deepEqual(de.ana.evento.payload, [['hola g'], ['their R', 1], [{ ref: plaza.id }], ['ana', 'g'], ['write to X']]);
+  // Un desconocido sin R de g pone la suya, acuñada en la misma transacción: es la bandeja de g (su 3.0).
+  const gus = await escribe('gus');
+  assert.deepEqual([gus.ok, movs(gus.evento).slice(1), gus.evento.movimientos[2].emisor], [true, [['R', 1, null, 'gus'], ['R', 1, 'gus', 'g']], 'gus']);
+  // Vetados: no se ofrece, y lanzada a mano la rechaza la regla (el veto gana sobre cualquier R).
   assert.ok(!nombres(A.acciones(eje, plaza.id, 3, 'fer')).includes('write to X'));
   const fer = await escribe('fer');
   assert.deepEqual([fer.ok, fer.motivos.map((m) => m.regla)], [false, ['attention has a price']]);
   // Las lecturas que lo dicen: el grupo (X.6.3) y el precio (X.6.2) de cada candidata.
-  for (const [r, zona, precio] of [[ana, 0, 'my R'], [bea, 1, 'E'], [carla, 2, 'P'], [dani, 3, 'their R'], [eli2, 4, 'open record'], [fer, 5, 'nothing']]) {
+  for (const [r, zona, precio] of [[de.ana, 0, 'their R'], [de.bea, 1, 'their R'], [de.carla, 2, 'their R'], [de.dani, 3, 'their R'], [de.eli, 4, 'their R'], [gus, 0, 'their R'], [fer, 5, 'nothing']]) {
     const c = new ContextoEje(eje, { ev: r.evento, epoch: EPOCA_0_BTML });
     assert.deepEqual([evaluar('first ev.6.3', c).valor[0], evaluar('first ev.6.2.0', c).valor[0]], [zona, precio]);
   }
   // Y se asientan: cada mensaje pasa por las reglas de siempre.
-  for (const r of [ana, bea, carla, dani, eli2]) await eje.anadir(r.evento);
-  assert.equal(eje.saldo('g', 'R:dani'), 1);
-  // El dueño cambia el precio de un grupo con «set a group price» (el 3.k.2 de su alta): los desconocidos pagan ahora con P.
+  for (const r of [...Object.values(de), gus]) await eje.anadir(r.evento);
+  assert.equal(eje.saldo('g', 'R:gus'), 1);
+  // El dueño aún puede cambiar el precio de un grupo con «set a group price» (el 3.k.2 de su alta): los desconocidos pagan ahora con P.
   const precio = await A.transaccion(eje, 'set a group price', { X: g, token: 'P', amount: 1, zone: 0 }, 'g', { t: T1 });
   assert.deepEqual([precio.ok, precio.evento.sobre, precio.evento.en, precio.evento.payload], [true, g, '3020000000', [['P'], [1]]]);
   await eje.anadir(precio.evento);
   const ana2 = await escribe('ana');
   assert.deepEqual([ana2.ok, movs(ana2.evento)[1]?.[0]], [true, 'P']);
+});
+
+test('encargo pv3: atender devuelve la R que trae el mensaje; quitar, vetar y llevar a un grupo son plantillas del 3; los mínimos y la configuración del sitio, del 0 (la cruceta del nodo)', async () => {
+  const { eje, g } = await mundoDeGrupos();
+  await entrarPorInvitacion(eje, { por: 'ana', quien: 'gus', t: T0 });
+  const lanzar = async (nombre, X, valores, yo) => {
+    const r = await A.transaccion(eje, nombre, { X, ...valores }, yo, { t: T1 });
+    assert.equal(r.ok, true, nombre + ': ' + JSON.stringify(r.motivos));
+    return eje.anadir(r.evento);
+  };
+  // gus (sin R de g) escribe con su R; g lo atiende: la devuelve (la regla es la misma en los dos sentidos).
+  const msg = await lanzar('write to X', g, { text: 'hola' }, 'gus');
+  assert.ok(nombres(A.acciones(eje, msg.id, 3, 'g')).includes('attend'));
+  const at = await lanzar('attend', msg.id, {}, 'g');
+  assert.deepEqual(movs(at).slice(1), [['R', 1, 'g', 'gus']]);
+  assert.equal(at.movimientos[1].emisor, 'gus');
+  // Vetar ancla la identidad en el 3.5.3 del alta de quien veta; llevar a un grupo, en el 3.<zona>.3.
+  const altaGus = eje.alta('gus').id;
+  assert.deepEqual(['veto someone', 'move to group'].map((n) => nombres(A.acciones(eje, altaGus, 3, 'g')).includes(n)), [true, true]);
+  const llevar = await lanzar('move to group', altaGus, { zone: 2 }, 'g');
+  assert.deepEqual([llevar.sobre, llevar.en, llevar.payload], [g, '3230000000', [['gus']]]);
+  const veto = await lanzar('veto someone', altaGus, {}, 'g');
+  assert.deepEqual([veto.sobre, veto.en, veto.payload], [g, '3530000000', [['gus']]]);
+  assert.equal((await A.transaccion(eje, 'write to X', { X: g, text: 'otra' }, 'gus', { t: T1 })).ok, false, 'el vetado ya no llega');
+  // Quitar: en el 3 de un registro mío, con la identidad en su 3.1; no mueve más que el T de escribir.
+  const plaza = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: ['Plaza'], movimientos: [minuto('g')] });
+  const quitar = await lanzar('remove someone', plaza.id, { whom: 'ana' }, 'g');
+  assert.deepEqual([quitar.en, quitar.payload[3], movs(quitar)], ['3000000000', [['g'], ['ana']], [['T', 1, 'g', null]]]);
+  assert.equal(nombres(A.acciones(eje, plaza.id, 3, 'ana')).includes('remove someone'), false, 'solo el dueño quita');
+  // Los mínimos y la configuración: PV 0 (no en el aro), sobre lo mío, anclados en el nodo X.3.d.
+  assert.deepEqual(nombres(A.acciones(eje, g, 0, 'g')), ['set a minimum', 'set a minimum rank', 'configure a place']);
+  assert.deepEqual(nombres(A.acciones(eje, g, 0, 'ana')), []);
+  const minimo = await lanzar('set a minimum', g, { box: 3, amount: 2 }, 'g');
+  assert.deepEqual([minimo.en, minimo.payload], ['3310000000', [[2]]]);
+  const rango = await lanzar('set a minimum rank', g, { box: 2, rank: '3.1' }, 'g');
+  assert.deepEqual([rango.en, rango.payload], ['3280000000', [['3.1'], ['up']]]);
+  const guia = await lanzar('configure a place', g, { place: '3.4', position: 9, value: 'lo del equipo' }, 'g');
+  assert.equal(guia.en, '3490000000');
+  // La cruceta del nodo 3.4 (el personaje del sitio): sus diez posiciones, con su nombre, su valor y la acción que la pone.
+  const s = A.sitio(eje, g, '3.4', 'g', { idioma: 'es' });
+  assert.deepEqual(s.posiciones.map((p) => p.posicion), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.deepEqual([s.posiciones[1].nombre, s.posiciones[1].accion.nombre, s.posiciones[1].accion.valores], ['cuánto', 'set a minimum', { box: 4 }]);
+  assert.deepEqual([s.posiciones[8].accion.nombre, s.posiciones[8].accion.valores], ['set a minimum rank', { box: 4 }]);
+  assert.deepEqual([s.posiciones[9].nombre, s.posiciones[9].valor, s.posiciones[9].accion.valores], ['cómo', ['lo del equipo'], { place: '3.4', position: 9 }]);
+  assert.deepEqual(A.sitio(eje, g, '3.3', 'g').posiciones[1].valor, [2], 'el mínimo de la caja 3');
+  assert.ok(A.sitio(eje, g, '3.4', 'ana').posiciones.every((p) => p.accion === null), 'quien no es el dueño lo ve, pero no lo toca');
 });
 
 // ---------- 4. P por mirada ----------

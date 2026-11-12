@@ -240,7 +240,8 @@ test('yo: mi alta y sus posiciones (cartera, criterio, atención, tiempo), leíd
   assert.ok(y.cartera.some((x) => x.serie === 'R:casa' && x.disponible === 1), 'la R de la invitación');
   assert.ok(y.criterio.posicionado.some((p) => p.registro === compra.id && p.cuanto === 10 && p.origenes.includes('huesped')), 'diez P sobre la compra');
   assert.deepEqual(y.criterio.adopta, []);
-  assert.deepEqual(y.atencion.map((g) => [g.nombre, g.zona, g.precio.enQue, g.precio.cuanto]), [['desconocidos', 0, 'my R', 1], ['comercial', 1, 'E', 1], ['expertos', 2, 'P', 1], ['cercanos', 3, 'their R', 1], ['equipo', 4, 'open record', 0], ['vetados', 5, 'nothing', 0]]);
+  // la R es el precio universal (VG, 12-11, encargo pv3): los cinco grupos cobran lo mismo; vetados, nada
+  assert.deepEqual(y.atencion.map((g) => [g.nombre, g.zona, g.precio.enQue, g.precio.cuanto]), [['desconocidos', 0, 'their R', 1], ['comercial', 1, 'their R', 1], ['expertos', 2, 'their R', 1], ['cercanos', 3, 'their R', 1], ['equipo', 4, 'their R', 1], ['vetados', 5, 'nothing', 0]]);
   assert.deepEqual(Object.keys(y.tiempo), ['segundo', 'minuto', 'hora', 'día', 'semana', 'ciclo', 'año'], 'las escalas reales, por su nombre en la época');
   assert.equal(y.tiempo.hora, 1, 'la hora de la compra, gastada el día del reloj del libro');
   assert.ok(y.tiempo.minuto >= 1 && y.tiempo.segundo === 0);
@@ -469,17 +470,18 @@ async function jardinYParque() {
 const filaDelMundo = (e, pv) => e[8][7][1].find((f) => f[0][0] === pv);
 const sinOcupantes = (hijos) => hijos.map(({ ocupantes, nombre, ...h }) => h);
 
-test('epoch.8.7: la posición 8 de cada fila es el enlace (dato de la época); el 2 mide el P por mirada y el recuento, el 3 los grupos de atención y los paquetes', () => {
+test('epoch.8.7: la posición 8 de cada fila es el enlace (dato de la época); el 2 mide el P por mirada y el recuento, el 3 los grupos (las cajas de personas, encargo pv3) y los paquetes', () => {
   const d = (pv) => C.divisionDelMundo(null, pv);
   assert.deepEqual([d(2).mide, d(2).enlace], [['epoch.1.1', 'epoch.9.0.0'], [1, 2, 3, 4, 5]]);
-  assert.deepEqual([d(3).mide, d(3).enlace], [['epoch.1.2.1', 'attended'], [0, 1, 2, 3, 4, 5]]);
+  // el 3 por tema (VG, 12-11): sus hijos son las cajas 0-5, numeradas como los PV; el dígito es la caja, sin enlace
+  assert.deepEqual([d(3).hijos, d(3).mide, 'enlace' in d(3)], [[0, 1, 2, 3, 4, 5], ['groups', 'attended'], false]);
   for (const pv of [0, 5, 4, 6, 7, 8, 9]) assert.equal('enlace' in d(pv), false, 'sin enlace en el ' + pv);
-  // el enlace del 2 son las miradas de epoch.1.1 y el del 3 las zonas de epoch.1.2.1, uno por hijo
+  // el enlace del 2 son las miradas de epoch.1.1, uno por hijo
   const raiz = EPOCA_0_BTML.registro;
   assert.deepEqual(d(2).enlace, raiz[1][1][1].map((m) => m[1][0]));
-  assert.deepEqual(d(3).enlace, raiz[1][2][1].map((z) => z[1][0]));
   assert.equal(d(2).enlace.length, d(2).hijos.length);
-  assert.equal(d(3).enlace.length, d(3).hijos.length);
+  // las cajas del 3 son las zonas de epoch.1.2.1, una por hijo (el dígito es la zona)
+  assert.deepEqual(d(3).hijos, raiz[1][2][1].map((z) => z[1][0]));
   assert.match(raiz[8][7][2][1], /^Encargo «datos» \(issue #11/, 'con su procedencia');
 });
 
@@ -525,45 +527,33 @@ test('hijosDe en el 2 sale de la época: sin el recuento en lo que mide no hay u
   assert.equal(C.hijosDe(eje, compra.id, 1).some((h) => 'mirada' in h || 'precio' in h || 'estados' in h), false);
 });
 
-test('hijosDe en el 3: hijo 1 ↔ zona 0 … hijo 6 ↔ zona 5 (el enlace de la época), con el precio de esa zona para el dueño, legible; cambiar el precio o el enlace cambia lo que sale', async () => {
+test('hijosDe en el 3 por tema (encargo pv3, VG 12-11): las seis cajas 0-5 con el nombre de su grupo (epoch.1.2.1), cada una con sus personas y no con lo anclado en X.d; doy y recibo, el canal de R de la pareja; sin «groups» en lo que mide, lo anclado como antes', async () => {
   const { eje, compra } = await jardinYParque();
   const zonas = EPOCA_0_BTML.registro[1][2][1];
   const hijos = C.hijosDe(eje, compra.id, 3, { idioma: 'es' });
-  assert.deepEqual(hijos.map((h) => [h.digito, h.precio.zona, h.precio.grupo, h.precio.enQue, h.precio.cuanto]), zonas.map((z, k) => [k + 1, z[1][0], z[0][0], z[2][0][0], z[2][1][0]]));
-  // el mismo precio que yo() da al dueño de la compra (la huésped)
-  assert.deepEqual(hijos.map((h) => h.precio.enQue), C.yo(eje, 'huesped').atencion.map((g) => g.precio.enQue));
-  // legible, con los textos de la época (epoch.9.4: «legible attention price <en qué>»), en el idioma
-  const dueno = C.legible(eje, 'huesped', 'identity', { idioma: 'es' }).texto;
-  assert.equal(hijos[0].precio.texto, '1 de la R de ' + dueno + ', devuelta');
-  assert.equal(hijos[2].precio.texto, '1 P sobre lo de ' + dueno);
-  assert.equal(hijos[5].precio.texto, 'no llegan');
-  assert.equal(C.hijosDe(eje, compra.id, 3, { idioma: 'en' })[5].precio.texto, 'they do not get through');
-  // el dueño cambia el precio de los comerciales (set a group price, el 3.1.2 de su alta): el hijo 2 lo dice
-  const precio = await A.transaccion(eje, 'set a group price', { X: eje.alta('huesped').id, token: 'P', amount: 2, zone: 1 }, 'huesped', { t: '2026-11-07T16:00:00Z' });
-  assert.equal(precio.ok, true, JSON.stringify(precio.motivos));
-  await eje.anadir(precio.evento);
-  assert.deepEqual(['enQue', 'cuanto'].map((k) => C.hijosDe(eje, compra.id, 3)[1].precio[k]), ['P', 2]);
-  // otro enlace en una copia de la época: el hijo 1 pasa a ser los vetados
-  const alReves = epocaCon((e) => { filaDelMundo(e, 3)[8] = [5, 4, 3, 2, 1, 0]; });
-  assert.deepEqual(C.hijosDe(eje, compra.id, 3, { epoca: alReves }).map((h) => h.precio.zona), [5, 4, 3, 2, 1, 0]);
-  // sin los grupos en lo que mide, no hay precio
+  assert.deepEqual(hijos.map((h) => [h.digito, h.nombre]), zonas.map((z) => [z[1][0], z[0][0]]));
+  // la huésped (dueña de la compra) habla con la casa en el 3 de la compra devolviéndole su R: sin tema, la caja 0
+  assert.deepEqual(hijos.map((h) => h.ocupantes), [['casa'], [], [], [], [], []]);
+  const casa = hijos[0].personas[0];
+  assert.deepEqual([casa.identidad, casa.texto, casa.alta, casa.doy, casa.recibo, casa.porque], ['casa', C.legible(eje, 'casa', 'identity', { idioma: 'es' }).texto, eje.alta('casa').id, eje.saldo('casa', 'R:huesped'), eje.saldo('huesped', 'R:casa'), 'bandeja']);
+  assert.deepEqual(hijos.map((h) => [h.vacio, h.total]), [[false, 1], [true, 0], [true, 0], [true, 0], [true, 0], [true, 0]]);
+  // gruposDelTres da lo mismo, con el filtro de cada caja (el botón: doy, recibo, todos)
+  const g = C.gruposDelTres(eje, compra.id, { filtros: { 0: 'doy' } });
+  assert.deepEqual([g[0].filtro, g[0].total, g[0].personas.length], ['doy', 1, casa.doy > 0 ? 1 : 0]);
+  // sin los grupos en lo que mide, los hijos vuelven a ser lo anclado en X.d (la regla general de hijosDe)
   const sinGrupos = epocaCon((e) => { filaDelMundo(e, 3)[4] = ['attended']; });
-  assert.equal(C.hijosDe(eje, compra.id, 3, { epoca: sinGrupos }).some((h) => 'precio' in h), false);
+  assert.equal(C.hijosDe(eje, compra.id, 3, { epoca: sinGrupos }).some((h) => 'personas' in h), false);
 });
 
-test('el estado de cada paquete del 3: una petición de atención (R devuelta a su emisor) pendiente o atendida, una R perdonada; lo demás, null; sin «attended» en lo que mide, no se da', async () => {
+test('el estado de cada paquete del 3: una petición de atención (R devuelta a su emisor) pendiente o atendida, una R perdonada; lo demás, null; en la conversación con una persona (contrato.conversacionDelTres), el chat con el estado de cada uno', async () => {
   const { eje, compra, conversacion, atendida, respuesta, pendiente, perdonada } = await jardinYParque();
   assert.deepEqual([atendida, pendiente, perdonada, respuesta, conversacion].map((r) => estadoDePaquete(eje, r.id)), ['atendido', 'pendiente', 'perdonado', null, null]);
   assert.equal(estadoDePaquete(eje, 'no-existe'), null);
-  const tres = C.hijosDe(eje, conversacion.id, 3, { nivel: 2 }).find((h) => h.digito === 3);
-  assert.deepEqual(tres.ocupantes.map((o) => o.ref), [atendida.id, pendiente.id, perdonada.id]);
-  assert.deepEqual(tres.estados, ['atendido', 'pendiente', 'perdonado']);
-  // las hojas del 3 de la compra (quién habla con quién) no son paquetes; la conversación tampoco
-  const deLaCompra = C.hijosDe(eje, compra.id, 3).find((h) => h.digito === 3);
-  assert.deepEqual(deLaCompra.estados, deLaCompra.ocupantes.map(() => null));
-  // sin «attended» en lo que mide, no se da
-  const sinLectura = epocaCon((e) => { filaDelMundo(e, 3)[4] = ['epoch.1.2.1']; });
-  assert.equal(C.hijosDe(eje, conversacion.id, 3, { nivel: 2, epoca: sinLectura }).some((h) => 'estados' in h), false);
+  const c = C.conversacionDelTres(eje, compra.id, 'casa', { idioma: 'es' });
+  assert.deepEqual([c.dueno, c.persona, c.caja, c.nombre, c.capas.map((k) => k.capa)], ['huesped', 'casa', 0, 'desconocidos', [0]]);
+  assert.deepEqual(c.capas[0].items.map((i) => [i.ref, i.estado]), [[conversacion.id, null], [atendida.id, 'atendido'], [respuesta.id, null], [pendiente.id, 'pendiente'], [perdonada.id, 'perdonado']]);
+  // por el alta de la persona también (la carta entra en ella por su alta)
+  assert.deepEqual(C.conversacionDelTres(eje, compra.id, eje.alta('casa').id).capas[0].items.length, 5);
 });
 
 // ---------- 11. lo que el núcleo mide de cada hijo del 1 (encargo «datos2», issue #11) ----------

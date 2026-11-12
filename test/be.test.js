@@ -22,6 +22,8 @@ import * as Q from '../carta/cuentas.js';
 import * as G from '../carta/guia.js';
 import * as X from '../carta/externa.js';
 import { nuevaOpinion } from '../carta/opinar.js';
+import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 
 const BE = fileURLToPath(new URL('../be.mjs', import.meta.url));
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
@@ -214,12 +216,16 @@ const sincronizarVG = async () => {
 test('identidad --crear: el par de claves de Core en su configuración (nunca se imprime) y la petición de alta; sin alta no escribe', async () => {
   cfgCore = join(carpeta, 'core.json');
   writeFileSync(cfgCore, JSON.stringify({ sync_url: servidor.url, eje: 'vg', clave_lectura: claveLectura }));
-  const r = await be('identidad', '--crear', '--config', cfgCore);
+  // La T de una cosa no tiene defecto (VG, 12-11, #46): sin --minutos la petición no pasa (lo dice), con --pedir se rehace.
+  const sinMinutos = await be('identidad', '--crear', '--config', cfgCore);
+  assert.equal(sinMinutos.codigo, 1);
+  assert.match(sinMinutos.error, /la petición de alta no pasaría las reglas:[\s\S]*minut/);
+  const r = await be('identidad', '--pedir', '--minutos', '60', '--config', cfgCore);
   assert.equal(r.codigo, 0, r.error);
   core = JSON.parse(readFileSync(cfgCore, 'utf8')).identidad;
   assert.equal(core.nombre, 'core');
   assert.equal(autoridad.publicaDe(core.privada), core.publica, 'la privada es la pareja de la pública');
-  assert.match(r.salida, /^identidad de Core creada: core · clave [0-9a-f]{8}…/m);
+  assert.match(r.salida, /^identidad de Core: core · clave [0-9a-f]{8}…/m);
   assert.match(r.salida, /^alta: aún no$/m);
   assert.ok(!r.salida.includes(core.privada) && !r.salida.includes(core.publica), 'ni la privada ni la pública enteras se imprimen');
   assert.ok(!r.salida.includes(claveLectura));
@@ -417,6 +423,54 @@ test('admitir es darle R (encargo equipo, VG 11-11 noche): pendientes lista lo q
   assert.ok(C2.leerRuta(eje, alta, [3, 4]).derivado.some((x) => x.valor === 'core'), '3.4: derivado');
   // Sí está, por lo que mueve: Core tiene R de VG (la lente de quien la mire) y T que le dio VG.
   assert.equal(eje.saldo('core', 'R:' + yo), 2);
+});
+
+test('el 3 por tema (encargo pv3, VG 11/12-11): Core admitido con R y T está en el 3.4; con R sola, en el 3.3; un desconocido con su R, en el 3.0; admitir en un registro admite en lo que cuelga; quitar lo saca; vetar gana', async () => {
+  const yo = cuenta.cuenta.identidad;
+  const eje = cuenta.eje;
+  const firmar = Q.firmarCon(cuenta.privada);
+  const alta = cuenta.cuenta.alta;
+  const cajaDe = (X, quien) => C2.gruposDelTres(eje, X).find((c) => c.personas.some((p) => p.identidad === quien))?.caja ?? null;
+  // Admitido en el menú con R y 5 minutos de T (la prueba de antes): en el 3 del alta de VG y en el del menú, la caja 4.
+  assert.equal(cajaDe(alta, 'core'), 4);
+  assert.equal(cajaDe(ids.menu, 'core'), 4);
+  const core4 = C2.gruposDelTres(eje, alta)[4].personas.find((p) => p.identidad === 'core');
+  assert.deepEqual([core4.doy, core4.recibo, core4.porque], [eje.saldo('core', 'R:' + yo), 0, 'tema']);
+  // Admitido en AGRAM con R sola (sin T): mirado desde AGRAM (el elemento en foco filtra), la caja 3, cercanos.
+  const soloR = await C.enviar(eje, ids.agram, 'admit someone', { whom: 'core', amount: 1, minutes: 0 }, yo, firmar);
+  assert.equal(soloR.ok, true, JSON.stringify(soloR.motivos));
+  assert.equal(soloR.asentado.en, '3000000000');
+  assert.ok(!soloR.asentado.movimientos.some((m) => m.token === 'T' && m.a === 'core'), 'sin T para Core');
+  assert.equal(cajaDe(ids.agram, 'core'), 3);
+  // La admisión baja por el árbol: un registro de VG bajo el menú admite a Core sin nombrarlo (subiendo por «sobre»).
+  const plato = await acciones.transaccion(eje, 'anchor here', { X: ids.menu, title: 'Plato del día' }, yo, { firmar });
+  assert.equal(plato.ok, true, JSON.stringify(plato.motivos));
+  const platoId = (await eje.anadir(plato.evento)).id;
+  const el = EL.elegibles(eje, platoId);
+  assert.deepEqual([el.autores.has('core'), el.heredados.has('core')], [true, true]);
+  // Quitar a Core del menú (la corrección del dueño en el mismo sitio, «remove someone»): ni en el menú ni en lo de debajo;
+  // y la lectura del 3 ya no lo coloca por esa admisión (en el menú queda por la R que VG le dio por su sugerencia: 3.3).
+  const quitar = await C.enviar(eje, ids.menu, 'remove someone', { whom: 'core' }, yo, firmar);
+  assert.equal(quitar.ok, true, JSON.stringify(quitar.motivos));
+  assert.deepEqual([EL.elegibles(eje, ids.menu).autores.has('core'), EL.elegibles(eje, platoId).autores.has('core')], [false, false]);
+  assert.equal(cajaDe(ids.menu, 'core'), 3);
+  // Vetar gana sobre cualquier R: Core sigue en el 2.3 de AGRAM y con R de VG, pero vetado no es elegible y está en el 3.5.
+  const veto = await C.enviar(eje, eje.alta('core').id, 'veto someone', {}, yo, firmar);
+  assert.equal(veto.ok, true, JSON.stringify(veto.motivos));
+  assert.deepEqual([veto.asentado.sobre, veto.asentado.en], [alta, '3530000000']);
+  assert.equal(EL.elegibles(eje, ids.agram).autores.has('core'), false, 'el veto gana sobre la lista del 2.3');
+  assert.equal(cajaDe(alta, 'core'), 5);
+  // Un desconocido con su R, en el 3.0 (un libro aparte: una persona a la que invitó otra escribe a la casa con su R).
+  const { eje: e2 } = await ejemploCompra();
+  await entrarPorInvitacion(e2, { por: 'huesped', quien: 'ana', t: '2026-11-08T10:00:00Z' });
+  const escrito = await acciones.transaccion(e2, 'write to X', { X: e2.alta('casa').id, text: 'hola, casa' }, 'ana', { t: '2026-11-08T10:01:00Z' });
+  assert.equal(escrito.ok, true, JSON.stringify(escrito.motivos));
+  await e2.anadir(escrito.evento);
+  const ana = C2.gruposDelTres(e2, e2.alta('casa').id)[0].personas.find((p) => p.identidad === 'ana');
+  assert.deepEqual([ana.caja, ana.recibo, ana.doy, ana.porque], [0, 1, 0, 'bandeja']);
+  // Lo escrito aquí sube al eje compartido, y la caché de lectura de Be se pone al día (para la prueba sin red).
+  await sincronizarVG();
+  assert.equal((await conCfg('estado')).codigo, 0);
 });
 
 test('sin red: lee la caché y lo dice; sin caché, lo dice y falla', async () => {

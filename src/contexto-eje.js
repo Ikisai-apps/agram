@@ -761,12 +761,17 @@ export class ContextoEje {
     return [...zonas.keys()].sort((x, y) => x - y).map((k) => ({ k: 'grupo', titular: a, zona: k, defecto: zonas.get(k), alta: alta?.id ?? null }));
   }
 
-  /** Lo que la identidad de un grupo ancla en el 3.k.d de su alta (d = 2, el precio; 3, quiénes), por llegada: su payload. */
+  /**
+   * Lo que la identidad de un grupo ancla en el 3.k.d de su alta (d = 2, el precio; 3, quiénes), por llegada: su payload.
+   * En los quiénes, una décupla cuenta por su 0 (encargo pv3, VG 12-11: «veto someone» y «move to group» escriben la
+   * identidad en el 0 del registro, [["ana"]], como toda plantilla de transacción).
+   */
   #corregido(grupo, d) {
     if (!grupo.alta) return [];
     const fuera = [];
     for (const h of this.#eje.sobreDe(grupo.alta, direccion([3, grupo.zona, d]), new Set([grupo.titular]))) {
-      if (Array.isArray(h.payload) && !esLista(h.payload)) fuera.push({ k: 'dec', id: h.id, camino: [], v: h.payload });
+      if (d === 3 && Array.isArray(h.payload) && !esLista(h.payload)) fuera.push(...this.#expandir(h.payload[0], null, [], 0));
+      else if (Array.isArray(h.payload) && !esLista(h.payload)) fuera.push({ k: 'dec', id: h.id, camino: [], v: h.payload });
       else fuera.push(...this.#expandir(h.payload, null, [], 0));
     }
     return fuera;

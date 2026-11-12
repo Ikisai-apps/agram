@@ -35,6 +35,13 @@
 //   nadie). Un grupo es un registro (VG, 8-11: no hay identidades de grupo).
 // - lo propio del registro (su payload) y lo que alcanzan sus referencias lo
 //   puso el autor: siempre es elegible.
+//
+// Encargo pv3 (VG, 11/12-11, issues #31 y #32): admitir es una transacción de R (y T) del dueño con la identidad, que
+// ancla en el 3 del registro («admit someone»), y la admisión BAJA POR EL ÁRBOL: admitido en un registro es admitido en
+// todo lo que cuelga de él mientras el dueño sea el mismo (se sube por `sobre`; admitir en el alta vale para todo lo
+// suyo). Dejar de admitir es QUITAR («remove someone»: una corrección del dueño en el mismo sitio, el 3, que quita a la
+// identidad de ahí y de lo de debajo, hasta que la vuelva a admitir). Vetar (el grupo 5 del 3: lo que el dueño ancla en
+// el 3.5.3 de su alta) gana sobre cualquier R: el vetado no es elegible en nada del dueño, ni con `cualquiera`.
 
 import { ARIDAD, direccion, indicesDe, esDecupla } from './btml.js';
 import { ocupantes } from './encaje.js';
@@ -71,6 +78,43 @@ function delDueno(eje, id, indices, autor) {
   return typeof eje.sobreDe === 'function' ? eje.sobreDe(id, dir, new Set([autor])) : eje.sobre(id, dir).filter((e) => e.autor === autor);
 }
 
+/** La acción que quita (la inversa de admitir, encargo pv3): un registro del dueño en el 3 que la nombra en su 4. */
+export const QUITAR = 'remove someone';
+/** Dónde ancla el dueño a quien veta: el 3.5.3 de su alta (los quiénes del grupo 5 de su atención). */
+export const VETO = Object.freeze([3, 5, 3]);
+
+const esQuitar = (e) => Array.isArray(e.payload) && textos(e.payload[4]).includes(QUITAR);
+
+/**
+ * Lo que un registro admite por su 3 sobre `antes` (lo que trae de arriba): los nombrados en su payload 3 y, en orden
+ * de llegada, las correcciones del dueño en su 3: admitir (nombrar, «admit someone») añade; quitar («remove someone»)
+ * saca. Con `soloQuitar`, solo lo segundo (con una lista en el 2.3, lo del 3 no admite, pero quitar sigue quitando).
+ */
+function porSuTres(eje, ev, antes, { soloQuitar = false } = {}) {
+  const fuera = new Set(antes);
+  const nombra = (n) => textos(n).filter((x) => x !== ev.autor && conAlta(eje, x));
+  if (!soloQuitar) for (const x of nombra(Array.isArray(ev.payload) ? ev.payload[CON_QUIEN] : undefined)) fuera.add(x);
+  for (const e of delDueno(eje, ev.id, [CON_QUIEN], ev.autor)) {
+    if (esQuitar(e)) for (const x of nombra(e.payload[CON_QUIEN])) fuera.delete(x);
+    else if (!soloQuitar) for (const x of nombra(e.payload)) fuera.add(x);
+  }
+  return fuera;
+}
+
+/** Lo admitido arriba: subiendo por `sobre` mientras el dueño sea el mismo, de lo más alto hacia abajo (sin el propio registro). */
+function heredado(eje, ev) {
+  const arriba = [];
+  for (let e = typeof ev.sobre === 'string' ? eje.obtener(ev.sobre) : null; e && e.autor === ev.autor; e = typeof e.sobre === 'string' ? eje.obtener(e.sobre) : null) arriba.push(e);
+  return arriba.reverse().reduce((s, e) => porSuTres(eje, e, s), new Set());
+}
+
+/** Los vetados del dueño: lo que ancla en el 3.5.3 de su alta (la identidad en su 0, o una lista de nombres). */
+export function vetadosDe(eje, dueno) {
+  const alta = typeof eje.alta === 'function' ? eje.alta(dueno) : null;
+  if (!alta) return new Set();
+  return new Set(delDueno(eje, alta.id, VETO, dueno).flatMap((e) => textos(Array.isArray(e.payload) && e.payload.some(Array.isArray) ? e.payload[0] : e.payload)).filter((x) => x !== dueno && conAlta(eje, x)));
+}
+
 /**
  * Elegibles del registro `id`: { dueno, todos, autores (Set, o null si todos), origen: 'lista' | 'defecto' }.
  * `autores` son las identidades cuyos escritos son elegibles en cualquier
@@ -83,18 +127,25 @@ export function elegibles(eje, id) {
   const criterio = Array.isArray(ev.payload) ? ev.payload[LISTA[0]] : undefined;
   // Solo una décupla tiene subposiciones (por hojas, VG 7-11 noche): un criterio que es una lista no tiene 2.3.
   const propias = [nombresDe(esDecupla(criterio) ? criterio[LISTA[1]] : undefined), ...delDueno(eje, id, LISTA, ev.autor).map((e) => nombresDe(e.payload))].filter(Boolean);
+  // Lo admitido arriba (la admisión baja por el árbol) y los vetados del dueño (ganan sobre todo).
+  const arriba = heredado(eje, ev);
+  const vetados = vetadosDe(eje, ev.autor);
+  const sin = (s) => { for (const v of vetados) s.delete(v); return s; };
   if (propias.length) {
     const lista = propias.flat();
-    if (lista.includes(CUALQUIERA)) return { dueno: ev.autor, todos: true, autores: null, origen: 'lista' };
-    return { dueno: ev.autor, todos: false, autores: new Set([ev.autor, ...lista]), origen: 'lista' };
+    if (lista.includes(CUALQUIERA)) return { dueno: ev.autor, todos: true, autores: null, origen: 'lista', vetados };
+    const heredados = sin(porSuTres(eje, ev, arriba, { soloQuitar: true }));
+    return { dueno: ev.autor, todos: false, autores: sin(new Set([ev.autor, ...lista, ...heredados])), origen: 'lista', heredados, vetados };
   }
-  const enTres = [Array.isArray(ev.payload) ? ev.payload[CON_QUIEN] : undefined, ...delDueno(eje, id, [CON_QUIEN], ev.autor).map((e) => e.payload)];
-  const nombrados = enTres.flatMap((n) => textos(n)).filter((x) => conAlta(eje, x));
-  return { dueno: ev.autor, todos: false, autores: new Set([ev.autor, ...nombrados]), origen: 'defecto' };
+  const propiosDelTres = porSuTres(eje, ev, new Set());
+  const admitidos = porSuTres(eje, ev, arriba);
+  const heredados = sin(new Set([...admitidos].filter((x) => arriba.has(x) && !propiosDelTres.has(x))));
+  return { dueno: ev.autor, todos: false, autores: sin(new Set([ev.autor, ...admitidos])), origen: 'defecto', heredados, vetados };
 }
 
-/** ¿Es elegible un ocupante (de ocupantes) del registro? Lo que no es un escrito es del payload del dueño. */
-export function esElegible(o, { todos, autores }) {
+/** ¿Es elegible un ocupante (de ocupantes) del registro? Lo que no es un escrito es del payload del dueño; un vetado, nunca. */
+export function esElegible(o, { todos, autores, vetados }) {
+  if (o.tipo === 'escrito' && vetados?.has(o.autor)) return false;
   return todos || o.tipo !== 'escrito' || autores.has(o.autor);
 }
 
@@ -106,7 +157,13 @@ export function esElegible(o, { todos, autores }) {
  */
 export function ocupantesElegibles(eje, id, indices, opciones = {}) {
   const el = elegibles(eje, id);
-  if (el.todos) return { lista: ocupantes(eje, id, indices, opciones), noElegibles: 0, elegibles: el };
+  if (el.todos && !el.vetados?.size) return { lista: ocupantes(eje, id, indices, opciones), noElegibles: 0, elegibles: el };
+  if (el.todos) {
+    // Con «cualquiera», todos menos los vetados del dueño.
+    const todos = ocupantes(eje, id, indices, opciones);
+    const lista = todos.filter((o) => esElegible(o, el));
+    return { lista, noElegibles: todos.length - lista.length, elegibles: el };
+  }
   const lista = ocupantes(eje, id, indices, { ...opciones, autores: el.autores });
   const dir = direccion(indices);
   const camino = indicesDe(dir);
@@ -128,7 +185,8 @@ export function ocupantesElegibles(eje, id, indices, opciones = {}) {
 export function hijosElegibles(eje, id) {
   const el = elegibles(eje, id);
   const todos = eje.sobre(id);
-  const si = el.todos ? todos : todos.filter((h) => el.autores.has(h.autor));
-  const no = el.todos ? [] : todos.filter((h) => !el.autores.has(h.autor));
+  const vale = (h) => !el.vetados?.has(h.autor) && (el.todos || el.autores.has(h.autor));
+  const si = todos.filter(vale);
+  const no = todos.filter((h) => !vale(h));
   return { lista: [...si, ...no], elegiblesN: si.length, noElegibles: no.length, elegibles: el };
 }

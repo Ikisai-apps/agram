@@ -286,15 +286,15 @@ test('la lente de R es la condición de aceptación (§16): vale una unidad la R
 
 // ---------- PV3: la atención tiene precio ----------
 
-test('«attention has a price»: desconocidos pagan con mi R, cercanos con su R; sin pago no entra y el veto rechaza aunque pague', async () => {
+test('«attention has a price»: la R es el precio universal (VG, 12-11, encargo pv3): se paga con la R propia o devolviendo la del destinatario; sin pago no entra y el veto rechaza aunque pague', async () => {
   const { eje, g } = await mundo();
   const escribe = (autor, movs) => motivos(eje, { autor, sobre: g, en: '3000000000', payload: 'hola', movimientos: [minuto(autor), ...movs] });
   const precio = /attention has a price/;
   // bea, sin grupo: desconocidos, devolviendo la R de g que le guardó la invitación.
   assert.ok((await escribe('bea', [])).some((m) => precio.test(m)), 'sin pago no entra');
   assert.deepEqual(await escribe('bea', [R('g', 1, 'bea', 'g')]), []);
-  // ana, cercanos por su invitación (zona 3): con su propia R.
-  assert.ok((await escribe('ana', [R('g', 1, 'ana', 'g')])).some((m) => precio.test(m)), 'mi R no es su precio');
+  // ana, cercanos por su invitación (zona 3): con su propia R o devolviendo la de g (en los dos sentidos).
+  assert.deepEqual(await escribe('ana', [R('g', 1, 'ana', 'g')]), [], 'devolver mi R también paga');
   assert.deepEqual(await escribe('ana', [R('ana', 1, null, 'ana'), R('ana', 1, 'ana', 'g')]), []);
   // g la veta (zona 5, 3.5.3): ni pagando.
   await eje.escribir({ autor: 'g', sobre: g, en: '3530000000', t: T0, payload: ['bea'], movimientos: [minuto('g')] });
@@ -310,7 +310,7 @@ test('PV3: el precio de un grupo lo corrige su dueño en el 3.k.2 de su alta (ga
   const { eje, g } = await mundo();
   const ctx = () => new ContextoEje(eje, { epoch: EPOCA_0_BTML });
   assert.deepEqual(evaluar('("g").3 each 1', ctx()).valor, [0, 1, 2, 3, 4, 5], 'las seis zonas de la época');
-  assert.equal(evaluar('last (("g").3 where it.1 = 0).2.0', ctx()).valor[0], 'my R');
+  assert.equal(evaluar('last (("g").3 where it.1 = 0).2.0', ctx()).valor[0], 'their R');
   // g cobra a los desconocidos con P.
   await eje.escribir({ autor: 'g', sobre: g, en: '3020000000', t: T0, payload: [['P'], [1]], movimientos: [minuto('g')] });
   assert.equal(evaluar('last (("g").3 where it.1 = 0).2.0', ctx()).valor[0], 'P');

@@ -18,6 +18,7 @@ import { HITOS } from '../src/bases.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { ejemploCompra, ejemploJardinYParque, ejemploFabrica, ejemploFuturoYCohorte } from '../ejemplos/ikisai/compra-food.mjs';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
@@ -59,14 +60,15 @@ test('epoch.8.7 «world division» es un dato de la época con su procedencia: u
   assert.deepEqual([1, 2, 3, 4].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma]), [
     [[1, 2, 3, 4], 4, 'cruceta'],
     [[1, 2, 3, 4, 5], 5, 'escalera'],
-    [[1, 2, 3, 4, 5, 6], 6, 'rejilla'],
+    [[0, 1, 2, 3, 4, 5], 2, 'rejilla'],
     [[], 1, 'matriz'],
   ]);
   for (const pv of [1, 2, 3, 4, 6, 7, 8, 9, 0, 5]) for (const quitado of ['columnas', 'filas', 'hereda']) assert.equal(quitado in d(pv), false, quitado + ' ya no existe');
   assert.deepEqual([0, 5].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma, d(pv).entra]), [[[], 0, 'lente', false], [[], 0, 'json', false]], 'el 0 y el 5 no se dividen');
-  // el 2 enciende los sitios del 1 más el centro (5, dónde encaja); el 3, los del 2 más el lateral izquierdo (6, de dónde viene)
+  // el 2 enciende los sitios del 1 más el centro (5, dónde encaja); el 3 por tema (VG, 12-11, encargo pv3): sus seis
+  // cajas numeradas 0-5 como los PV (3.d = «con quién» sobre d), y dentro de una persona, la conversación
   assert.deepEqual(d(2).hijos, [...d(1).hijos, 5]);
-  assert.deepEqual(d(3).hijos, [...d(2).hijos, 6]);
+  assert.deepEqual([d(3).hijos, d(3).mide], [[0, 1, 2, 3, 4, 5], ['groups', 'attended']]);
   // los hilos horizontales del 6 y el 7, y solo ellos
   assert.deepEqual(d(6).hilos, [1, 3, 2, 4]);
   assert.deepEqual(d(7).hilos, [2, 4, 1, 3]);
@@ -109,14 +111,16 @@ test('divisionDelMundo: la forma es la del nivel en que se mira (la última se r
 test('hijosDe(eje, X, pv): los dígitos que el mundo enciende, con su nombre a esa profundidad (epoch.5) y los ocupantes de X.<dígito>; vacio si no hay', async () => {
   const { eje, compra, nota, carpeta } = await conCarpeta();
   const nombres = (nivel) => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => EPOCA_0_BTML.registro[5][nivel][d][0][0]);
-  const h = C.hijosDe(eje, carpeta.id, 3);
-  assert.deepEqual(h.map((x) => x.digito), [1, 2, 3, 4, 5, 6]);
-  assert.deepEqual(h.map((x) => x.nombre), [1, 2, 3, 4, 5, 6].map((d) => nombres(1)[d]), 'profundidad 1: cuánto, con qué condición, con quién, qué se hace, dónde encaja, de dónde viene');
+  const h = C.hijosDe(eje, carpeta.id, 2);
+  assert.deepEqual(h.map((x) => x.digito), [1, 2, 3, 4, 5]);
+  assert.deepEqual(h.map((x) => x.nombre), [1, 2, 3, 4, 5].map((d) => nombres(1)[d]), 'profundidad 1: cuánto, con qué condición, con quién, qué se hace, dónde encaja');
   assert.deepEqual(h.map((x) => x.nombre).slice(0, 2), ['cuánto', 'con qué condición']);
-  assert.deepEqual(h.map((x) => x.vacio), [false, true, true, true, true, true], 'la carpeta solo tiene ocupantes en su 1');
+  assert.deepEqual(h.map((x) => x.vacio), [false, true, true, true, true], 'la carpeta solo tiene ocupantes en su 1');
   assert.deepEqual(h[0].ocupantes, C.ocupantes(eje, carpeta.id, 1, 0, 100).ocupantes);
   assert.equal(h[0].total, 1);
   assert.deepEqual(h[1].ocupantes, []);
+  // el 3 por tema (encargo pv3): sus hijos son las cajas 0-5, de personas (no lo anclado en X.d)
+  assert.deepEqual(C.hijosDe(eje, carpeta.id, 3).map((x) => [x.digito, Array.isArray(x.personas)]), [0, 1, 2, 3, 4, 5].map((d) => [d, true]));
   // a mayor nivel, el nombre es el de esa profundidad de epoch.5
   assert.deepEqual(C.hijosDe(eje, nota.id, 1, { nivel: 2 }).map((x) => x.nombre), [1, 2, 3, 4].map((d) => nombres(2)[d]));
   assert.deepEqual(C.hijosDe(eje, compra.id, 4).map((x) => x.digito), [], 'la matriz del 4 no tiene hijos');
@@ -157,11 +161,11 @@ test('la geometría sale de la forma y de los hijos: cruceta 2 × 2, escalera 1 
   assert.deepEqual(forma(await por(3)), ['rejilla', 3, 2, 6]);
   assert.deepEqual(forma(await por(4)), ['matriz', 10, 10, 100]);
   const r3 = await por(3);
-  assert.deepEqual(celdasDe(r3), [[0, 0, 1], [0, 1, 2], [0, 2, 3], [1, 0, 4], [1, 1, 5], [1, 2, 6]], 'cada celda lleva el dígito de su hijo');
+  assert.deepEqual(celdasDe(r3), [[0, 0, 0], [0, 1, 1], [0, 2, 2], [1, 0, 3], [1, 1, 4], [1, 2, 5]], 'cada celda lleva el dígito de su caja (0-5, como los PV)');
   assert.deepEqual((await por(2)).celdas.map((c) => c.nombre), ['cuánto', 'con qué condición', 'con quién', 'qué se hace', 'dónde encaja']);
   // el color de cada celda es el de su hijo (data-color y data-pv)
   const h = html(await arbol(completa(carpeta.id, 3), eje, 'casa', GRANDE));
-  for (const d of [1, 2, 3, 4, 5, 6]) assert.match(h, new RegExp(`class="rejilla-celda hijo[^"]*" data-color="${d}" data-pv="${d}"`));
+  for (const d of [0, 1, 2, 3, 4, 5]) assert.match(h, new RegExp(`class="rejilla-celda hijo[^"]*" data-color="${d}" data-pv="${d}"`));
   // la matriz del 4 sigue siendo una lista de ocupantes por filas, con su página
   const r4 = await por(4);
   assert.deepEqual(r4.pagina, { actual: 1, de: 1 });
@@ -184,10 +188,11 @@ test('la regla del vacío: un hijo sin ocupantes se pinta con su nombre apagado 
   assert.equal(dentro.celdas[0].ocupante.X, hoja.id);
   assert.equal(dentro.celdas[0].entra, false);
   assert.equal(dentro.vacia, false);
-  // la compra del ejemplo: el 3 tiene ocupantes en el 3 y el 4 pero no en el 5 ni el 6
+  // la compra del ejemplo: en el 3 por tema, una caja sin personas está vacía y no se entra (lo dice el núcleo)
   const { eje: e2, compra } = await ejemploCompra();
   const r2 = (await arbol(completa(compra.id, 3), e2, 'huesped', GRANDE)).centro.rejilla;
-  assert.deepEqual(r2.celdas.map((c) => c.vacio), [false, false, false, false, C.ocupantes(e2, compra.id, 5).total === 0, C.ocupantes(e2, compra.id, 6).total === 0]);
+  assert.deepEqual(r2.celdas.map((c) => c.vacio), C.hijosDe(e2, compra.id, 3).map((h) => h.vacio));
+  assert.ok(r2.celdas.filter((c) => c.vacio).every((c) => !c.entra && c.personas.length === 0));
   // un registro sin nada en ningún hijo: todos vacíos, y la rejilla lo dice
   const vacio = await e2.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-08T10:00:00Z', movimientos: T, payload: [['Vacío']] });
   const rv = (await arbol(completa(vacio.id, 1), e2, 'casa', GRANDE)).centro.rejilla;
@@ -397,11 +402,11 @@ test('los ganchos del animado: cada hijo es .hijo[data-pv] con .hijo-nombre, .hi
 });
 
 test('la regla del vacío pinta el paso del camino: «escribir aquí · <acción por defecto del PV>», con el nombre que dan las acciones en el idioma', async () => {
-  const { eje, compra } = await ejemploCompra();
+  const { eje, carpeta: compra } = await conCarpeta();
   for (const yo of ['huesped', 'casa']) {
-    const a = await arbol(completa(compra.id, 3), eje, yo, GRANDE);
+    const a = await arbol(completa(compra.id, 1), eje, yo, GRANDE);
     const vacio = a.centro.rejilla.celdas.find((c) => c.vacio);
-    assert.ok(vacio, 'el 3 de la compra tiene un hijo vacío');
+    assert.ok(vacio, 'el 1 de la carpeta tiene un hijo vacío');
     const lista = A.acciones(eje, compra.id, vacio.pv, yo, { idioma: a.idioma });
     const defecto = lista.find((x) => x.porDefecto) ?? lista[0] ?? null;
     assert.deepEqual(vacio.escribir, defecto ? { id: defecto.id, nombre: defecto.etiqueta } : null);
@@ -412,6 +417,11 @@ test('la regla del vacío pinta el paso del camino: «escribir aquí · <acción
   // las celdas con ocupantes no lo llevan
   const r = (await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE)).centro.rejilla;
   assert.ok(r.celdas.filter((c) => !c.vacio).every((c) => c.escribir === null));
+  // una caja vacía del 3 por tema (encargo pv3) no tiene paso que escribir: dice que no hay nadie
+  const tres = await arbol(completa(compra.id, 3), eje, 'huesped', GRANDE);
+  const vacia = tres.centro.rejilla.celdas.find((c) => c.vacio);
+  assert.equal(vacia.escribir, null);
+  assert.ok(rejillaHtml(html(tres)).includes(`data-caja="${vacia.caja}" data-fila="${vacia.fila}" data-columna="${vacia.columna}" data-vacio>`) && html(tres).includes(`<span class="hijo-vacio">${t('cajaVacia')}</span>`));
 });
 
 test('el nivel 2 del 2 son cinco columnas con el nivel siguiente dentro (contrato.hijosDe al nivel + 1, con la misma regla del vacío)', async () => {
@@ -585,29 +595,72 @@ test('el 2 a pantalla completa: cada peldaño y cada columna con sus votos (P co
   assert.ok(h2.includes(`<p class="hijo-medida">${t('hijoUmbral', { umbral: 10, faltan: 3 })} · ${t('hijoVotos', { comprometidos: 2, reposicionables: 9 })}</p><span class="hijo-barra" data-de="umbral" style="--lleno:0.7"`));
 });
 
-test('el 3 a pantalla completa: cada caja con su grupo de atención y su precio (el enlace de la época); dentro, cada mensaje con el estado de su paquete', async () => {
-  const { eje, compra, conversacion } = await conJardinYParque();
+test('el 3 a pantalla completa por tema (encargo pv3): cada caja con su grupo y sus personas (con su marcador), el botón que cicla y el interrogante de su sitio; dentro de una persona, la conversación con el estado de cada paquete', async () => {
+  const { eje, compra, conversacion, atendida, pendiente, perdonada } = await conJardinYParque();
   const a = await arbol(completa(compra.id, 3), eje, 'huesped', GRANDE);
   const r = a.centro.rejilla;
   assert.equal(r.forma, 'rejilla');
   const hijos = C.hijosDe(eje, compra.id, 3, { idioma: a.idioma });
-  assert.deepEqual(r.celdas.map((c) => [c.pv, c.precio]), hijos.map((h) => [h.digito, h.precio]));
+  assert.deepEqual(r.celdas.map((c) => [c.pv, c.nombre, c.personas.map((p) => p.identidad)]), hijos.map((h) => [h.digito, h.nombre, h.ocupantes]));
+  const cero = r.celdas[0];
+  assert.deepEqual([cero.personas[0].identidad, cero.personas[0].X, cero.personas[0].entra, cero.filtro, cero.sitio], ['casa', eje.alta('casa').id, true, 'todos', { X: compra.id, lugar: '3.0' }]);
   const h1 = rejillaHtml(html(a));
-  for (const h of hijos) assert.ok(h1.includes(`<p class="hijo-precio" data-zona="${h.precio.zona}"><b>${h.precio.grupo}</b> · ${h.precio.texto}</p>`), 'el precio de la zona ' + h.precio.zona);
-  // la regla del vacío sigue igual: el nombre apagado y debajo el paso del camino, y el precio en el pie
-  assert.ok(r.celdas.some((c) => c.vacio && c.precio));
-  // nivel 2: la conversación, cada mensaje con su paquete
-  const b = await arbol(completa(compra.id, 3, { profundidad: { 3: [conversacion.id] } }), eje, 'huesped', GRANDE);
-  assert.equal(b.centro.rejilla.forma, 'conversacion');
-  const tres = b.centro.rejilla.celdas.find((c) => c.pv === 3);
-  assert.deepEqual(tres.ocupantes.map((o) => o.estado ?? null), ['atendido', 'pendiente', 'perdonado']);
+  assert.match(h1, /<button type="button" class="filtro-caja"[^>]*data-filtro-caja="0" data-filtro="todos"/);
+  assert.match(h1, new RegExp(`<button type="button" class="sitio-interrogante"[^>]*data-sitio="3.0" data-sitio-x="${compra.id}"`));
+  assert.match(h1, new RegExp(`<button type="button" class="ocupante persona"[^>]*data-persona="casa" data-caja="0" data-pv="0" data-x="${eje.alta('casa').id}" data-celda="${eje.alta('casa').id}"`));
+  assert.match(html(a), new RegExp(`class="sitio-interrogante"[^>]*data-sitio="3" data-sitio-x="${compra.id}"`), 'y el del nodo 3 entero, en la cabecera');
+  // nivel 2: entrar en la casa (su alta, desde la caja 0) es su conversación, cada mensaje con su paquete
+  const b = await arbol(completa(compra.id, 3, { profundidad: { 3: [{ X: eje.alta('casa').id, d: 0 }] } }), eje, 'huesped', GRANDE);
+  const r2 = b.centro.rejilla;
+  assert.deepEqual([r2.forma, r2.persona.identidad, r2.persona.caja, r2.celdas.map((c) => c.nombre)], ['conversacion', 'casa', 0, [t('capaChat')]]);
+  assert.deepEqual(r2.celdas[0].ocupantes.map((o) => [o.X, o.estado ?? null]).filter(([x]) => [atendida.id, pendiente.id, perdonada.id, conversacion.id].includes(x)), [[conversacion.id, null], [atendida.id, 'atendido'], [pendiente.id, 'pendiente'], [perdonada.id, 'perdonado']]);
   const h2 = rejillaHtml(html(b));
   for (const [estado, clave] of [['atendido', 'paqueteAtendido'], ['pendiente', 'paquetePendiente'], ['perdonado', 'paquetePerdonado']]) {
     assert.ok(h2.includes(`<small class="paquete" data-estado="${estado}">${t(clave)}</small>`), estado);
   }
   // los textos son de la interfaz (carta/textos.js) y el estilo solo CSS
   const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
-  for (const sel of ['.hijo-pie{', '.hijo-barra{', '.hijo-precio b{', '.conversacion .mensaje .paquete{']) assert.ok(css.includes(sel), sel);
+  for (const sel of ['.hijo-pie{', '.hijo-barra{', '.conversacion .mensaje .paquete{', '.persona .marcador .doy{', '.filtro-caja{', '.sitio-interrogante{', '.sitio-posiciones{']) assert.ok(css.includes(sel), sel);
+});
+
+test('la celda del 3 la decide el ancla del mensaje y lo que mueve (encargo pv3, 3.d = «con quién» sobre d): escribirme sin tema → 3.0; sobre un recurso mío → 3.1; dar mi R → 3.3; con T en el mismo movimiento → 3.4; arrastrar gana; vetar gana sobre todo', async () => {
+  const { eje, menu, compra } = await ejemploCompra();
+  const t0 = (m) => '2026-11-08T11:' + String(m).padStart(2, '0') + ':00Z';
+  const lanzar = async (nombre, X, valores, yo, m) => {
+    const r = await A.transaccion(eje, nombre, { X, ...valores }, yo, { t: t0(m) });
+    assert.equal(r.ok, true, nombre + ': ' + JSON.stringify(r.motivos));
+    return eje.anadir(r.evento);
+  };
+  const cajaDe = (X, quien) => C.hijosDe(eje, X, 3).find((h) => h.ocupantes.includes(quien))?.digito ?? null;
+  const altaCasa = eje.alta('casa').id;
+  // a la huésped la invitó la casa (su alta le trajo R de la casa): la casa la tiene en sus cercanos, el 3.3
+  assert.equal(cajaDe(altaCasa, 'huesped'), 3);
+  // ana, a quien invitó la huésped, es una desconocida para la casa: le escribe con su R, sin tema, y cae en la bandeja, el 3.0
+  await entrarPorInvitacion(eje, { por: 'huesped', quien: 'ana', t: t0(0) });
+  await lanzar('write to X', altaCasa, { text: 'hola' }, 'ana', 1);
+  assert.equal(cajaDe(altaCasa, 'ana'), 0);
+  assert.deepEqual(C.hijosDe(eje, altaCasa, 3)[0].personas.find((p) => p.identidad === 'ana').recibo, 1, 'la casa tiene una R de ana');
+  // la casa ancla «Plazas» y le ata una serie de E (un recurso suyo); ana le escribe sobre él: 3.1
+  const altas = eje.obtener(menu.id).sobre;
+  const plazas = await lanzar('anchor here', altaCasa, { title: 'Plazas' }, 'casa', 2);
+  await lanzar('issue E tied to X', plazas.id, { denomination: 'plaza', quantity: 2 }, 'casa', 2);
+  await lanzar('write to X', plazas.id, { text: 'sobre las plazas' }, 'ana', 3);
+  assert.equal(cajaDe(altaCasa, 'ana'), 1, 'sobre un recurso');
+  // dar mi R (la casa a ana, sobre su alta) es la relación: 3.3
+  await lanzar('give own R', eje.alta('ana').id, { amount: 1 }, 'casa', 4);
+  assert.equal(cajaDe(altaCasa, 'ana'), 3);
+  // con T en el mismo movimiento (admitir con R y T a la cocina, una cosa de la casa, en un registro de la casa): 3.4
+  await lanzar('admit someone', altas, { whom: 'cocina', minutes: 5 }, 'casa', 5);
+  assert.equal(cajaDe(altaCasa, 'cocina'), 4);
+  // filtrado por el elemento en foco: en «Plazas», ana (le habló de ellas); la cocina no
+  assert.deepEqual([cajaDe(plazas.id, 'ana'), cajaDe(plazas.id, 'cocina')], [1, null]);
+  // arrastrar (move to group) gana sobre lo que dicen los mensajes; vetar gana sobre todo
+  await lanzar('move to group', eje.alta('ana').id, { zone: 2 }, 'casa', 6);
+  assert.equal(cajaDe(altaCasa, 'ana'), 2);
+  await lanzar('veto someone', eje.alta('ana').id, {}, 'casa', 7);
+  assert.equal(cajaDe(altaCasa, 'ana'), 5);
+  assert.equal((await A.transaccion(eje, 'write to X', { X: altaCasa, text: 'otra' }, 'ana', { t: t0(8) })).ok, false, 'el veto gana sobre cualquier R');
+  void compra;
 });
 
 // ---------- el 1 y el 4 a pantalla completa con lo que mide el núcleo (encargo «datos2», issue #11) ----------

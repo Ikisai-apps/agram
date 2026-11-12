@@ -824,3 +824,103 @@ test('el móvil apaisado, en CSS y en app.js: las medidas las manda app.js por e
   assert.match(app, /window\.innerWidth === anchoAnterior\) return;/);
   assert.match(app, /const editando = \/\^\(INPUT\|TEXTAREA\|SELECT\)\$\/\.test\(document\.activeElement\?\.tagName/);
 });
+
+// ---------- el 3 por tema: el orden y el botón que cicla, el personaje del sitio y arrastrar (encargo pv3, VG 12-11) ----------
+
+/** La casa con dos personas en su caja 3: la huésped (a quien invitó: tiene R de la casa) y ana (escribe con su R y la casa la lleva al 3). */
+async function tresDeLaCasa() {
+  const { entrarPorInvitacion } = await import('../ejemplos/ikisai/altas.mjs');
+  const c = await ejemploCompra();
+  const alta = c.eje.alta('casa').id;
+  await entrarPorInvitacion(c.eje, { por: 'huesped', quien: 'ana', t: T1 });
+  const lanzar = async (nombre, X, valores, yo, m) => {
+    const r = await A.transaccion(c.eje, nombre, { X, ...valores }, yo, { t: '2026-11-08T10:0' + m + ':00Z' });
+    assert.equal(r.ok, true, nombre + ': ' + JSON.stringify(r.motivos));
+    return c.eje.anadir(r.evento);
+  };
+  await lanzar('write to X', alta, { text: 'hola, casa' }, 'ana', 1);
+  await lanzar('move to group', c.eje.alta('ana').id, { zone: 3 }, 'casa', 2);
+  return { ...c, alta, lanzar };
+}
+
+test('el 3 por tema: en cada caja, primero quienes tienen R mía (doy) y luego quienes usan la suya (recibo), con su marcador; el botón de la caja cicla todos → doy → recibo y filtra', async () => {
+  const { eje, alta } = await tresDeLaCasa();
+  const caja = async (filtro) => (await arbol({ foco: { X: alta, pv: 3 }, filtrosDelTres: filtro ? { 3: filtro } : {} }, eje, 'casa', GRANDE)).centro.rejilla.celdas.find((c) => c.caja === 3);
+  const todos = await caja();
+  assert.deepEqual(todos.personas.map((p) => [p.identidad, p.doy, p.recibo]), [['huesped', eje.saldo('huesped', 'R:casa'), 0], ['ana', 0, 1]], 'la huésped tiene R de la casa: delante');
+  assert.equal(todos.filtro, 'todos');
+  assert.deepEqual((await caja('doy')).personas.map((p) => p.identidad), ['huesped']);
+  assert.deepEqual((await caja('recibo')).personas.map((p) => p.identidad), ['ana']);
+  // en la pantalla: el botón dice su estado y cada persona su marcador (↑ lo que doy, ↓ lo que recibo; solo CSS)
+  const h = html(await arbol({ foco: { X: alta, pv: 3 }, filtrosDelTres: { 3: 'recibo' } }, eje, 'casa', GRANDE));
+  assert.match(h, /data-filtro-caja="3" data-filtro="recibo"[^>]*>recibo<\/button>/);
+  assert.match(h, /data-persona="ana" data-caja="3"[^>]*>[\s\S]*?<small class="recibo"[^>]*>1<\/small>/);
+  assert.match(html(await arbol({ foco: { X: alta, pv: 3 } }, eje, 'casa', GRANDE)), /data-persona="huesped" data-caja="3"[^>]*>[\s\S]*?<small class="doy"/);
+  // gestos.js: un clic en el botón llama a filtroCaja con su caja (la app cicla: carta/app.js)
+  const g = gestosDeMentira();
+  g.disparar('click', { target: objetivo({ '[data-filtro-caja]': { dataset: { filtroCaja: '3', filtro: 'todos' } } }), preventDefault() {} });
+  assert.deepEqual(g.llamadas, [['filtroCaja', 3]]);
+  const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
+  assert.match(app, /filtroCaja\(caja\) \{[\s\S]*?\['todos', 'doy', 'recibo'\]/);
+});
+
+test('el personaje del sitio (#38): el interrogante de cada caja del 3 (y del 3 entero) abre la cruceta del propio nodo, sus diez posiciones con su nombre, su valor y su acción con los parámetros del sitio', async () => {
+  const { eje, alta, lanzar } = await tresDeLaCasa();
+  await lanzar('set a minimum', alta, { box: 3, amount: 1 }, 'casa', 3);
+  const a = await arbol({ foco: { X: alta, pv: 3 } }, eje, 'casa', GRANDE);
+  const h = html(a);
+  for (const d of [0, 1, 2, 3, 4, 5]) assert.match(h, new RegExp(`class="sitio-interrogante"[^>]*data-sitio="3.${d}" data-sitio-x="${alta}"`));
+  assert.match(h, new RegExp(`class="sitio-interrogante"[^>]*data-sitio="3" data-sitio-x="${alta}"`));
+  // pulsarlo: gestos → sitio(X, lugar); la app pone estado.sitio y el árbol trae la cruceta del nodo 3.3
+  const g = gestosDeMentira();
+  g.disparar('click', { target: objetivo({ '[data-sitio]': { dataset: { sitio: '3.3', sitioX: alta } } }), preventDefault() {} });
+  assert.deepEqual(g.llamadas, [['sitio', alta, '3.3']]);
+  const b = await arbol({ foco: { X: alta, pv: 3 }, sitio: { X: alta, lugar: '3.3' } }, eje, 'casa', GRANDE);
+  assert.deepEqual(b.sitio.posiciones.map((p) => p.posicion), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const uno = b.sitio.posiciones[1];
+  assert.deepEqual([uno.nombre, uno.valor, uno.accion.nombre, uno.accion.valores], ['cuánto', '1', 'set a minimum', { box: 3 }]);
+  assert.deepEqual(b.sitio.posiciones[5].accion.valores, { place: '3.3', position: 5 }, 'el 5, el estilo de lo de abajo (X.3.3.5.0), ya tiene dónde tocarse');
+  const hb = html(b);
+  assert.equal((hb.match(/class="sitio-posicion"/g) ?? []).length, 10);
+  assert.match(hb, new RegExp(`data-sitio-lanzar="${uno.accion.id}" data-x="${alta}" data-valores="\\{&quot;box&quot;:3\\}"`));
+  // una posición: gestos → lanzarCon(X, acción, valores) → el formulario de siempre con los parámetros del sitio
+  const k = gestosDeMentira();
+  k.disparar('click', { target: objetivo({ '[data-sitio-lanzar]': { dataset: { sitioLanzar: uno.accion.id, x: alta, valores: '{"box":3}' } } }), preventDefault() {} });
+  assert.deepEqual(k.llamadas, [['lanzarCon', alta, uno.accion.id, { box: 3 }]]);
+  const f = await arbol({ foco: { X: alta, pv: 3 }, sitio: { X: alta, lugar: '3.3' }, formulario: { X: alta, accion: uno.accion.id, valores: { box: 3 } } }, eje, 'casa', GRANDE);
+  assert.deepEqual([f.sitio, f.formulario.campos.find((c) => c.nombre === 'box').valor], [null, 3], 'el formulario encima; la cruceta vuelve al cerrarlo');
+  // quien no es el dueño la ve, pero sin acciones; el mínimo se lee en su caja
+  assert.ok((await arbol({ foco: { X: alta, pv: 3 }, sitio: { X: alta, lugar: '3.3' } }, eje, 'huesped', GRANDE)).sitio.posiciones.every((p) => p.accion === null));
+  assert.deepEqual(a.centro.rejilla.celdas.find((c) => c.caja === 3).minimo.cantidad, 1);
+});
+
+test('arrastrar a alguien de una caja del 3 a otra reclasifica la conversación (al 5, vetar), en Mapped y en Sequenced: gestos → reclasificar → «move to group»', async () => {
+  const { eje, alta } = await tresDeLaCasa();
+  // gestos.js: pulsar una persona, moverla más que el umbral y soltarla sobre otra caja
+  const g = gestosDeMentira();
+  const persona = { dataset: { persona: 'ana', caja: '3', x: eje.alta('ana').id }, classList: { add() {}, remove() {} } };
+  g.disparar('pointerdown', { pointerId: 1, clientX: 100, clientY: 100, button: 0, target: objetivo({ '[data-persona]': persona, '[data-x]': persona }) });
+  g.disparar('pointermove', { pointerId: 1, clientX: 160, clientY: 140, target: objetivo({}), preventDefault() {} });
+  g.disparar('pointerup', { pointerId: 1, clientX: 160, clientY: 140, target: objetivo({ '[data-caja]': { dataset: { caja: '5' } } }) });
+  g.disparar('click', { target: objetivo({ '[data-celda]': { dataset: { celda: 'x' } } }), preventDefault() {} });
+  assert.deepEqual(g.llamadas, [['reclasificar', 'ana', 5]], 'reclasifica, y el clic de soltar no entra');
+  // soltarla en su misma caja no reclasifica
+  const h = gestosDeMentira();
+  h.disparar('pointerdown', { pointerId: 2, clientX: 0, clientY: 0, button: 0, target: objetivo({ '[data-persona]': persona }) });
+  h.disparar('pointermove', { pointerId: 2, clientX: 40, clientY: 0, target: objetivo({}), preventDefault() {} });
+  h.disparar('pointerup', { pointerId: 2, clientX: 40, clientY: 0, target: objetivo({ '[data-caja]': { dataset: { caja: '3' } } }) });
+  assert.deepEqual(h.llamadas, []);
+  // lo que hace la app (carta/app.js): «move to group» sobre su alta, con la persona y la caja
+  const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
+  assert.match(app, /async reclasificar\(persona, caja\) \{[\s\S]*?enviar\(estado\.eje, alta, 'move to group', valores/);
+  const r = await A.transaccion(eje, 'move to group', { X: eje.alta('ana').id, whom: 'ana', zone: 5 }, 'casa', { t: '2026-11-08T10:09:00Z' });
+  assert.equal(r.ok, true, JSON.stringify(r.motivos));
+  await eje.anadir(r.evento);
+  const tres = (await arbol({ foco: { X: alta, pv: 3 } }, eje, 'casa', GRANDE)).centro.rejilla;
+  assert.deepEqual([3, 5].map((k) => tres.celdas.find((c) => c.caja === k).personas.map((p) => p.identidad)), [['huesped'], ['ana']]);
+  // en Sequenced (el móvil en vertical), la fila abierta del 3 lleva las mismas cajas y personas que se arrastran
+  const movil = html(await arbol({ foco: { X: alta, pv: 0 }, niveles: { 3: NIVEL.bloque } }, eje, 'casa', MOVIL));
+  assert.match(movil, /class="rejilla rejilla-apilada[^"]*"[^>]*data-rejilla="3"[\s\S]*?data-persona="ana" data-caja="5"/);
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  assert.match(css, /\.persona\{[^}]*touch-action:none/, 'mantener y arrastrar en el móvil: el navegador no se lleva el gesto');
+});

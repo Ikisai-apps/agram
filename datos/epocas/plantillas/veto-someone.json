@@ -1,0 +1,39 @@
+[
+  ["veto someone"],
+  [
+    [
+      ["whom"],
+      ["identity"],
+      ["=it != me and count it.6 > 0"],
+      ["me"],
+      ["payload"],
+      ["0"],
+      ["encargo pv3 (VG, 12-11, issue #32): parámetro de «veto someone»"],
+      ["required"],
+      [1],
+      [
+        "=first (before.3 where first it2.6 = first it.5 or (it2 = first it.3 and count (before.3 where first it3.6 = first it.5) = 0))",
+        "whom: an identity with an alta (by default, the one whose alta X is, or the owner of X)"
+      ]
+    ]
+  ],
+  ["=count (before.3 where first it2.6 = first it.5 and it2 != me) > 0 or (first it.3 != me and count (first it.3).6 > 0)"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ]
+  ],
+  ["3.5.3", "=first me.6"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): vetar es rechazar su R, el grupo 5 del 3 (vetados), y gana sobre cualquier R: el registro, con la identidad en su 0, se ancla en el 3.5.3 del alta de quien veta (los «quiénes» del grupo 5, A.3.5.3), así que la lectura «attention group» lo pone en la zona 5 (gana la más alta que lo nombra) y su precio es «nothing»: no le llegan sus mensajes («write to X» no se le ofrece y la regla de atención los rechaza); la lectura del 3 lo pone en el 3.5 y la regla de elegibles no lo admite en nada del que veta. Arrastrarlo al 3.5 en la carta es lo mismo («move to group» con la zona 5)"
+  ],
+  ["epoch 0"],
+  [3, 9],
+  ["veto someone: {me} vetoes {first ev.0}"]
+]
