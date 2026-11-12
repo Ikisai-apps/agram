@@ -10,6 +10,10 @@
 //   listas          first M · last M · nth k M (desde 0) · M each d.d… · M where cond (it, it2… es el elemento;
 //                   en una lectura, regla con «read» en su 4, it es lo que se lee y el primer where da it2)
 //   árbol           up X · down X · path X (padre por el ancla 6.5, hijos anclados, hilo hasta la raíz; tope 10)
+//                   · under X (X y todo lo que cuelga de él, a cualquier profundidad, por llegada; el presupuesto es el tope)
+//   libro           moves X (los asientos del libro de X, por llegada: de un registro, lo que asentó su transacción,
+//                   también lo que añade el libro; de una identidad, donde es de o a; de una serie, todos los suyos)
+//   orden           M by e (M ordenado por e, de menor a mayor; los empates, por llegada; como where, da it2…)
 //   recuento        count · sum · max · min
 //   aritmética      + - * / floor
 //   comparación     = != < <= > >=
@@ -36,6 +40,10 @@
 //   contexto.padre(nodo)            el registro padre (por el ancla 6.5), null en la raíz, undefined si el
 //                                   nodo no es un registro
 //   contexto.hijos(nodo)            los registros anclados sobre él, por llegada; undefined si no es un registro
+//   contexto.subarbol(nodo, pres.)  (opcional) el nodo y todo lo que cuelga de él, por llegada; undefined si no es un
+//                                   registro. Sin él, under recorre hijos en profundidad
+//   contexto.asientos(nodo, pres.)  (opcional) los asientos del libro de un registro, una identidad o una serie, como
+//                                   ocupantes con su D-MOV; undefined si el nodo no tiene libro. Sin él, moves es ERROR
 //   contexto.valor(nodo)            el escalar de un nodo que no es número ni texto (el id de un registro),
 //                                   o undefined (una décupla no tiene valor)
 //   contexto.texto(nodo)            (opcional) cómo se escribe el nodo en un mensaje
@@ -63,7 +71,7 @@ export const NOMBRES = Object.freeze(['ev', 'epoch', 'before', 'me']);
  * «put v at X.d, colocar, solo reglas que escriben»; encargo 3b): vale verdadero y anota una escritura, que solo
  * evalúa una regla con «put» en su 4 (evaluarEscritura).
  */
-export const PALABRAS = Object.freeze(['first', 'last', 'nth', 'each', 'where', 'up', 'down', 'path', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
+export const PALABRAS = Object.freeze(['first', 'last', 'nth', 'each', 'where', 'by', 'up', 'down', 'path', 'under', 'moves', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
 
 /**
  * Límites de cálculo: pasos de una evaluación, ocupantes que el contexto puede
@@ -130,7 +138,7 @@ export class Presupuesto {
   }
 }
 
-const PREFIJAS = new Set(['first', 'last', 'count', 'sum', 'max', 'min', 'floor', 'up', 'down', 'path']);
+const PREFIJAS = new Set(['first', 'last', 'count', 'sum', 'max', 'min', 'floor', 'up', 'down', 'path', 'under', 'moves']);
 const COMPARACIONES = new Set(['=', '!=', '<', '<=', '>', '>=']);
 const RESERVADAS = new Set([...PALABRAS, ...NOMBRES, ...PRIMITIVAS, ...SIMBOLOS_FAMILIA]);
 
@@ -209,11 +217,13 @@ export function analizar(src, { sujeto = false } = {}) {
   function expresion() {
     entrar();
     let base = disyuncion();
-    while (es('id', 'where')) {
+    // where y by (VG 12-11, decisión 2 del estudio BQL-transacciones): los dos dan el siguiente it al elemento.
+    while (es('id', 'where') || es('id', 'by')) {
+      const n = ver().v;
       i++;
       nivelWhere++;
       const cond = disyuncion();
-      base = { n: 'where', base, cond, nivel: nivelWhere };
+      base = n === 'where' ? { n, base, cond, nivel: nivelWhere } : { n, base, clave: cond, nivel: nivelWhere };
       nivelWhere--;
     }
     salir();
@@ -493,6 +503,27 @@ function calcular(nodo, st) {
       }
       return fuera;
     }
+    case 'by': {
+      // Ordenar (VG 12-11): por la clave de cada elemento (un número o un texto, todas del mismo tipo), de menor a mayor;
+      // los empates, en el orden en que llegan. Una clave vacía es PENDIENTE; una lista de más de uno, ERROR (como G3).
+      const base = calcular(nodo.base, st);
+      const antes = st.its[nodo.nivel - 1];
+      const claves = [];
+      try {
+        for (const o of base) {
+          paso(st);
+          st.its[nodo.nivel - 1] = o;
+          const x = uno(calcular(nodo.clave, st), 'by', ctx);
+          const v = valorDe(x, ctx);
+          if (typeof v !== 'number' && typeof v !== 'string') throw fallo('by ordena por un número o un texto, no «' + leer(x, ctx) + '»');
+          claves.push(v);
+        }
+      } finally {
+        st.its[nodo.nivel - 1] = antes;
+      }
+      if (new Set(claves.map((v) => typeof v)).size > 1) throw fallo('by: las claves mezclan números y textos');
+      return base.map((o, k) => ({ o, k, v: claves[k] })).sort((a, b) => (a.v < b.v ? -1 : a.v > b.v ? 1 : a.k - b.k)).map((x) => x.o);
+    }
     case 'pref':
       return prefija(nodo.op, calcular(nodo.arg, st), st);
     case 'nth': {
@@ -588,6 +619,39 @@ function prefija(op, lista, st) {
         const h = ctx.hijos(o);
         if (h === undefined) throw fallo('down: «' + leer(o, ctx) + '» no es un registro');
         return h;
+      });
+    case 'under':
+      // Todo lo que cuelga (VG 12-11): el nodo y sus descendientes a cualquier profundidad, por llegada si el contexto
+      // lo sabe (subarbol); si no, en profundidad por hijos. Cada nodo cuesta del presupuesto: ese es el tope.
+      return lista.flatMap((o) => {
+        paso(st);
+        if (typeof ctx.subarbol === 'function') {
+          const todos = ctx.subarbol(o, st.presupuesto);
+          if (todos === undefined) throw fallo('under: «' + leer(o, ctx) + '» no es un registro');
+          paso(st, todos.length);
+          return todos;
+        }
+        if (ctx.hijos(o) === undefined) throw fallo('under: «' + leer(o, ctx) + '» no es un registro');
+        const fuera = [];
+        const pila = [o];
+        while (pila.length) {
+          const x = pila.pop();
+          paso(st);
+          st.presupuesto.gastar(1);
+          fuera.push(x);
+          const h = ctx.hijos(x) ?? [];
+          for (let k = h.length - 1; k >= 0; k--) pila.push(h[k]);
+        }
+        return fuera;
+      });
+    case 'moves':
+      // Leer el libro (VG 12-11, decisión 1): los asientos de cada nodo, con su D-MOV (docs/BQLM.md §3).
+      return lista.flatMap((o) => {
+        paso(st);
+        const a = typeof ctx.asientos === 'function' ? ctx.asientos(o, st.presupuesto) : undefined;
+        if (a === undefined) throw fallo('moves: «' + leer(o, ctx) + '» no es un registro, una identidad ni una serie del libro');
+        paso(st, a.length);
+        return a;
       });
     case 'path':
       return lista.flatMap((o) => {

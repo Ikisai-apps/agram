@@ -514,10 +514,19 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "6060969c90b7696379d90a36c90eb5e036a702700327878d0c530df600a0f1a1"
     },
     {
-      "ref": "182ed6516faf42095c41cc9810fe0864cc260b5c954f541372b37af7a103060b"
+      "ref": "18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71"
     },
     {
-      "ref": "85301ca57acb65990b393c4e30aaa36b0af3e3f1293abd1cdbecb1cba737f82e"
+      "ref": "6ca50905d9242646b8c92ebf365d470b079504a010a36f7e17ac349425e59d75"
+    },
+    {
+      "ref": "bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"
+    },
+    {
+      "ref": "7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09"
+    },
+    {
+      "ref": "e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574"
     },
     {
       "ref": "9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"
@@ -526,16 +535,16 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "f80ebc8da31aa6f366a0ceb043598b2e9885c20123aa6b81386879297893fffb"
     },
     {
-      "ref": "2920884790a9d8dc0a8d785693f4c87a9140d37c3806bd64002f8f35ddc58f12"
+      "ref": "ac849ec534e10f7139bd254bd2ec3a357df86b1d28babaa70f7b71526483e513"
     },
     {
       "ref": "990567541aba234ab8ad2e758e78dd0b20832b613046f3fb3af51961fb16a1cf"
     },
     {
-      "ref": "e6bd7119ced3004a12971dda3eefb7f681b0621189efe17898f56adf02221d81"
+      "ref": "ac078a27fc11b6213a945fca3c7fd2969bb3a1984464df2f21fbaf25b91997bf"
     },
     {
-      "ref": "0c7930e68a4629bb536656f718f456d5bbbacd50bb113e71cb00aab06996dd56"
+      "ref": "cd8c375175c656c4c902ebc420b043e942d15779825914a349b7103af3dd35cb"
     },
     {
       "ref": "a787f172195bcdb8aab325702d7068aa596df552b5ffec8753e0816b002abd0b"
@@ -1957,6 +1966,89 @@ export const EPOCA_0_BTML_DATOS = [
     [
       7,
       8
+    ],
+    [
+      [
+        600
+      ],
+      [
+        7200
+      ],
+      [
+        "the margins of the three clocks (X.6.8, VG 12-11 #42 and decision 4 of the estudio BQL-transacciones), in seconds: 0 how far the clock of the ledger may go ahead of the mark of Nostr, 1 how far either may go ahead of the block of Bitcoin (the time of a block admits about two hours); a signed difference beyond its margin is the only real incongruence (X.6.9, «clocks out of order»). Core, pendiente de revisar VG"
+      ]
+    ],
+    [
+      [
+        "future states",
+        "the states of the future of a record (VG 12-11, estudio BQL-transacciones: estadoDeEntrada falls to BQL; Core, pendiente de revisar VG): one row per state, [[name], [when: a formula «=…» of the minimal BQL with it = the movement that refers the record to a date, X.7.9 (the reading «dated movement»)], [its date: a formula with the same it]]; the first row whose formula gives true is the state of the record. The names are the core's; their texts, the screen's"
+      ],
+      [
+        [
+          "previsto"
+        ],
+        [
+          "=T in it.0.0.0"
+        ],
+        [
+          "=first it.7.1"
+        ]
+      ],
+      [
+        [
+          "bloqueado"
+        ],
+        [
+          "=lock in it.4 and sum ((first it.3.0).1.(it.0).2.(first it.7.2) each 1) > 0"
+        ],
+        [
+          "=first it.7.2"
+        ]
+      ],
+      [
+        [
+          "liberado"
+        ],
+        [
+          "=lock in it.4"
+        ],
+        [
+          "=first it.7.2"
+        ]
+      ],
+      [
+        [
+          "caducado"
+        ],
+        [
+          "=mint in it.4 and (first it.7.0).0 <= before.6.0.0"
+        ],
+        [
+          "=first it.7.0"
+        ]
+      ],
+      [
+        [
+          "caduca"
+        ],
+        [
+          "=mint in it.4"
+        ],
+        [
+          "=first it.7.0"
+        ]
+      ],
+      [
+        [
+          "caducado"
+        ],
+        [
+          "=burn in it.4"
+        ],
+        [
+          "=first it.6.0"
+        ]
+      ]
     ]
   ],
   [
@@ -4500,14 +4592,17 @@ export const EPOCA_0_BTML_DATOS = [
           "receiving R gives ten P on the root of its issuer: quien recibe R de su emisor obtiene {first epoch.1.1.4.1} P por unidad sobre el alta de su emisor",
           "share: la parte del P que obtuvo una identidad, esté en la mano que esté, en el dominio del registro, que está sobre ese registro",
           "stage: lo que el registro anunció en su 4.1 y aún no ha pasado, por estación: E pagar, P decidir, R atender, T trabajar",
+          "dated movement: el primer movimiento del registro que se refiere a una fecha: el T futuro declarado, lo bloqueado hasta una fecha, una emisión de E que caduca o la quema de E propia",
+          "for when: la fecha a la que se refiere el registro, en segundos: la de su movimiento con fecha, o su propio instante si quema E propia",
+          "clocks out of order: el reloj del libro, la marca de Nostr y el bloque de Bitcoin no van en orden",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
-          "how much: lo que se mueve en el nodo y en lo que cuelga de él con alguien que no es su dueño",
+          "how much: lo que se mueve en el nodo y en lo que cuelga de él, también lo que su dueño acuña o se mueve a sí mismo",
           "on what condition: los criterios sobre el nodo, lo anclado en su 2",
           "with whom: las identidades con las que se mueve algo en el nodo, quienes tienen la R de su dueño y lo que se le escribe en su 3",
           "what is done: el trabajo: lo que otro escribe en lo del dueño moviendo T, lo anunciado y pendiente, y a quién ha dado T el dueño",
           "where it fits: el registro sobre el que está anclado el nodo",
-          "where it comes from: su hilo hacia arriba, los registros de los que cuelga hasta la raíz",
-          "by when: el T futuro declarado en lo que cuelga del nodo, con su fecha",
+          "where it comes from: su hilo hacia arriba, los registros de los que cuelga hasta la raíz; y su diario, todo lo que le ha llegado a él y a lo que cuelga de él, lo más reciente primero",
+          "by when: lo que cuelga del nodo y se refiere a una fecha (el T futuro declarado, lo bloqueado hasta una fecha, lo que caduca), lo más próximo primero",
           "against others: sus hermanos, lo anclado sobre el mismo registro",
           "how: las acciones que su plantilla nombra como camino",
           "T is not locked: {first ev.3} bloquea o libera T; bloquear es de E, P y R",
@@ -5747,7 +5842,7 @@ export const EPOCA_0_BTML_DATOS = [
     [
       [
         "steps",
-        "a step is a reading that gives a discrete value k out of de; the animation uses it as the frame index (step k → frame k): the states the engine no longer has. One row per point of view: [[pv], [name], [k], [de], [note]]; pv is a digit or * (every element); k and de are formulas «=…» of the minimal BQL with it = the record (its first where gives it2), or the name of a reading the core already gives: maturity (contrato.madurez: the level among the levels of its template or of epoch.8.4) and share box (the box 0-9 of the share of the record against its parent, bases.cajaDeCuota over mapped.cuota, in the series it moves most), and when scale (encargo «datos3»: the calendar scale of the date the record refers to, contrato.escalaDeFecha over contrato.estadoDeEntrada). Encargo 3c-2b (tras 3c-1); the rows: Core, pendiente de revisar VG"
+        "a step is a reading that gives a discrete value k out of de; the animation uses it as the frame index (step k → frame k): the states the engine no longer has. One row per point of view: [[pv], [name], [k], [de], [note]]; pv is a digit or * (every element); k and de are formulas «=…» of the minimal BQL with it = the record (its first where gives it2), or the name of a reading the core already gives: maturity (contrato.madurez: the level among the levels of its template or of epoch.8.4) and share box (the box 0-9 of the share of the record against its parent, bases.cajaDeCuota over mapped.cuota, in the series it moves most). The step «cuando» was the reading when scale (contrato.escalaDeFecha in JavaScript) and is BQL since VG 12-11 (estudio BQL-transacciones): the count of the scales of epoch.7.0 (each by its position: epoch.7.0 is one décupla) that the distance between the date the record refers to (X.7.7, «for when», in seconds) and the clock of the ledger (before.6.0) reaches, without the coarsest. Encargo 3c-2b (tras 3c-1); the rows: Core, pendiente de revisar VG"
       ],
       [
         [
@@ -5808,13 +5903,13 @@ export const EPOCA_0_BTML_DATOS = [
           "cuando"
         ],
         [
-          "when scale"
+          "=(count (epoch.7.0.0 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.1 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.2 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.3 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.4 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.5 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7)) where count (first it.7).7 > 0"
         ],
         [
           10
         ],
         [
-          "encargo «datos3» (issue #11; Core, pendiente de revisar VG): the calendar scale of the date the record refers to (the «when» of declare future T, the exit date of a lock, the expiry of an issue of E) seen from the clock of the ledger: the finest scale of epoch.7.0 that holds the distance, the coarsest beyond it; its digit in epoch.1.3.1, as escala; null if the record refers to no date"
+          "encargo «datos3» (issue #11; Core, pendiente de revisar VG): the calendar scale of the date the record refers to (the «when» of declare future T, the exit date of a lock, the expiry of an issue of E) seen from the clock of the ledger: the finest scale of epoch.7.0 that holds the distance, the coarsest beyond it; its digit in epoch.1.3.1, as escala (the scales of epoch.7.0 go in the order of epoch.1.3.1); null if the record refers to no date"
         ]
       ],
       [
@@ -6970,17 +7065,18 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "by-when.json",
-    "id": "0c7930e68a4629bb536656f718f456d5bbbacd50bb113e71cb00aab06996dd56",
+    "id": "cd8c375175c656c4c902ebc420b043e942d15779825914a349b7103af3dd35cb",
     "registro": [
       [
         "by when"
       ],
       [
-        "X.7",
-        "epoch.1.3.1"
+        "X.7.7",
+        "under",
+        "by"
       ],
       [
-        "js futuro"
+        "=(under it where count (first it2.7).7 > 0) by first (first it2.7).7"
       ],
       [
         7
@@ -6994,8 +7090,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-        "Envuelta: el T futuro declarado en el subárbol del nodo (un movimiento de T de la escala «futuro» de epoch.1.3.1, con la fecha a la que se refiere); el BQL mínimo no lee la fecha a la que se refiere un movimiento informativo",
-        "Encargo «datos3» (issue #11, Core, pendiente de revisar VG): da lo que en el subárbol tiene un estado del futuro (contrato.estadoDeEntrada: previsto, el T futuro con su «when»; bloqueado o liberado, un bloqueo cuya salida es una fecha, lo que hace «commit time»; caduca o caducado, una emisión de E con caducidad o la quema de E propia), ordenado por esa fecha (lo más próximo primero) y no por el t del registro; el BQL mínimo no ordena por fechas"
+        "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+        "En BQL (antes «js futuro», contrato.diario y contrato.estadoDeEntrada): lo del nodo y de todo lo que cuelga de él (under) que se refiere a una fecha (X.7.7, la lectura «for when», sobre X.7.9, «dated movement»: el T futuro declarado, lo bloqueado hasta una fecha, lo que caduca), ordenado por esa fecha (by) y no por el t del registro; a igual fecha, por llegada. Su estado (previsto, bloqueado, liberado, caduca, caducado) lo dan los estados de epoch.7.4"
       ],
       [
         "epoch 0"
@@ -7005,6 +7101,85 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "by when: what hangs from the node and refers to a date (the future T declared, what is locked until a date, what expires), soonest first"
+      ]
+    ]
+  },
+  {
+    "archivo": "clocks-out-of-order.json",
+    "id": "bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8",
+    "registro": [
+      [
+        "clocks out of order"
+      ],
+      [
+        "X.6.8",
+        "epoch.7.3"
+      ],
+      [
+        "=count (first it.6).8.1 > 0 and (first (first it.6).8.0).0 > (first (first it.6).8.1).0 + first epoch.7.3.0 or count (first it.6).8.2 > 0 and (first (first it.6).8.0).0 > (first (first it.6).8.2).0 + first epoch.7.3.1 or count (first it.6).8.1 > 0 and count (first it.6).8.2 > 0 and (first (first it.6).8.1).0 > (first (first it.6).8.2).0 + first epoch.7.3.1"
+      ],
+      [
+        "X.6.9"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+        "VG 12-11 (#42): la «incongruencia de escala» era un invento del mockup y se retira; la única incongruencia real son los tres relojes fuera de orden (X.6.8: 0 el t del libro, 1 la marca de Nostr al transportarlo, 2 el bloque de Bitcoin que lo ancla). Se puntúan como el vector de diferencias con signo del encaje: una diferencia negativa más allá de su margen (epoch.7.3) es la cuenta rara; las distancias, latencias de anclaje, serán la medida del 8 (sin uso hasta que haya transporte)",
+        "Hoy siempre da falso: ni Nostr ni Bitcoin existen todavía. Se materializa en X.6.9 (la posición que proponía el estudio; Core, pendiente de revisar VG)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after for when"
+      ],
+      [
+        "clocks out of order: the clock of the ledger, the mark of Nostr and the block of Bitcoin do not go in order"
+      ]
+    ]
+  },
+  {
+    "archivo": "dated-movement.json",
+    "id": "18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71",
+    "registro": [
+      [
+        "dated movement"
+      ],
+      [
+        "X.1",
+        "epoch.1.3.1",
+        "epoch.7.4"
+      ],
+      [
+        "=first (moves it where T in it2.0.0.0 and epoch.1.3.1.(it2.0.0.1).0 = \"futuro\" and count (first it2.7.1).0 > 0 or lock in it2.4 and count it2.7.2 > 0 or mint in it2.4 and E in it2.0.0.0 and count (first it2.7.0).0 > 0 or burn in it2.4 and E in it2.0.0.0 and it2.3.0 = first it2.0.0.1)"
+      ],
+      [
+        "X.7.9"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+        "El primer asiento del registro que lo refiere a una fecha, el que da su estado del futuro (los estados, epoch.7.4): el T futuro declarado (la escala «futuro» de epoch.1.3.1) con la fecha a la que se refiere (7.1); lo bloqueado hasta una fecha (7.2, lo que hace «commit time»); la emisión de E con caducidad (7.0); la quema de E propia (lo que hace «expire something mine»: su fecha es la del registro, 6.0)",
+        "Antes lo buscaba contrato.estadoDeEntrada en JavaScript entre los movimientos declarados; ahora se lee del libro con moves. Se materializa en X.7.9 (el 7, cómo: por qué movimiento tiene fecha; Core, pendiente de revisar VG)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after stage"
+      ],
+      [
+        "dated movement: the first movement of the record that refers to a date: the future T declared, what is locked until a date, an issue of E that expires, or the burn of one's own E"
       ]
     ]
   },
@@ -7170,6 +7345,45 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "for-when.json",
+    "id": "6ca50905d9242646b8c92ebf365d470b079504a010a36f7e17ac349425e59d75",
+    "registro": [
+      [
+        "for when"
+      ],
+      [
+        "X.7.9",
+        "X.6.0"
+      ],
+      [
+        "=(sum (first it.7).9.7.0.0 + sum (first it.7).9.7.1.0 + sum (first it.7).9.7.2.0 + count ((first it.7).9 where count it2.7 = 0) * sum (first it.6).0.0) where count (first it.7).9 > 0"
+      ],
+      [
+        "X.7.7"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+        "Para cuándo (el 7 en la profundidad 1): la fecha a la que se refiere el registro, en segundos, la de su movimiento con fecha (X.7.9): su 7.0.0, 7.1.0 o 7.2.0 (un movimiento lleva como mucho una) o, si no tiene 7 (la quema de E propia), el instante del registro. Nada si no se refiere a ninguna fecha. Se lee (first X.7).9 y (first X.6).0: el primer ocupante del 7 y del 6 de un registro es siempre lo que el núcleo lee ahí (lo implícito va delante), así que ni el payload ni lo anclado en su 7 o su 6 se cuelan",
+        "La leen «by when» (epoch.2, el PV 7: el orden) y el paso «cuando» (epoch.9.8: la escala del calendario a esa distancia del reloj del libro). Antes era contrato.estadoDeEntrada y contrato.escalaDeFecha en JavaScript"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after dated movement"
+      ],
+      [
+        "for when: the date the record refers to, in seconds: that of its dated movement, or its own instant if it burns its own E"
+      ]
+    ]
+  },
+  {
     "archivo": "getting-e-gives-ten-p-on-its-record.json",
     "id": "f5d4ad1bca9d4fafec9b1f7d7bad6c3bb07fb920ca04d6568f8ee6189b9694e2",
     "registro": [
@@ -7218,17 +7432,19 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "how-much.json",
-    "id": "85301ca57acb65990b393c4e30aaa36b0af3e3f1293abd1cdbecb1cba737f82e",
+    "id": "e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574",
     "registro": [
       [
         "how much"
       ],
       [
         "X.1",
-        "epoch.4.0"
+        "epoch.4.0",
+        "under",
+        "moves"
       ],
       [
-        "js flujo"
+        "=under it where count (moves it2 where not (it3.4.1 = \"asignacion\" or it3.4.1 = \"informativo\" or it3.4.1 = \"obtencion\") and not (burn in it3.4 and T in it3.0.0.0 and it3.3.0 = me)) > 0"
       ],
       [
         1
@@ -7242,7 +7458,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-        "Envuelta: los registros de todo el subárbol del nodo (contrato.diario) que mueven tokens con alguien que no es el dueño del nodo (transferir, acuñar o quemar con otra parte, o quemar otro), con sus movimientos; no cuentan la asignación del día, el T informativo ni el P que dan las reglas al escribir o al recibir R, ni lo que el dueño se mueve a sí mismo (el T que quema al escribir). El BQL mínimo no baja por un subárbol entero (down da un nivel y no hay unión) y recorrerlo reventaría el presupuesto, como la madurez (X.8.6)"
+        "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+        "En BQL (antes «js flujo», contrato.diario): los registros del nodo y de todo lo que cuelga de él (under) cuyos asientos del libro (moves) mueven algo: no cuentan la asignación del día, el T informativo ni el P que dan las reglas (la clase del asiento, 4.1), ni el T que el dueño quema al escribir. VG 12-11 (#44): SÍ cuenta lo que el dueño se mueve a sí mismo (acuñar es crear: un sofá en E, lo mismo en P y R); sin tope en el núcleo (la pantalla pagina)"
       ],
       [
         "epoch 0"
@@ -7251,7 +7468,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after what it is"
       ],
       [
-        "how much: what moves in the node and in what hangs from it with someone who is not its owner"
+        "how much: what moves in the node and in what hangs from it, also what its owner mints or moves to itself"
       ]
     ]
   },
@@ -8384,7 +8601,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "what-is-done.json",
-    "id": "2920884790a9d8dc0a8d785693f4c87a9140d37c3806bd64002f8f35ddc58f12",
+    "id": "ac849ec534e10f7139bd254bd2ec3a357df86b1d28babaa70f7b71526483e513",
     "registro": [
       [
         "what is done"
@@ -8392,13 +8609,14 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "X.4",
         "X.4.8",
-        "before.1"
+        "under",
+        "moves"
       ],
       [
-        "=it where not it in before.3 and first it2.3 != me and count (it2.1 where T in it3.0.0.0) > 0",
-        "=(down it) where first it2.3 != me and count (it2.1 where T in it3.0.0.0) > 0",
+        "=it where not it in before.3 and first it2.3 != me and count (moves it2 where T in it3.0.0.0) > 0",
+        "=(under it) where it2 != it and first it2.3 != me and count (moves it2 where T in it3.0.0.0) > 0",
         "=it.4.8",
-        "=before.3 where it2 = it and it2 != me and count (before.1 where count (it3.1 where T in it4.0.0.0 and it4.3.0 = me and it4.3.1 = it2) > 0) > 0"
+        "=it where it2 in before.3 and it2 != me and count (moves it2 where T in it3.0.0.0 and it3.3.0 = me and it3.3.1 = it2) > 0"
       ],
       [
         4
@@ -8412,7 +8630,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-        "En BQL: el trabajo, que es T (admitir es darle R y T): de un registro, él mismo o lo anclado sobre él si lo escribe otro que el dueño (me) quemando o moviendo T; lo anunciado y pendiente (la lectura «stage», X.4.8); de una identidad, ella misma si el dueño le ha dado T (lo laboral)"
+        "En BQL: el trabajo, que es T (admitir es darle R y T): de un registro, él mismo o lo anclado bajo él, a cualquier profundidad (under), si lo escribe otro que el dueño (me) moviendo T en sus asientos del libro (moves); lo anunciado y pendiente (la lectura «stage», X.4.8); de una identidad, ella misma si el dueño le ha dado T (lo laboral, sus asientos: moves de la identidad, sin recorrer el libro entero)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL. Decisión 9: el 4 lee el trabajo de todo el subárbol; la celda distingue lo directo (colgado del nodo) de lo heredado (más abajo): contrato.leer lo dice en el `nivel` de cada derivado"
       ],
       [
         "epoch 0"
@@ -8427,7 +8646,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "what-it-is.json",
-    "id": "182ed6516faf42095c41cc9810fe0864cc260b5c954f541372b37af7a103060b",
+    "id": "7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09",
     "registro": [
       [
         "what it is"
@@ -8457,7 +8676,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after stage"
+        "after clocks out of order"
       ],
       [
         "what it is: what the node is, its representations (its text or its resource)"
@@ -8466,17 +8685,20 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "where-it-comes-from.json",
-    "id": "e6bd7119ced3004a12971dda3eefb7f681b0621189efe17898f56adf02221d81",
+    "id": "ac078a27fc11b6213a945fca3c7fd2969bb3a1984464df2f21fbaf25b91997bf",
     "registro": [
       [
         "where it comes from"
       ],
       [
         "X.6.5",
-        "path"
+        "path",
+        "under",
+        "by"
       ],
       [
-        "=(path it) where it2 != it"
+        "=(path it) where it2 != it",
+        "=(under it where it2 != it) by 0 - (first it2.6.0).0"
       ],
       [
         6
@@ -8490,7 +8712,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-        "En BQL: de dónde viene el nodo, su hilo hacia arriba (path, sin el nodo: los registros de los que cuelga hasta la raíz). El diario (contrato.diario, lo llegado a su subárbol) es el pasado del registro, el 6 en la profundidad 0, que ya leen las franjas del mundo 6; aplicado a un nodo, «de dónde viene» es su hilo"
+        "En BQL: de dónde viene el nodo, su hilo hacia arriba (path, sin el nodo: los registros de los que cuelga hasta la raíz)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL. #45: el 6 lee las DOS cosas, siempre: el hilo (la primera fórmula) y el diario (la segunda: todo lo pasado que le ha llegado, sobre él y lo que cuelga de él, a cualquier profundidad, lo más reciente primero). El diario es más que el hilo pero no lo contiene; contrato.leer los separa por la fórmula de la que sale cada uno (`formula`) y por su `nivel` (negativo, hacia arriba)"
       ],
       [
         "epoch 0"
@@ -8499,7 +8722,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after where it fits"
       ],
       [
-        "where it comes from: its thread upwards, the records it hangs from up to the root"
+        "where it comes from: its thread upwards, the records it hangs from up to the root; and its journal, everything that has arrived on it and on what hangs from it, latest first"
       ]
     ]
   },
@@ -16482,7 +16705,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "5287a78753fbe9bccd3fc5eb970b60aeca91f7c3de139a9c2b790d49b9a21d8c";
+export const EPOCA_0_BTML_ID = "59a7900ad3707df371b16cb7718535c32a98ff8040ed2b759562efbdba6745c4";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

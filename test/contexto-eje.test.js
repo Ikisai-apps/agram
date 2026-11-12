@@ -86,7 +86,10 @@ test('D-MOV: cada movimiento es una décupla con su primitiva', async () => {
   });
   assert.deepEqual(ev.movimientos.map(primitivaDe), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn']);
   const ctx = new ContextoEje(null, { ev });
-  assert.deepEqual(val('ev.1.4', ctx), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn'].map((p) => SIMBOLOS[p]));
+  // VG 12-11 (decisión 3): el 4 de un movimiento es «qué se hace»: vale su primitiva, 4.0 la primitiva, 4.1 la clase del asiento.
+  assert.deepEqual(val('ev.1.4.0', ctx), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn'].map((p) => SIMBOLOS[p]));
+  assert.deepEqual(val('ev.1 each 4 where it = burn', ctx).length, 2, 'el 4 vale su primitiva');
+  assert.deepEqual(val('ev.1.4.1', ctx), [], 'un movimiento declarado no tiene clase de asiento');
   assert.deepEqual(val('ev.1.1', ctx), [2, 4, 1, 3, 1, 1]);
   // B3: el 0 de un movimiento es su serie, un registro: su 0 es la clave legible (0.0 familia, 0.1 escala o emisor o ámbito).
   assert.deepEqual(val('ev.1.0.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T'].map((f) => SIMBOLOS[f]));
@@ -123,7 +126,7 @@ test('D-META: el evento como registro: 3 autor (y firmante), 5 id, 6.0 t, 6.5 so
   assert.equal(uno('ev.6.0.3', ctx), diaCivil('2026-11-07T13:30:00Z'));
   assert.deepEqual(val('ev.6.5', ctx), [menu.id, '0000000000']);
   assert.equal(uno('count ev.1', ctx), 3, 'dos movimientos y la décupla del payload');
-  assert.deepEqual(val('ev.1.4', ctx), [SIMBOLOS.burn, SIMBOLOS.transfer]);
+  assert.deepEqual(val('ev.1.4.0', ctx), [SIMBOLOS.burn, SIMBOLOS.transfer]);
   // La décupla del payload: 1.0 sigue la referencia al 1 del menú (sus tres platos), 1.2 es una magnitud.
   assert.equal(evaluar('ev.1.0', ctx).texto, 'T:hora, E:casa/EUR, ensalada, guiso, fruta');
   assert.equal(uno('first ev.1.0 = "T:hora"', ctx), true, 'la serie vale su clave');

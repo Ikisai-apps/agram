@@ -1,0 +1,16 @@
+[
+  ["for when"],
+  ["X.7.9", "X.6.0"],
+  ["=(sum (first it.7).9.7.0.0 + sum (first it.7).9.7.1.0 + sum (first it.7).9.7.2.0 + count ((first it.7).9 where count it2.7 = 0) * sum (first it.6).0.0) where count (first it.7).9 > 0"],
+  ["X.7.7"],
+  ["read"],
+  ["*"],
+  [
+    "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+    "Para cuándo (el 7 en la profundidad 1): la fecha a la que se refiere el registro, en segundos, la de su movimiento con fecha (X.7.9): su 7.0.0, 7.1.0 o 7.2.0 (un movimiento lleva como mucho una) o, si no tiene 7 (la quema de E propia), el instante del registro. Nada si no se refiere a ninguna fecha. Se lee (first X.7).9 y (first X.6).0: el primer ocupante del 7 y del 6 de un registro es siempre lo que el núcleo lee ahí (lo implícito va delante), así que ni el payload ni lo anclado en su 7 o su 6 se cuelan",
+    "La leen «by when» (epoch.2, el PV 7: el orden) y el paso «cuando» (epoch.9.8: la escala del calendario a esa distancia del reloj del libro). Antes era contrato.estadoDeEntrada y contrato.escalaDeFecha en JavaScript"
+  ],
+  ["epoch 0"],
+  ["after dated movement"],
+  ["for when: the date the record refers to, in seconds: that of its dated movement, or its own instant if it burns its own E"]
+]

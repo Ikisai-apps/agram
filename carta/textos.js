@@ -119,6 +119,9 @@ export const TEXTOS = Object.freeze({
     entrarEnCelda: 'entrar en {que} (un nivel más adentro)',
     bajarTitulo: 'bajar al {d}: la celda se divide (un dígito más en la dirección)',
     derivadoPor: 'derivado del libro: {por}',
+    derivadoArriba: 'de su hilo, hacia arriba',
+    derivadoDirecto: 'directo: cuelga de aquí',
+    derivadoHeredado: 'heredado: de más abajo',
     abrirEnCelda: 'abrir {que}',
     sinBandaTitulo: 'sin una medida con la que ponerlo en una banda',
     masEnBanda: '+{n}',
@@ -166,13 +169,13 @@ export const TEXTOS = Object.freeze({
     paqueteAtendido: 'atendido',
     paquetePerdonado: 'perdonado',
     hiloSupuesto: 'no se sabe de qué hilo cuelga: va en el primero',
-    // el futuro de una cuenta (contrato.estadoDeEntrada) y su incongruencia (contrato.franjaDeEntrada)
+    // el futuro de una cuenta (contrato.estadoDeEntrada) y sus tres relojes fuera de orden (contrato.franjaDeEntrada, X.6.9)
     estadoPrevisto: 'previsto {fecha}',
     estadoBloqueado: 'bloqueado hasta {fecha}',
     estadoLiberado: 'liberado (era hasta {fecha})',
     estadoCaduca: 'caduca el {fecha}',
     estadoCaducado: 'caducado {fecha}',
-    incongruente: 'incongruente: declara {declarada} y por su fecha le toca {franja}',
+    cuentaRara: 'sus relojes no van en orden (libro, Nostr, Bitcoin)',
     // el cielo del 8: la cohorte y la base
     cohorte: 'cohorte',
     cohorteElegir: 'compararse con {cohorte}',

@@ -1,16 +1,17 @@
 [
   ["how much"],
-  ["X.1", "epoch.4.0"],
-  ["js flujo"],
+  ["X.1", "epoch.4.0", "under", "moves"],
+  ["=under it where count (moves it2 where not (it3.4.1 = \"asignacion\" or it3.4.1 = \"informativo\" or it3.4.1 = \"obtencion\") and not (burn in it3.4 and T in it3.0.0.0 and it3.3.0 = me)) > 0"],
   [1],
   ["point of view"],
   ["*"],
   [
     "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
     "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-    "Envuelta: los registros de todo el subárbol del nodo (contrato.diario) que mueven tokens con alguien que no es el dueño del nodo (transferir, acuñar o quemar con otra parte, o quemar otro), con sus movimientos; no cuentan la asignación del día, el T informativo ni el P que dan las reglas al escribir o al recibir R, ni lo que el dueño se mueve a sí mismo (el T que quema al escribir). El BQL mínimo no baja por un subárbol entero (down da un nivel y no hay unión) y recorrerlo reventaría el presupuesto, como la madurez (X.8.6)"
+    "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+    "En BQL (antes «js flujo», contrato.diario): los registros del nodo y de todo lo que cuelga de él (under) cuyos asientos del libro (moves) mueven algo: no cuentan la asignación del día, el T informativo ni el P que dan las reglas (la clase del asiento, 4.1), ni el T que el dueño quema al escribir. VG 12-11 (#44): SÍ cuenta lo que el dueño se mueve a sí mismo (acuñar es crear: un sofá en E, lo mismo en P y R); sin tope en el núcleo (la pantalla pagina)"
   ],
   ["epoch 0"],
   ["after what it is"],
-  ["how much: what moves in the node and in what hangs from it with someone who is not its owner"]
+  ["how much: what moves in the node and in what hangs from it, also what its owner mints or moves to itself"]
 ]

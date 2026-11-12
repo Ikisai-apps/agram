@@ -653,7 +653,7 @@ test('diario: cada entrada con el PV de X del que cuelga (su «en», o la posici
   assert.equal(de(c.cuenta).pv, 1, 'la cuenta modifica el 1 de la compra');
   assert.equal(de(c.pagar).pv, 4, 'un anuncio del 4.1');
   assert.deepEqual([de(c.manana).pv, de(c.semana).pv, de(c.plazo).pv, de(c.cohorte).pv], [7, 7, 7, 8]);
-  assert.deepEqual([de(c.manana).estado, de(c.cuenta).estado], [{ tipo: 'previsto', fecha: '2026-11-08T13:30:00Z', cantidad: 1 }, null]);
+  assert.deepEqual([de(c.manana).estado, de(c.cuenta).estado], [{ tipo: 'previsto', fecha: '2026-11-08T13:30:00Z', serie: 'T:futuro', cantidad: 1 }, null]);
   // anclada en la raíz del menú, la compra se refiere a su 1 ({ ref: menu, dir: '1000000000' }): cuelga del 1 del menú
   assert.equal(C.pvDeEntrada(c.eje, c.menu.id, c.compra.id), 1);
   assert.equal(C.pvDeEntrada(c.eje, c.compra.id, c.menu.id), null, 'el menú no cuelga de la compra');
@@ -666,7 +666,8 @@ test('diario: cada entrada con el PV de X del que cuelga (su «en», o la posici
 
 test('estadoDeEntrada: previsto (T futuro con su «when»), bloqueado hasta y liberado (un bloqueo con fecha), caduca y caducado (la caducidad de una emisión de E o la quema de E propia)', async () => {
   const c = await conFuturo();
-  assert.deepEqual(C.estadoDeEntrada(c.eje, c.semana.id), { tipo: 'previsto', fecha: '2026-11-12T20:00:00Z', cantidad: 2 });
+  // En BQL desde VG 12-11: los estados de epoch.7.4 sobre el movimiento con fecha (X.7.9); el previsto también dice su serie.
+  assert.deepEqual(C.estadoDeEntrada(c.eje, c.semana.id), { tipo: 'previsto', fecha: '2026-11-12T20:00:00Z', serie: 'T:futuro', cantidad: 2 });
   const plazo = C.estadoDeEntrada(c.eje, c.plazo.id);
   assert.deepEqual([plazo.tipo, plazo.fecha, plazo.cantidad], ['bloqueado', '2026-11-30T12:00:00Z', 5]);
   assert.equal(c.eje.bloqueado('huesped', plazo.serie, plazo.fecha), 5, 'sigue bloqueado en el libro');
@@ -683,22 +684,23 @@ test('estadoDeEntrada: previsto (T futuro con su «when»), bloqueado hasta y li
   assert.equal(C.estadoDeEntrada(c.eje, c.cuenta.id), null);
 });
 
-test('la franja de una entrada del 7 es la de la fecha a la que se refiere (epoch.7.0 desde el reloj del libro) y, si no tiene, la de su escala; incongruente si no coinciden', async () => {
+test('la franja de una entrada del 7 es la de la fecha a la que se refiere (epoch.7.0 desde el reloj del libro) y, si no tiene, la de su escala; sin incongruencia de escala (#42): rara solo con los tres relojes fuera de orden', async () => {
   const c = await conFuturo();
   const escalas = Object.fromEntries(C.divisionDelMundo(c.eje, 7).bandas.map((b) => [b.nombre, b.escala]));
   // el reloj del libro es el del último registro (2026-11-07T16:13): mañana a las 13:30 cae en «día», el 12 en «semana», el 30 en «ciclo»
   assert.deepEqual([c.manana, c.semana, c.plazo].map((x) => C.franjaDeEntrada(c.eje, x.id, 7).k), [escalas['día'], escalas.semana, escalas.ciclo]);
-  assert.deepEqual(C.franjaDeEntrada(c.eje, c.manana.id, 7), { k: escalas['día'], paso: 'cuando', declarada: escalas.minuto, incongruente: true }, 'declara un minuto (lo que quema al escribir) y por su fecha le toca un día');
-  assert.equal(pasoDe(c.eje, c.manana.id, 'cuando').k, escalas['día'], 'el paso «cuando» de epoch.9.8 (mecanismo «when scale»)');
-  assert.deepEqual(C.franjaDeEntrada(c.eje, c.cuenta.id, 7), { k: escalas.minuto, paso: 'escala', declarada: escalas.minuto, incongruente: false }, 'sin fecha, por su escala');
-  assert.deepEqual(C.franjaDeEntrada(c.eje, c.cuenta.id, 6), { k: escalas.minuto, paso: 'escala', declarada: escalas.minuto, incongruente: false }, 'el 6, solo por su escala');
-  // con otro reloj, otra franja; más allá del año, la más gruesa
-  assert.equal(C.escalaDeFecha(c.eje, '2026-11-12T20:00:00Z', { t: '2026-11-12T19:30:00Z' }), escalas.hora);
-  assert.equal(C.escalaDeFecha(c.eje, '2030-01-01T00:00:00Z'), escalas['año']);
-  assert.equal(C.escalaDeFecha(c.eje, 'no es una fecha'), null);
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.manana.id, 7), { k: escalas['día'], paso: 'cuando', rara: false }, 'declara un minuto (lo que quema al escribir) y por su fecha le toca un día: ya no es incongruente (#42)');
+  assert.equal(pasoDe(c.eje, c.manana.id, 'cuando').k, escalas['día'], 'el paso «cuando» de epoch.9.8 (una fórmula BQL sobre X.7.7 y before.6.0)');
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.cuenta.id, 7), { k: escalas.minuto, paso: 'escala', rara: false }, 'sin fecha, por su escala');
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.cuenta.id, 6), { k: escalas.minuto, paso: 'escala', rara: false }, 'el 6, solo por su escala');
+  // con otro reloj, otra franja; más allá del año, la más gruesa; sin fecha, ninguna
+  assert.equal(pasoDe(c.eje, c.semana.id, 'cuando', { t: '2026-11-12T19:30:00Z' }).k, escalas.hora);
+  assert.equal(pasoDe(c.eje, c.semana.id, 'cuando', { t: '2029-01-01T00:00:00Z' }).k, escalas['año']);
+  assert.equal(pasoDe(c.eje, c.cuenta.id, 'cuando').k, null);
+  assert.equal('escalaDeFecha' in C, false, 'when scale cayó a BQL: ya no hay escalaDeFecha en JavaScript');
   // es un dato de la época: sin «cuando» en lo que mide el 7, todo por su escala
   const sinCuando = epocaCon((e) => { filaDelMundo(e, 7)[4] = ['epoch.1.3', 'epoch.7', 'escala']; });
-  assert.deepEqual(C.franjaDeEntrada(c.eje, c.manana.id, 7, { epoca: sinCuando }), { k: escalas.minuto, paso: 'escala', declarada: escalas.minuto, incongruente: false });
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.manana.id, 7, { epoca: sinCuando }), { k: escalas.minuto, paso: 'escala', rara: false });
 });
 
 test('cohortes y cohorteDe: las que admite «change cohort» (su validación), la que eligió el dueño, los comparables por caja de su cuota en ella y quién escribió la base', async () => {

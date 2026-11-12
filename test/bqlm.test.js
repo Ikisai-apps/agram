@@ -57,7 +57,8 @@ const espera = (src, re, c = ctx) => {
 test('léxico: tres estados, las palabras cortas y las cinco primitivas', () => {
   assert.deepEqual(ESTADOS, ['RESUELTO', 'PENDIENTE', 'ERROR']);
   // Encargo 3b: put … at … (colocar, mapa §16 [D]: «put v at X.d, solo reglas que escriben») entra en el léxico.
-  assert.deepEqual(PALABRAS, ['first', 'last', 'nth', 'each', 'where', 'up', 'down', 'path', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
+  // VG 12-11 (estudio BQL-transacciones, decisiones 1 y 2): moves (leer el libro), under (todo lo que cuelga) y by (ordenar).
+  assert.deepEqual(PALABRAS, ['first', 'last', 'nth', 'each', 'where', 'by', 'up', 'down', 'path', 'under', 'moves', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
   assert.deepEqual(PRIMITIVAS, ['mint', 'transfer', 'lock', 'release', 'burn']);
   assert.equal(LIMITES.hilo, 10);
 });
