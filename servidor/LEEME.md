@@ -66,6 +66,16 @@ node servidor/prueba/servidor.mjs --puerto 8787 --archivo /tmp/libro.json    # p
 
 El mismo contrato en `http://127.0.0.1:8787` (`POST /ejes` con `X-Crear-Ejes: prueba`, `POST /eventos`, `GET /eventos`), sin Supabase. Diferencias con la función de Deno: **ninguna de contrato**. Cambian el almacén (memoria o JSON en vez de PostgREST), la criptografía (el núcleo, en vez de `verificar.js`; `test/paridad-funcion.test.js` comprueba que deciden lo mismo), que `POST /ejes` se autoriza con `--secreto`/`AGRAM_CREAR_EJES` (no hay clave de servicio) y que, además de `/eventos/ejes`, responde en `/ejes`. Las pruebas lo arrancan en un puerto libre: `test/servidor-prueba.test.js` (el contrato), `test/sincronia.test.js` (el cliente).
 
+## El sello de tiempo (simulación de StateArk)
+
+El tercer reloj de cada registro (`X.6.8.2`, el bloque de Bitcoin que lo sella; `docs/CONTRATO.md` §4.4) lo pone `src/sello.js`. Hoy **no hay Bitcoin ni StateArk**: `servidor/sim/stateark/` es una **simulación** (copia del commit b65c93d de `InTheState/stateark/sim`, ver su `LEEME.md`), JavaScript puro, sin dependencias, con las pruebas en `test/sim-stateark.test.js`. Cuando exista StateArk real se sustituye con la misma forma (`sellar`, `prueba`, `verificar`).
+
+```sh
+node servidor/sim/stateark/servidor.js 8787 600000      # un servicio de sello local; un bloque cada 10 min (sin el segundo número, solo POST /minar)
+```
+
+`POST /sellar` `{ ids }`, `GET /prueba/:id` (202 si pendiente, 404 si nunca se selló), `POST /verificar` `{ id, prueba }` y `POST /minar` (solo en la simulación). Escucha solo en 127.0.0.1, con CORS abierto. Por el servicio **solo pasan ids** (SHA-256 del cuerpo), nunca eventos. La carta lo usa si la configuración trae «sello url» (junto a «sync url»; **aún no está en la plantilla de preferencias**, ver el §4.4 del contrato); en Node, `sello.crearSello()` sin url usa la simulación en memoria.
+
 ## La guía del PV9 (función `guia`)
 
 La carta tiene una guía de solo lectura en el PV9 que pregunta a Claude con el contexto de la pantalla (`docs/CONTRATO.md` §16). Su vía preferida es esta función, hermana de `eventos`: la clave de Anthropic vive en el servidor, nunca en el navegador ni en el repositorio.

@@ -18,7 +18,8 @@
 //            (0 segundo, 1 minuto, 2 hora, 3 día civil, 4 semana, 5 ciclo de 28 días, 6 año de 364 + 1)
 //   D-VALOR  un terminal «12 EUR» o «EUR 12»: 1 cuánto, 2 unidad (solo lectura)
 //   relojes  X.6.8, los tres relojes de un registro (VG 12-11, decisión 4): 6.8.0 su t del libro, 6.8.1 la marca de
-//            Nostr al transportarlo, 6.8.2 el bloque de Bitcoin que lo ancla (vacíos hasta que exista el transporte)
+//            Nostr al transportarlo, 6.8.2 el bloque de Bitcoin que lo sella: su instante, su altura y su hash (eje.sello, de
+//            src/sello.js; vacíos hasta que exista el transporte y el sello esté en un bloque)
 //   vistas   de una identidad A: A.1 la cartera (un ocupante por serie: 0 serie, 1 disponible,
 //            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.2.1 su P posicionado (por registro,
 //            con sus orígenes en el 6), A.2.6 el P de su origen en todas las manos (encargo 3b-bis;
@@ -40,7 +41,7 @@
 //
 // Solo usa la API pública del eje (obtener, alta, libro.vista, gastadoT,
 // series, serie, vivo, registroDe, sobre, identidades, tMaximo, genesisId,
-// obtenidoPor, recibidoDelEmisor; sin libro, saldos, saldo y bloqueos).
+// obtenidoPor, recibidoDelEmisor, sello; sin libro, saldos, saldo y bloqueos).
 // Lo que el libro tendría que dar y hoy se lee aparte: docs/BQLM.md §7,
 // «Pendiente de integrar». No lee el tipo de ninguna identidad (R10).
 
@@ -932,8 +933,15 @@ export class ContextoEje {
         // El 6 de un movimiento: 0 su instante (el t del registro que lo asienta), 5 ese registro.
         return d === 0 ? (esInstante(nodo.v.t) ? [nodo.v.t] : []) : d === 5 && nodo.v.registro ? [nodo.v.registro] : [];
       case 'relojes':
-        // X.6.8: 0 el t del libro; 1 la marca de Nostr y 2 el bloque de Bitcoin, vacíos hasta que exista el transporte.
+        // X.6.8: 0 el t del libro; 1 la marca de Nostr, vacía hasta que exista el transporte; 2 el bloque de Bitcoin que lo
+        // sella (src/sello.js), vacío hasta que el sello esté en un bloque: su instante (que se despliega como fecha, como
+        // el 0: es lo que compara «clocks out of order»), su altura y su hash. Lo da el eje (eje.sello), una vista del libro
+        // que no es parte del cuerpo firmado ni del id.
         if (d === 0) return nodo.e.t === undefined ? [] : [nodo.e.t];
+        if (d === 2) {
+          const sello = nodo.e.id ? this.#eje.sello?.(nodo.e.id) : null;
+          return sello ? [sello.instante, sello.altura, sello.hash] : [];
+        }
         return [];
       case 'par':
         return d === 0 ? [nodo.de ?? NADIE] : d === 1 ? [nodo.a ?? NADIE] : [];

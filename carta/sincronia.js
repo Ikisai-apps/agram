@@ -13,7 +13,7 @@
 //   enSerie(fn)                       → las llamadas de una en una: la que llega con otra en marcha, se repite al acabar
 //   lineaDeEstado(S, informe)         → lo que enseña la línea de estado (carta/dom.js htmlSincronia)
 
-import { sincronia } from '../src/index.js';
+import { sincronia, sello as selloDeTiempo } from '../src/index.js';
 import * as cuentas from './cuentas.js';
 import { t } from './textos.js';
 
@@ -30,7 +30,7 @@ const mismoDestino = (datos, d) => datos && datos.url === d.url && datos.eje ===
 /**
  * La sincronía de una cuenta, o null si no sincroniza (sin `sync url` o `sync ledger` en la configuración de `yo`,
  * o sin clave de lectura en este navegador). Restaura la guardada en agram.sync.estado.<alta> si es del mismo
- * destino; si no, una nueva. Marca en el eje el reloj de los demás con lo ya recibido.
+ * destino; si no, una nueva. Marca en el eje el reloj de los demás y los sellos de tiempo con lo ya recibido.
  */
 export function abrir({ alta, eje, yo, fetch = fetchDeLaPlataforma(), ahora } = {}) {
   if (!alta || !eje) return null;
@@ -38,7 +38,8 @@ export function abrir({ alta, eje, yo, fetch = fetchDeLaPlataforma(), ahora } = 
   if (!d) return null;
   const claveLectura = cuentas.claveLectura(alta);
   if (!claveLectura) return null;
-  const opciones = { claveLectura, fetch, ...(ahora ? { ahora } : {}) };
+  // El sello de tiempo (X.6.8.2, src/sello.js): solo si la configuración dice «sello url»; sin ella, nada se sella.
+  const opciones = { claveLectura, fetch, sello: selloDeTiempo.deConfiguracion(eje, yo, { fetch }), ...(ahora ? { ahora } : {}) };
   let S = null;
   const datos = cuentas.estadoSincronia(alta);
   if (mismoDestino(datos, d)) {
@@ -50,6 +51,7 @@ export function abrir({ alta, eje, yo, fetch = fetchDeLaPlataforma(), ahora } = 
   }
   S ??= new Sincronia({ url: d.url, eje: d.eje, ...opciones });
   S.marcarReloj(eje);
+  S.marcarSellos(eje);
   return S;
 }
 

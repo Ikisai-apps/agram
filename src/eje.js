@@ -47,7 +47,7 @@ import { claveToken, origenDe, cantidadBase, partirClave, validarMovimiento, cap
 import { acotarAltaV2, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
 import { evaluarEscritura, nombreDeRegla } from './bqlm.js';
 import { EPOCA_0_BTML } from './epocas.js';
-import { msUTC, msDeGuardado, segundosUTC } from './instante.js';
+import { msUTC, msDeGuardado, segundosUTC, esInstante } from './instante.js';
 import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } from './evento.js';
 import { firmar, firmarPosesion } from './autoridad.js';
 import { Libro, EMISION, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
@@ -89,6 +89,7 @@ export class Eje {
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
   #tPorAutor = new Map(); // autor → el mayor t aceptado de sus eventos, en milisegundos UTC (el reloj de los demás, SEG-05)
   #relojExterno = -Infinity; // la hora que dan los demás desde fuera del eje (el `recibido` del libro compartido, src/sincronia.js), en milisegundos UTC
+  #sellos = new Map(); // id → el sello de tiempo que lo ancla (src/sello.js): { altura, hash, instante, verificado }; vista del libro, fuera del cuerpo y del id (X.6.8.2)
 
   /**
    * exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave.
@@ -267,6 +268,32 @@ export class Eje {
   }
 
   /**
+   * El sello de tiempo que ancla un registro (el tercer reloj, `X.6.8.2`: el bloque de Bitcoin que lo sella,
+   * src/sello.js). Como el reloj externo, es una vista del libro que llega de fuera: NO es parte del cuerpo firmado, no
+   * cambia ningún id ni ninguna firma, y no entra en ninguna regla de escritura. `sello` = { altura, hash, instante }
+   * (la forma que da `prueba(id)` de src/sello.js; `verificado`, opcional, si `verificar` la dio por buena: el gancho
+   * de la estación «verificado»). Se queda con el sello más antiguo (el de menor instante). Devuelve si lo anotó;
+   * un registro que el eje no tiene, o un sello mal formado, se ignoran.
+   */
+  marcarSello(id, sello) {
+    if (!this.eventos.has(id) || !sello || typeof sello !== 'object') return false;
+    const { altura, hash, instante, verificado } = sello;
+    if (!Number.isSafeInteger(altura) || altura < 0 || typeof hash !== 'string' || !/^[0-9a-f]{64}$/.test(hash) || !esInstante(instante)) return false;
+    const antes = this.#sellos.get(id);
+    if (antes && msUTC(antes.instante) <= msUTC(instante)) {
+      if (verificado !== undefined && antes.altura === altura && antes.hash === hash) this.#sellos.set(id, Object.freeze({ ...antes, verificado: verificado === true }));
+      return false;
+    }
+    this.#sellos.set(id, Object.freeze({ altura, hash, instante, verificado: verificado === true }));
+    return true;
+  }
+
+  /** El sello de tiempo de un registro { altura, hash, instante, verificado } o null si aún no lo tiene (X.6.8.2). */
+  sello(id) {
+    return this.#sellos.get(id) ?? null;
+  }
+
+  /**
    * T de la asignación de una persona gastado en una escala un día (`periodo`,
    * el día civil: tokens.asignacionT): en el libro, lo acuñado a esa persona
    * con la clase «asignación» y la etiqueta de ese día.
@@ -402,6 +429,7 @@ export class Eje {
     const [g, ...resto] = todos;
     const nuevo = new Eje({ exigirFirmas: this.exigirFirmas, eventosV2: this.eventosV2 });
     nuevo.#relojExterno = this.#relojExterno;
+    nuevo.#sellos = this.#sellos;
     const motivos = await nuevo.#libro.evaluar(nuevo.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: this.eventosV2 > 0, reglas: this.eventosV2 > 0 ? 2 : 3, contextoBqlm: (epoch) => new ContextoEje(nuevo, { ev: g, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     nuevo.#aplicar(g);
@@ -438,6 +466,7 @@ export class Eje {
     this.#tMax = otro.#tMax;
     this.#tPorAutor = otro.#tPorAutor;
     this.#relojExterno = otro.#relojExterno;
+    this.#sellos = otro.#sellos;
   }
 
   get genesisId() {

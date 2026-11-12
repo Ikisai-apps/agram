@@ -27,11 +27,20 @@
 // El reloj: el `recibido` del servidor es la hora a la que los demás vieron el
 // evento, y entra en el eje como el reloj de los demás (eje.marcarReloj →
 // `before.6.3`), sin tocar las reglas ni ningún evento.
+//
+// El sello: con un adaptador `sello` (src/sello.js), tras asentar eventos nuevos (los que baja y los que sube) se piden
+// al servicio de sello sus ids (solo los ids), y en cada sincronización se pide la prueba de los pendientes; la que ya está
+// en un bloque se comprueba (`verificar`) y, si vale, entra en el eje como el tercer reloj del registro (eje.marcarSello →
+// X.6.8.2: altura, hash e instante). Es una vista del libro: no toca el evento, su id ni su firma. Un fallo del servicio de
+// sello nunca rompe la sincronización: se anota en el informe y se reintenta en la siguiente.
 
 import { Eje } from './eje.js';
 import { configuracion } from './contrato.js';
 
 export const VERSION_SINCRONIA = 1;
+
+/** Cuántas pruebas de sello se piden como mucho en cada sincronización (el resto, en la siguiente). */
+export const PRUEBAS_POR_PASADA = 500;
 
 /** Las claves de la configuración (plantilla «preferences», 8 y 9: docs/CONTRATO.md §15.7) que dicen dónde se comparte el eje. */
 export const CONFIGURACION = Object.freeze({ url: 'sync url', eje: 'sync ledger' });
@@ -90,13 +99,16 @@ export class Sincronia {
   #recibidos = new Map(); // id → recibido (ISO)
   #cola = new Map(); // id → { intentos, proximo, error }: lo pendiente de subir con sus reintentos
   #rechazados = new Map(); // id → { motivo, de }: lo que no entró (de: 'reglas', 'reorden' o 'servidor')
+  #sello; // el adaptador de src/sello.js, o null: sin él nada se sella
+  #sellos = new Map(); // id → 'por sellar' | 'pendiente' (en un lote, aún sin bloque) | { altura, hash, instante, verificado }
 
   /**
    * url: la base del servidor (…/functions/v1 en Supabase; http://127.0.0.1:8787 en pruebas). eje: el nombre del eje.
    * claveLectura: la clave de lectura (va en X-Clave-Lectura; nunca se guarda aquí). firmar (opcional): async (evento) →
-   * evento firmado, para lo local que llegara sin firma. fetch: la de la plataforma, o una de prueba.
+   * evento firmado, para lo local que llegara sin firma. fetch: la de la plataforma, o una de prueba. sello (opcional): el
+   * adaptador de src/sello.js; sin él no se sella nada.
    */
-  constructor({ url, eje, claveLectura, firmar, fetch = globalThis.fetch?.bind(globalThis), ahora = () => Date.now() } = {}) {
+  constructor({ url, eje, claveLectura, firmar, fetch = globalThis.fetch?.bind(globalThis), ahora = () => Date.now(), sello = null } = {}) {
     if (typeof url !== 'string' || !url) throw new TypeError('sincronía: hace falta la url del servidor');
     if (typeof eje !== 'string' || !eje) throw new TypeError('sincronía: hace falta el nombre del eje');
     this.#url = url.replace(/\/+$/, '');
@@ -105,6 +117,7 @@ export class Sincronia {
     this.#firmar = firmar;
     this.#fetch = fetch;
     this.#ahora = ahora;
+    this.#sello = sello ?? null;
   }
 
   get url() {
@@ -143,6 +156,25 @@ export class Sincronia {
   /** Olvida los rechazos (para volver a intentarlo tras arreglar algo). */
   olvidarRechazados() {
     this.#rechazados.clear();
+  }
+
+  /** El adaptador de sello de esta sincronía (o null). */
+  get sello() {
+    return this.#sello;
+  }
+
+  /** Cambia el adaptador de sello (o lo quita con null): la configuración pudo cambiar. */
+  usarSello(sello) {
+    this.#sello = sello ?? null;
+  }
+
+  /**
+   * El estado del sello de un registro: { altura, hash, instante, verificado } si ya está en un bloque (`verificado`: la
+   * prueba pasó `verificar`; el gancho de la estación «verificado»), 'pendiente' si está en un lote sin bloque, 'por sellar'
+   * si aún no se ha pedido, o undefined si no se conoce.
+   */
+  estadoDeSello(id) {
+    return this.#sellos.get(id);
   }
 
   /** Los ids del eje local que el servidor aún no tiene, en orden de entrada. */
@@ -209,6 +241,13 @@ export class Sincronia {
     return ejeLocal.relojExterno;
   }
 
+  /** Marca en el eje los sellos ya recibidos (tras restaurar, como marcarReloj): el tercer reloj, X.6.8.2. */
+  marcarSellos(ejeLocal) {
+    let n = 0;
+    for (const [id, e] of this.#sellos) if (typeof e === 'object' && ejeLocal.marcarSello(id, e)) n += 1;
+    return n;
+  }
+
   /**
    * Sincroniza: baja lo nuevo y lo añade al eje local validándolo con las
    * reglas (lo que no pasa, a `rechazados`); reordena el eje local por el
@@ -255,7 +294,54 @@ export class Sincronia {
     // Sin red al bajar, se intenta igual subir lo pendiente: así queda en cola con su espera (el primer intento falla).
     if (subir) await this.#subirPendientes(eje, informe);
     informe.pendientes = this.pendientes(eje);
+    await this.#sellar(eje, informe);
     return informe;
+  }
+
+  /**
+   * El sello, tras asentar: lo nuevo (lo bajado que entró y lo subido) pasa a `por sellar`; se piden al servicio los ids
+   * por sellar de una vez (solo ids); de cada pendiente se pide la prueba, y la que ya está en un bloque se verifica y, si
+   * vale, se escribe en el eje (X.6.8.2). Informe: `sellos` { sellados: ids que entraron en el eje, pendientes: cuántos
+   * esperan bloque, errores }. Nunca lanza: un fallo del servicio de sello queda en `errores` y se reintenta la próxima vez.
+   */
+  async #sellar(eje, informe) {
+    if (!this.#sello) return;
+    informe.sellos = { sellados: [], pendientes: 0, errores: [] };
+    for (const id of [...informe.anadidos, ...informe.subidos]) if (eje.eventos.has(id) && !this.#sellos.has(id)) this.#sellos.set(id, 'por sellar');
+    const porSellar = [...this.#sellos].filter(([id, e]) => e === 'por sellar' && eje.eventos.has(id)).map(([id]) => id);
+    try {
+      if (porSellar.length) {
+        await this.#sello.sellar(porSellar);
+        for (const id of porSellar) this.#sellos.set(id, 'pendiente');
+      }
+      let pruebas = 0;
+      for (const [id, e] of [...this.#sellos]) {
+        if (e !== 'pendiente' || !eje.eventos.has(id)) continue;
+        if (pruebas++ >= PRUEBAS_POR_PASADA) {
+          informe.sellos.pendientes += 1; // el resto, en la próxima pasada
+          continue;
+        }
+        const p = await this.#sello.prueba(id);
+        if (p === null) {
+          this.#sellos.set(id, 'por sellar'); // el servicio no lo conoce (se reinició): se vuelve a pedir
+          informe.sellos.pendientes += 1;
+        } else if (p.pendiente) {
+          informe.sellos.pendientes += 1;
+        } else {
+          const v = await this.#sello.verificar(eje.obtener(id), p);
+          if (v?.ok !== true) {
+            informe.sellos.errores.push({ id, motivo: v?.motivo ?? 'la prueba no se pudo verificar' });
+            continue; // no entra en el eje; se vuelve a pedir la próxima vez
+          }
+          const sello = { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true };
+          eje.marcarSello(id, sello);
+          this.#sellos.set(id, eje.sello(id) ?? sello);
+          informe.sellos.sellados.push(id);
+        }
+      }
+    } catch (e) {
+      informe.sellos.errores.push({ id: null, motivo: e.message });
+    }
   }
 
   /** Mete lo nuevo del servidor en el eje local: por detrás si el orden local ya es el del servidor; si no, reordenando. */
@@ -334,6 +420,7 @@ export class Sincronia {
       recibidos: [...this.#recibidos],
       cola: [...this.#cola].map(([id, c]) => [id, { ...c }]),
       rechazados: [...this.#rechazados].map(([id, r]) => [id, { ...r }]),
+      ...(this.#sellos.size ? { sellos: [...this.#sellos].map(([id, e]) => [id, typeof e === 'object' ? { ...e } : e]) } : {}),
     };
   }
 
@@ -346,6 +433,10 @@ export class Sincronia {
     for (const [id, recibido] of datos.recibidos ?? []) s.#recibidos.set(id, recibido);
     for (const [id, c] of datos.cola ?? []) s.#cola.set(id, { intentos: c.intentos ?? 0, proximo: c.proximo ?? 0, error: c.error ?? null });
     for (const [id, r] of datos.rechazados ?? []) s.#rechazados.set(id, { motivo: r.motivo, de: r.de });
+    for (const [id, e] of datos.sellos ?? []) {
+      if (e === 'por sellar' || e === 'pendiente') s.#sellos.set(id, e);
+      else if (e && typeof e === 'object') s.#sellos.set(id, { altura: e.altura, hash: e.hash, instante: e.instante, verificado: e.verificado === true });
+    }
     return s;
   }
 }
