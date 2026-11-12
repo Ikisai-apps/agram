@@ -1,0 +1,16 @@
+[
+  ["the cost of writing"],
+  ["X.8.6.1", "epoch.7.0.1.1"],
+  ["=first (first it.8).6.1 * first epoch.7.0.1.1"],
+  ["ev"],
+  ["read"],
+  ["*"],
+  [
+    "VG 12-11 (estudio BQL-transacciones, decisión 7; #49): el coste de escribir es una sola regla de la época, no treinta copias de «quema un minuto» en las plantillas de transacción (el minuto fijo era un sucedáneo); la cantidad es la suma de lo que exige cada posición (la proporción A3: un minuto por posición, la de escribirDesde)",
+    "Una lectura con it = la candidata (su 3, ev): se lee antes de firmar, no se materializa en ninguna posición. Da lo exigido en segundos: las posiciones escritas del payload de la candidata ((first it.8).6.1, la medida bruta del 8.6, que en la candidata es solo lo suyo) por lo que exige cada una, el minuto del calendario (epoch.7.0.1.1, sesenta segundos). La leen src/escritura.js (exigido y costeT: escribirDesde) y src/acciones.js (transaccion: la T de una plantilla, en la escala pedida o en la menor que lo cubre); el ajuste fino por escalas y el botón de ejecutar con rango son de la carta",
+    "La condición «writing burns today's T» sigue pidiendo que el autor queme T de hoy (al menos uno, sin pasar de lo que le queda): no exige que la quema llegue a lo exigido. Core, pendiente de revisar VG: exigirlo en la validación obligaría a pagar por posición a todo lo que se escribe a mano (ejemplos y pruebas)"
+  ],
+  ["epoch 0"],
+  ["after clocks out of order"],
+  ["the cost of writing: what a record demands in T, in seconds: one minute of the calendar per position of its payload"]
+]

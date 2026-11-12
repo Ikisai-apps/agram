@@ -53,19 +53,20 @@ test('los cuatro pasos sobre los ejemplos: la compra, el menú, la cuenta, la re
   // La raíz: sin padre no hay cuota, y el génesis no quema T.
   const g = pasos(eje, eje.genesisId);
   assert.deepEqual([g.cuota.k, g.escala.k, g.ciclo], [null, null, { pv: 4, k: 0, de: 0 }]);
-  // La reserva anuncia cuatro movimientos (tres noches y el pago): confirmada, 4 de 4; recién escrita, 0 de 4; a medias, 3 de 4.
+  // La reserva hace dos anuncios (VG 12-11, decisión 8: las tres noches de la casa en uno, el pago en otro): confirmada,
+  // 2 de 2; recién escrita, 0 de 2; a medias, 1 de 2.
   const b = await ejemploReserva();
   const r = pasos(b.eje, b.reserva.id);
-  assert.deepEqual(r.ciclo, { pv: 4, k: 4, de: 4 });
+  assert.deepEqual(r.ciclo, { pv: 4, k: 2, de: 2 });
   assert.deepEqual(r.madurez, { pv: '*', k: 4, de: 5 }, 'los cinco niveles de «booking»');
   assert.equal(r.escala.k, 1);
   const abierta = await ejemploReserva({ confirmar: false });
-  assert.deepEqual(pasos(abierta.eje, abierta.reserva.id).ciclo, { pv: 4, k: 0, de: 4 });
+  assert.deepEqual(pasos(abierta.eje, abierta.reserva.id).ciclo, { pv: 4, k: 0, de: 2 });
   const { eje: e2, reserva: r2 } = await ejemploReserva({ confirmar: false });
   const { siguiente } = await import('../src/motor.js');
-  const mio = siguiente(e2, r2.id, 'casa').faltaDeMi.filter((x) => x.plantilla === 'move what was announced').map((x) => x.transaccion.movimientos[1]);
-  await e2.escribir({ autor: 'casa', sobre: r2.id, t: '2026-11-09T09:00:00Z', movimientos: [minuto('casa'), ...mio], payload: 'Plaza entregada' });
-  assert.deepEqual(pasos(e2, r2.id).ciclo, { pv: 4, k: 3, de: 4 }, 'entregadas las plazas, falta el pago');
+  const [{ transaccion: tx }] = siguiente(e2, r2.id, 'casa').faltaDeMi.filter((x) => x.plantilla === 'move what was announced');
+  await e2.escribir({ autor: 'casa', sobre: tx.sobre, en: tx.en, t: '2026-11-09T09:00:00Z', movimientos: [minuto('casa'), ...tx.movimientos.slice(1)], payload: 'Plaza entregada' });
+  assert.deepEqual(pasos(e2, r2.id).ciclo, { pv: 4, k: 1, de: 2 }, 'entregadas las plazas (sobre su anuncio), falta el pago');
   // La tarea de Tasks también anuncia movimientos en su 4.1.
   const t = await ejemploTarea();
   const pt = pasos(t.eje, t.tarea.id);

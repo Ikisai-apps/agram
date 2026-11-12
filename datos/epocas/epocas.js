@@ -512,7 +512,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "c18f55cc90fe2a94590a0dfedf5d92e35621c8f3c9dfbe818a897b00285fcfa8"
     },
     {
-      "ref": "6060969c90b7696379d90a36c90eb5e036a702700327878d0c530df600a0f1a1"
+      "ref": "3391bd026c160cb3a4ed261ca4a61366c72777b17616a9f2393a6852af1132b0"
     },
     {
       "ref": "18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71"
@@ -524,10 +524,13 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"
     },
     {
-      "ref": "7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09"
+      "ref": "4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7"
     },
     {
-      "ref": "e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574"
+      "ref": "fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a"
+    },
+    {
+      "ref": "5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"
     },
     {
       "ref": "9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"
@@ -654,7 +657,8 @@ export const EPOCA_0_BTML_DATOS = [
           "D-MOV"
         ],
         [
-          "un movimiento como décupla: 0 serie, 1 cuánto, 2 estado, salida y caducidad, 3.0 de, 3.1 a, 4 primitiva, 5 registro, 7 caducidad o fecha a la que se refiere, 9 nota"
+          "un movimiento como décupla: 0 serie, 1 cuánto, 2 estado, salida y caducidad, 3.0 de, 3.1 a, 4 primitiva, 5 registro, 7 caducidad o fecha a la que se refiere, 9 nota",
+          "VG 12-11 (decisión 8): el estado «anunciado» es lo que se moverá, sin tocar saldos; su 4.1, la clase «anuncio»; su 7.1, para cuándo (lo lee moves, no el 1 del registro)"
         ]
       ],
       [
@@ -742,6 +746,45 @@ export const EPOCA_0_BTML_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token; cada estación es [[familia], [qué se hace], [la plantilla de transacción que mueve un movimiento anunciado de esa familia: pay la E, deliver lo demás]]; la lectura «stage» (X.4.8) da lo anunciado y pendiente, y se agrupa por estación con before.4",
         "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): la cuarta posición de cada estación es lo que autoriza un anuncio pendiente, la estación intermedia «autorizada» entre propuesta y ejecutada; epoch.9.0.0 es el recuento del anuncio con el criterio de su dueño (motor.recuento: el P comprometido con él, con salida = el anuncio, pasa el umbral), la autorización como P que respalda; «-» si esa estación no tiene autorización. No cambia el motor ni la lectura «stage»: el anuncio sigue pendiente hasta que se mueve"
+      ]
+    ],
+    [
+      [
+        "stations of an announced movement",
+        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48, #50): el anuncio es un movimiento anunciado del libro (estado «anunciado»: no toca saldos) que el registro que se ancla sobre él cumple moviendo lo mismo; las estaciones por las que pasa son datos de la época y el motor solo comprueba. Una fila por estación, en su orden: [[nombre], [lo que la comprueba: una fórmula del BQL mínimo con it = el anuncio, o epoch.9.0.0, el recuento del anuncio con el criterio de su dueño (motor.recuento)]]; la estación de un anuncio es la última que se cumple (acciones.estacionDeAnuncio). Los nombres son los de la fábrica (la carta los pinta con su color)",
+        "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, lo que lo cumplió está anclado en un bloque de Bitcoin (X.6.8.2, vacío hasta que exista el transporte: #50, «sin verificar no se ejecuta» queda por hacer). Core, pendiente de revisar VG"
+      ],
+      [
+        [
+          "propuesta"
+        ],
+        [
+          "=count it.5 > 0"
+        ]
+      ],
+      [
+        [
+          "autorizada"
+        ],
+        [
+          "epoch.9.0.0"
+        ]
+      ],
+      [
+        [
+          "ejecutada"
+        ],
+        [
+          "=not (it in (first (first (up it)).4).8)"
+        ]
+      ],
+      [
+        [
+          "verificada"
+        ],
+        [
+          "=not (it in (first (first (up it)).4).8) and count ((down it) where count (first it2.6).8.2 > 0) > 0"
+        ]
       ]
     ]
   ],
@@ -3073,7 +3116,7 @@ export const EPOCA_0_BTML_DATOS = [
               "all announced movements happened"
             ],
             [
-              "=count (((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)) = 0"
+              "=count (first it.4).8 = 0"
             ]
           ]
         ],
@@ -3081,7 +3124,8 @@ export const EPOCA_0_BTML_DATOS = [
           "all announced movements happened"
         ],
         [
-          "el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)"
+          "el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)",
+          "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): lee la lectura «stage» (X.4.8, la primera de X.4: lo anunciado y aún no cumplido), la única fórmula de lo anunciado; un anuncio lo cumple el registro que se ancla sobre él moviendo lo mismo, así que un pago cumple uno solo"
         ]
       ],
       [
@@ -3105,7 +3149,7 @@ export const EPOCA_0_BTML_DATOS = [
               "what is missing"
             ],
             [
-              "=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)"
+              "=(first it.4).8"
             ]
           ],
           [
@@ -3113,7 +3157,8 @@ export const EPOCA_0_BTML_DATOS = [
               "move what was announced"
             ],
             [
-              "una transferencia de quien la debe: la serie, cuánto, de quién y a quién del anuncio, y un minuto de su T"
+              "una transferencia de quien la debe: la serie, cuánto, de quién y a quién del anuncio, y un minuto de su T",
+              "VG 12-11 (decisión 8; #48): anclada sobre el anuncio, que así queda cumplido (y solo ese)"
             ]
           ],
           [
@@ -3129,7 +3174,8 @@ export const EPOCA_0_BTML_DATOS = [
           "what is missing"
         ],
         [
-          "siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)"
+          "siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)",
+          "VG 12-11 (decisión 8): «what is missing» es la lectura «stage» (X.4.8)"
         ]
       ]
     ],
@@ -4590,6 +4636,7 @@ export const EPOCA_0_BTML_DATOS = [
           "share: la parte del P que obtuvo una identidad, esté en la mano que esté, en el dominio del registro, que está sobre ese registro",
           "stage: lo que el registro anunció en su 4.1 y aún no ha pasado, por estación: E pagar, P decidir, R atender, T trabajar",
           "dated movement: el primer movimiento del registro que se refiere a una fecha: el T futuro declarado, lo bloqueado hasta una fecha, una emisión de E que caduca o la quema de E propia",
+          "the cost of writing: lo que un registro exige en T, en segundos: un minuto del calendario por cada posición de su payload",
           "for when: la fecha a la que se refiere el registro, en segundos: la de su movimiento con fecha, o su propio instante si quema E propia",
           "clocks out of order: el reloj del libro, la marca de Nostr y el bloque de Bitcoin no van en orden",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
@@ -5434,115 +5481,115 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         {
-          "ref": "4696ab643e7d05644a4719ec6e31a14a1629b8fad23cef72c58b416da6e4c9b4"
+          "ref": "bb768564b1e470e33daa566eeac73dc9579bb589d7f397aa9e8816d9b64e9b3b"
         },
         {
-          "ref": "121e27901c3b39eab3fa5db2cf5c5f5c7ea58c366a5aebbef6078105090ed750"
+          "ref": "266504d8d6f8a4bf3af07ed8d9b93fc375421db24fca096f5b2a028620fa9a5a"
         },
         {
-          "ref": "7423cca795184f42a1fe0b1c1c3b46b5748363c1fb02ba0412df86524c9e4b72"
+          "ref": "a7045948d9ae109c13007161dd297f4aadb2bfee1d3b9fc2adda776958708377"
         },
         {
-          "ref": "24fc2107e671a6ba31bfd4a847db7d6d7ce8b4db7659c0d52c17723cbe164532"
+          "ref": "9a12d4ebcde2e6b66b1fd9cc77728bd7344edd4bdcc3140a98b812645bfc5603"
         },
         {
-          "ref": "e6a070b4401b97f057cd6dc5c923c79346321e090a92bea1369d7ff8dec1744b"
+          "ref": "3fe6969985b509f4074bd93f2b4fad859439cf8414a5f9a4303b7a8b131f642a"
         },
         {
-          "ref": "806e9cf638e43b0a89da5877fd9d9a2b82dffb8b0e9298647e2c962a1cd42423"
+          "ref": "87c4d55c920f362dc374fa14a099d3d05156228d5181e568eb55d5f06771a5d8"
         },
         {
-          "ref": "6673dd08e2ec537c4bb74d4e1935052c784f4e70148a5ad0458334dd4ae65f79"
+          "ref": "6d8cddcc67064e803c5ca565a0d665276c576206206f9ef4d85e7ac76c64d6e7"
         },
         {
-          "ref": "f62a8f285736655082b7ba61988e7a05fbf6fb1b31f6e886d7d901c779281300"
+          "ref": "560825a89844484ceee3be07cd738738cb4c0280ff961c206102f5978135658f"
         },
         {
-          "ref": "9350e15110720d8f0cd5cead5d6be871fd18b7cce5d2e9d340238bfbce90e67d"
+          "ref": "c31a285a9c140c924e90d56c94febc8b1382477644aabd5d29aa9accf10cb9f0"
         },
         {
-          "ref": "52d0f4d069f7b5bb543a7fa546fce46b9d3ab74c475a97bf6708a374c4e82945"
+          "ref": "916d6103dfcaecee8cbe960ee3f30947621406b6dd96c15605824f671bbf7d10"
         },
         {
-          "ref": "74e758af804594f382ce4069980da2c1592f3e3b6090b6bdd07bbb4d30e04127"
+          "ref": "054f43b35eac3a2b3961e235342b3ab8e7a93a017c75749ad28def074c2a9c39"
         },
         {
-          "ref": "d79fc5c437eb74abb8e1fa636b84b383061d5cbbbf393681ad073a7773822fe9"
+          "ref": "bb1277074776abfdee0661a9e971f6577af46338353ddc2edcb089338c01048f"
         },
         {
-          "ref": "6d875ed77dbd348a0c896e38bab2d3c5c821fa66b5b6b0b3de1a4e092feef8f1"
+          "ref": "fcde7268faf0aea111fc7db8b010efd169b63630db60955827053557f808c152"
         },
         {
-          "ref": "a1110a0fdc249a98eb530f50f3bbd2c06f1ea5aed8b5a2c70b9c9d51e233aafc"
+          "ref": "b011ee6c74ba9c482417b724c332de72de558946230f1272ca8f123424c47256"
         },
         {
-          "ref": "a29b9b379f3e861e3e3e19b8cd1c32b9617ed14e9aa7e1a3c2d29a6982f01fda"
+          "ref": "7bd37078f7734cbe1cd2a724b64580f64b0b6354aadc6fa4a57b456afd332845"
         },
         {
-          "ref": "a2903afa88be81ba996077d8aead129885c094004fdf1af77d4595bcc655dc12"
+          "ref": "2357f2417e506c37272031e76745a1cab532a8e8ecb12491a7755443c4f95c81"
         },
         {
-          "ref": "624473d731c9f5399afe6ff505cb7ce3d628f2213a94d33e6e759e00120af5b6"
+          "ref": "be862106ffa77f5391ffc4bd159091c56492219a9fb8f84999042865fc2eeb5a"
         },
         {
-          "ref": "be16ac1f715a3b9aa537d5cb1f336ed6c4986d3ba868021b6e58faad7c5f5cfb"
+          "ref": "0319f3075ae44652db42e085dea42bd28b721219187883f41476d5169c4b1849"
         },
         {
-          "ref": "3fc84e94716dd1797116dc54b7880a044cc32ad36f974e19838b35d046a898b4"
+          "ref": "7c453ebf5b2d5257253278b079dba1f6737c6242014998a1aeb73717808384bb"
         },
         {
-          "ref": "2965f8623b0bfde0972d590c850768eb0916530e2fa14ea6765dfa163c0512cb"
+          "ref": "da5133756330c7f818f5eab5ba6d3825f4d2e2333d41a4f608d5bbb0eee520d7"
         },
         {
-          "ref": "24113a9228bc59f11d6d0aef317f7530ee5baaab49d9ef91c768fa0aa54bd47c"
+          "ref": "15bf535b38c803ceefed5f37a049371ffbae60e052944f4f8c39d8cfe6a9e161"
         },
         {
-          "ref": "99219d8cf3bc49ce06a0ed0cff758653608d526f1b39e30f7bd1ec9c1024e279"
+          "ref": "b38c4188a6c34a469a378edb6796a10c4ee17a10f747383ab43577497a3d60cb"
         },
         {
-          "ref": "9f6c6c613f048e28c513d1d9ca1553dd2286a38d28883d75d2a08462de0440ac"
+          "ref": "a16936bd891d2ca6fda8f3b779f9aca876d31c746893c3da364cd22bf714432a"
         },
         {
-          "ref": "2bd533ca2e2c33d60d18c8f80a614d231621ad8b0c92f04e271c76761020fb52"
+          "ref": "d36e97ef35f1830a2aaf09d203fc055caef1d42c5a8b02ea79c9d0e886e58cce"
         },
         {
-          "ref": "3a115187e53b8a46b49a64b480ec306cc07b5382cdec539c1d1ed36ae213d493"
+          "ref": "a223cf6e9c59e67cefd26164cb59a0cead52271e95d28071b9e55a453c13fa3f"
         },
         {
-          "ref": "56f838a09eb654377bb06ed2fffb005a3f69aaf932cb4bf03ba1cd19bd5889ae"
+          "ref": "e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d"
         },
         {
-          "ref": "67779033642aa7657714f8117fd2f428b47c4637ecb0b42d5ab7449fc20c2ca9"
+          "ref": "dbc9ac7479a38d1fa379424a263b4d6bebc98e6f8fdeedbf29a1a127e78939b6"
         },
         {
-          "ref": "6ed47b1b3d387fbda597f77748dc173288e5a997c1c641c08bf61afffbe365c2"
+          "ref": "06675863d8226bb67e6d266d34f0e0c56595ee5ab161f8a40fe184e9e4fb4111"
         },
         {
-          "ref": "f666e2efeed2e843b49fe31f7eea09b5182cc1e6b6f182a6834848f7c006a0d5"
+          "ref": "e30ab690bcd81adfcfe9ad99ea47683accf3a8c03aa206cb5b8dde795faa7b61"
         },
         {
-          "ref": "8098780ae5167fe7182172e080231d320ca002f652f33a3ca8318b6da36a9c66"
+          "ref": "90b6c802d6af10f45fca8e4505258d282e2dd88d36bc357fcc9679f894167476"
         },
         {
-          "ref": "73a2035bf1a9eb1a3994158a52c41c49ae152ac39cc42f323d13ecede0c4d3b5"
+          "ref": "1453fbac45a1cdec393c21d7cc27b3fed064f2c9ca8b0338c1efae9610916a8e"
         },
         {
           "ref": "d546b658762027b2f20e2fef81405e5ae3f05eaf4fd3d166c7d49f9677bce20b"
         },
         {
-          "ref": "0d1f901c08c82fb6c59eb2c244c03d5f592a523cb098ca157c873b09f2417f26"
+          "ref": "3766e0e830fe85c3d1e55d8788fdd4b76d657f2c0a765b7937b48eab7a164a30"
         },
         {
-          "ref": "476857f001ef33902c02ab59f9312fa4f229b0e692a843426501b6471bae1e50"
+          "ref": "78683e97f10aa828a2bcd0eebd79df86622b9cc3051032dd12386fc881f7ea66"
         },
         {
-          "ref": "2601f60ed3e5c93e5bbc1ca29c4d1615376006462947d40c534186cda2b5b072"
+          "ref": "12d4cc69e6b5043d9febef820a3c3df3439033dbf15359c3f92775abc2c6deaa"
         },
         {
-          "ref": "f6318461cc022563a680fc277a19f284e42094bdf4f087d879c1ea457191e25a"
+          "ref": "7fe73fa25c3f125ccb7463772afab1a46b21304b5b41b5118f64e738c9b1331c"
         },
         {
-          "ref": "10d36b4e56820777fe931ad1e7924437e6608c42a1e7eddeda6fd09c528ba16b"
+          "ref": "912fd4e24a15711da5aa61422f037e1c054c4a0bab5288233d822d851cce3464"
         },
         {
           "ref": "38652d1164cea262a3802dc4aaf0313f0418226e981976f46b31c51c365a9f3c"
@@ -5911,13 +5958,13 @@ export const EPOCA_0_BTML_DATOS = [
           "ciclo"
         ],
         [
-          "=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) - count (((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0))"
+          "=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) - count (first it.4).8"
         ],
         [
           "=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3)"
         ],
         [
-          "the stage of the cycle: the announced movements (the records the owner anchored in the 4.1 of X) that already happened, out of all announced: the same condition as the closing template of epoch.9.0.1 and «what is missing» of epoch.9.0.3; with nothing announced, 0 of 0"
+          "the stage of the cycle: the announced movements (the records the owner anchored in the 4.1 of X) that already happened, out of all announced: those no longer in the reading «stage» (X.4.8, VG 12-11 decision 8: an announcement is fulfilled by the record anchored on it that moves the same), the same reading as the closing template of epoch.9.0.1 and «what is missing» of epoch.9.0.3; with nothing announced, 0 of 0"
         ]
       ],
       [
@@ -7492,7 +7539,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "how-much.json",
-    "id": "e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574",
+    "id": "5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97",
     "registro": [
       [
         "how much"
@@ -7504,7 +7551,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "moves"
       ],
       [
-        "=under it where count (moves it2 where not (it3.4.1 = \"asignacion\" or it3.4.1 = \"informativo\" or it3.4.1 = \"obtencion\") and not (burn in it3.4 and T in it3.0.0.0 and it3.3.0 = me)) > 0"
+        "=under it where count (moves it2 where not (it3.4.1 = \"asignacion\" or it3.4.1 = \"informativo\" or it3.4.1 = \"obtencion\" or it3.4.1 = \"anuncio\") and not (burn in it3.4 and T in it3.0.0.0 and it3.3.0 = me)) > 0"
       ],
       [
         1
@@ -7519,7 +7566,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
         "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
-        "En BQL (antes «js flujo», contrato.diario): los registros del nodo y de todo lo que cuelga de él (under) cuyos asientos del libro (moves) mueven algo: no cuentan la asignación del día, el T informativo ni el P que dan las reglas (la clase del asiento, 4.1), ni el T que el dueño quema al escribir. VG 12-11 (#44): SÍ cuenta lo que el dueño se mueve a sí mismo (acuñar es crear: un sofá en E, lo mismo en P y R); sin tope en el núcleo (la pantalla pagina)"
+        "En BQL (antes «js flujo», contrato.diario): los registros del nodo y de todo lo que cuelga de él (under) cuyos asientos del libro (moves) mueven algo: no cuentan la asignación del día, el T informativo ni el P que dan las reglas (la clase del asiento, 4.1), ni el T que el dueño quema al escribir. VG 12-11 (#44): SÍ cuenta lo que el dueño se mueve a sí mismo (acuñar es crear: un sofá en E, lo mismo en P y R); sin tope en el núcleo (la pantalla pagina)",
+        "VG 12-11 (estudio BQL-transacciones, decisión 8): tampoco cuenta lo anunciado (la clase «anuncio»): no se ha movido; moves lo da porque es un movimiento del registro, que lo cumple lo que se ancla sobre él"
       ],
       [
         "epoch 0"
@@ -8453,7 +8501,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "stage.json",
-    "id": "6060969c90b7696379d90a36c90eb5e036a702700327878d0c530df600a0f1a1",
+    "id": "3391bd026c160cb3a4ed261ca4a61366c72777b17616a9f2393a6852af1132b0",
     "registro": [
       [
         "stage"
@@ -8461,10 +8509,12 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "X.4.1",
         "epoch.4.2",
-        "before.4"
+        "before.4",
+        "moves"
       ],
       [
-        "=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)"
+        "=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)",
+        "=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (moves it2 where \"anunciado\" in it3.2) > 0 and count ((moves it2) where \"anunciado\" in it3.2 and count ((down it2) where count ((moves it4) where not \"anunciado\" in it5.2 and it5.0 = it3.0 and it5.3.0 = it3.3.0 and it5.3.1 = it3.3.1 and it5.4 = it3.4 and it5.1 >= it3.1) > 0) = 0) = 0 or count (moves it2 where \"anunciado\" in it3.2) = 0 and count ((down it2) where count ((moves it3) where not \"anunciado\" in it4.2 and transfer in it4.4 and it4.0 = first it2.0 and it4.3.0 = last it2.3.0 and it4.3.1 = last it2.3.1 and it4.1 >= last it2.1) > 0) > 0)"
       ],
       [
         "X.4.8"
@@ -8479,7 +8529,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token: E pagar, P decidir, R atender, T trabajar (las estaciones de la fábrica, epoch.4.2); es la base de las estaciones y del PV4 del aro, y no cambia el motor",
         "Lo que el dueño de X anunció en su 4.1 (un registro por movimiento: [[serie], [cuánto], [qué], [[de], [a]]]) y aún no ha pasado: la misma lectura que la plantilla de cerrado «all announced movements happened» (epoch.9.0.1) y que «what is missing» (epoch.9.0.3), como lectura de la época. Lo hecho es lo anunciado (X.4.1) que no está aquí",
         "La familia de un anuncio se lee buscando su serie por su valor en las series del libro, before.4.(first it.0): un texto no fabrica una serie (SEG-09); así X.4.8 where E in (before.4.(first it.0)).0.0 es la estación de pagar",
-        "Se materializa en X.4.8: fábrica, frente a otros: lo ocurrido frente a lo previsto (la regla corta del 8 en la profundidad 1), que es exactamente la estación de un proceso"
+        "Se materializa en X.4.8: fábrica, frente a otros: lo ocurrido frente a lo previsto (la regla corta del 8 en la profundidad 1), que es exactamente la estación de un proceso",
+        "VG 12-11 (estudio BQL-transacciones, decisión 8; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», sin tocar saldos; lo lee moves con la clase «anuncio») y lo cumple lo que se ancla sobre él moviendo lo mismo: un anuncio puede llevar varios movimientos anunciados (las noches de una reserva) y se cumple cuando cada uno lo mueve un registro anclado sobre él, con la misma serie, de quién, a quién y la primitiva, y al menos lo anunciado (sus asientos del libro, moves). Así cada pago cumple un solo anuncio: antes lo anunciado se casaba por existencia con cualquier pago de X o de lo anclado en X, y un pago de 20 cerraba dos anuncios iguales de 20 (#48). Mientras los ejemplos escriban el anuncio como antes (un payload que imita un movimiento: [[serie], [cuánto], [para qué], [[de], [a]]]), la misma fórmula lo lee así, también cumplido solo por lo que se ancla sobre él. Es la única fórmula de lo anunciado: la plantilla de cerrado (epoch.9.0.1), «what is missing» (epoch.9.0.3), el paso «ciclo» (epoch.9.8) y las estaciones (epoch.4.3) leen esta lectura"
       ],
       [
         "epoch 0"
@@ -8610,6 +8661,45 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "the-cost-of-writing.json",
+    "id": "4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7",
+    "registro": [
+      [
+        "the cost of writing"
+      ],
+      [
+        "X.8.6.1",
+        "epoch.7.0.1.1"
+      ],
+      [
+        "=first (first it.8).6.1 * first epoch.7.0.1.1"
+      ],
+      [
+        "ev"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12-11 (estudio BQL-transacciones, decisión 7; #49): el coste de escribir es una sola regla de la época, no treinta copias de «quema un minuto» en las plantillas de transacción (el minuto fijo era un sucedáneo); la cantidad es la suma de lo que exige cada posición (la proporción A3: un minuto por posición, la de escribirDesde)",
+        "Una lectura con it = la candidata (su 3, ev): se lee antes de firmar, no se materializa en ninguna posición. Da lo exigido en segundos: las posiciones escritas del payload de la candidata ((first it.8).6.1, la medida bruta del 8.6, que en la candidata es solo lo suyo) por lo que exige cada una, el minuto del calendario (epoch.7.0.1.1, sesenta segundos). La leen src/escritura.js (exigido y costeT: escribirDesde) y src/acciones.js (transaccion: la T de una plantilla, en la escala pedida o en la menor que lo cubre); el ajuste fino por escalas y el botón de ejecutar con rango son de la carta",
+        "La condición «writing burns today's T» sigue pidiendo que el autor queme T de hoy (al menos uno, sin pasar de lo que le queda): no exige que la quema llegue a lo exigido. Core, pendiente de revisar VG: exigirlo en la validación obligaría a pagar por posición a todo lo que se escribe a mano (ejemplos y pruebas)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after clocks out of order"
+      ],
+      [
+        "the cost of writing: what a record demands in T, in seconds: one minute of the calendar per position of its payload"
+      ]
+    ]
+  },
+  {
     "archivo": "weight.json",
     "id": "a0f7dd739378b82153d90af576a77fd2b1b93d61d20a1d7716727e9b9cf0c12f",
     "registro": [
@@ -8706,7 +8796,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "what-it-is.json",
-    "id": "7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09",
+    "id": "fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a",
     "registro": [
       [
         "what it is"
@@ -8736,7 +8826,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after clocks out of order"
+        "after the cost of writing"
       ],
       [
         "what it is: what the node is, its representations (its text or its resource)"
@@ -9042,7 +9132,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 export const PLANTILLAS_DE_EPOCA_DATOS = [
   {
     "archivo": "set-a-minimum.json",
-    "id": "4696ab643e7d05644a4719ec6e31a14a1629b8fad23cef72c58b416da6e4c9b4",
+    "id": "bb768564b1e470e33daa566eeac73dc9579bb589d7f397aa9e8816d9b64e9b3b",
     "registro": [
       [
         "set a minimum"
@@ -9120,25 +9210,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "3.{box}.1"
@@ -9146,7 +9218,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): los mínimos por caja del 3 son datos del propio nodo X.3.d: su 1, la cantidad mínima (esta acción ancla el número en X.3.<box>.1; manda el último del dueño), vacíos por defecto. Es una acción de configuración del sitio (PV 0: no está en el aro; la abre el interrogante, el personaje del sitio, en la cruceta del nodo)"
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): los mínimos por caja del 3 son datos del propio nodo X.3.d: su 1, la cantidad mínima (esta acción ancla el número en X.3.<box>.1; manda el último del dueño), vacíos por defecto. Es una acción de configuración del sitio (PV 0: no está en el aro; la abre el interrogante, el personaje del sitio, en la cruceta del nodo)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49; fusión con PV3): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -9162,7 +9235,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "set-a-minimum-rank.json",
-    "id": "121e27901c3b39eab3fa5db2cf5c5f5c7ea58c366a5aebbef6078105090ed750",
+    "id": "266504d8d6f8a4bf3af07ed8d9b93fc375421db24fca096f5b2a028620fa9a5a",
     "registro": [
       [
         "set a minimum rank"
@@ -9273,25 +9346,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "3.{box}.8"
@@ -9299,7 +9354,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el rango mínimo de una caja del 3 es su 8 (X.3.<box>.8: el rango, nivel.grado, el de las diez cajas del 8, y el modo: solo ese, ampliar hacia arriba o hacia abajo). El filtro queda preparado: la lectura del rango de una persona sobre el foco es del 8 (#39, otro encargo); mientras no la dé, no deja a nadie fuera y se dice. Acción de configuración del sitio (PV 0: la abre el interrogante)"
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el rango mínimo de una caja del 3 es su 8 (X.3.<box>.8: el rango, nivel.grado, el de las diez cajas del 8, y el modo: solo ese, ampliar hacia arriba o hacia abajo). El filtro queda preparado: la lectura del rango de una persona sobre el foco es del 8 (#39, otro encargo); mientras no la dé, no deja a nadie fuera y se dice. Acción de configuración del sitio (PV 0: la abre el interrogante)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49; fusión con PV3): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -9315,7 +9371,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "configure-a-place.json",
-    "id": "7423cca795184f42a1fe0b1c1c3b46b5748363c1fb02ba0412df86524c9e4b72",
+    "id": "a7045948d9ae109c13007161dd297f4aadb2bfee1d3b9fc2adda776958708377",
     "registro": [
       [
         "configure a place"
@@ -9425,25 +9481,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "{place}.{position}"
@@ -9451,7 +9489,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el personaje es la configuración del sitio: cada cuadrante (un PV o un sub-PV, X.3.d) es un nodo con sus diez posiciones, y configurarlo es escribir en ellas (0 su nombre, 5 el estilo de lo de abajo, X.<sitio>.5.0, que ya existía sin dónde tocarse, 9 su guía…); esta acción ancla el valor en X.<place>.<position> (manda el último del dueño). El 1 y el 8 de una caja del 3 tienen su acción propia («set a minimum», «set a minimum rank»). Acción de configuración (PV 0: no está en el aro; la abre el interrogante, en la cruceta del nodo)"
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): el personaje es la configuración del sitio: cada cuadrante (un PV o un sub-PV, X.3.d) es un nodo con sus diez posiciones, y configurarlo es escribir en ellas (0 su nombre, 5 el estilo de lo de abajo, X.<sitio>.5.0, que ya existía sin dónde tocarse, 9 su guía…); esta acción ancla el valor en X.<place>.<position> (manda el último del dueño). El 1 y el 8 de una caja del 3 tienen su acción propia («set a minimum», «set a minimum rank»). Acción de configuración (PV 0: no está en el aro; la abre el interrogante, en la cruceta del nodo)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49; fusión con PV3): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -9467,7 +9506,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "apply-a-resource.json",
-    "id": "24fc2107e671a6ba31bfd4a847db7d6d7ce8b4db7659c0d52c17723cbe164532",
+    "id": "9a12d4ebcde2e6b66b1fd9cc77728bd7344edd4bdcc3140a98b812645bfc5603",
     "registro": [
       [
         "apply a resource"
@@ -9715,25 +9754,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "=first (first ev.1.2).0"
           ],
           [
@@ -9750,7 +9770,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=first it.3"
             ]
           ]
-        ]
+        ],
+        "=transfer first memo.1.1 * first (first memo.1.2).1 before.4.(first (first memo.1.2).0) from me to first it.3"
       ],
       [
         "0"
@@ -9758,7 +9779,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Dar E a X (propina, pagar, reservar una plaza): el precio lo lee de la serie del recurso (el 2.2 de la primera serie viva de X; VG: la orientación de una E es el token que la paga) y, sin serie, lo da quien lanza; escribe un registro de tipo «purchase» (epoch.9.2.1) anclado en X"
+        "Dar E a X (propina, pagar, reservar una plaza): el precio lo lee de la serie del recurso (el 2.2 de la primera serie viva de X; VG: la orientación de una E es el token que la paga) y, sin serie, lo da quien lanza; escribe un registro de tipo «purchase» (epoch.9.2.1) anclado en X",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -9774,7 +9796,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "issue-e-tied-to-x.json",
-    "id": "e6a070b4401b97f057cd6dc5c923c79346321e090a92bea1369d7ff8dec1744b",
+    "id": "3fe6969985b509f4074bd93f2b4fad859439cf8414a5f9a4303b7a8b131f642a",
     "registro": [
       [
         "issue E tied to X"
@@ -9987,25 +10009,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "E",
             "=me",
             "=first ev.1.0",
@@ -10026,7 +10029,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=me"
             ]
           ]
-        ]
+        ],
+        "=mint first memo.1.1 E.(me).(first memo.1.0).(it) to me price first memo.1.2"
       ],
       [
         "1"
@@ -10034,7 +10038,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Si tengo P en X o en X.1 (la regla «minting E needs P on its record» lo exige igual); la emisión lleva el precio de la serie (su 2.2)"
+        "Si tengo P en X o en X.1 (la regla «minting E needs P on its record» lo exige igual); la emisión lleva el precio de la serie (su 2.2)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -10050,7 +10055,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "lock-e-as-a-bid-for-a-quota.json",
-    "id": "806e9cf638e43b0a89da5877fd9d9a2b82dffb8b0e9298647e2c962a1cd42423",
+    "id": "87c4d55c920f362dc374fa14a099d3d05156228d5181e568eb55d5f06771a5d8",
     "registro": [
       [
         "lock E as a bid for a quota"
@@ -10231,25 +10236,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "=first ev.1.0"
           ],
           [
@@ -10267,14 +10253,16 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=me"
             ]
           ]
-        ]
+        ],
+        "=lock first memo.1.1 before.4.(first memo.1.0) from me exit it"
       ],
       [
         "1"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
-        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe"
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -10290,7 +10278,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "consume.json",
-    "id": "6673dd08e2ec537c4bb74d4e1935052c784f4e70148a5ad0458334dd4ae65f79",
+    "id": "6d8cddcc67064e803c5ca565a0d665276c576206206f9ef4d85e7ac76c64d6e7",
     "registro": [
       [
         "consume"
@@ -10471,25 +10459,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "=first ev.1.0"
           ],
           [
@@ -10506,14 +10475,16 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "nobody"
             ]
           ]
-        ]
+        ],
+        "=burn first memo.1.1 before.4.(first memo.1.0) from me"
       ],
       [
         "1"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
-        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe"
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -10529,7 +10500,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "register-a-thing.json",
-    "id": "f62a8f285736655082b7ba61988e7a05fbf6fb1b31f6e886d7d901c779281300",
+    "id": "560825a89844484ceee3be07cd738738cb4c0280ff961c206102f5978135658f",
     "registro": [
       [
         "register a thing"
@@ -10777,25 +10748,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "T:minuto"
           ],
           [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
-            "T:minuto"
-          ],
-          [
             "=first ev.1"
           ],
           [
@@ -10809,7 +10761,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=last ev.3.1"
             ]
           ]
-        ]
+        ],
+        "=transfer first memo.1 T.1 from me to first memo.3.1"
       ],
       [
         "1.4"
@@ -10818,7 +10771,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "Encargo core-escribe (VG, 11-11 noche): Core es una identidad «cosa» que escribe en el eje de VG con su propia clave. Una cosa es la identidad cuya alta escribe otra, su dueño (VG, 10-11, B1): esta plantilla es esa alta, sobre mi propia alta",
         "La clave de la cosa se declara en este registro («a key is declared at its alta»: quien recibe algo aquí) y llega con su prueba de posesión («a declared key comes with its proof»): la cosa firma el id de este registro; por eso la prueba viene en la petición de la cosa, con el instante del registro",
         "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)",
-        "VG, 12-11 (issue #46): la T de una cosa al darla de alta no tiene defecto en la plantilla (se quitan los 60 minutos): es un parámetro que decide el dueño, con un desplegable por escalas (los minutos de cada escala del calendario, epoch.7: minuto, hora, día, semana, ciclo y año; contrato.opciones los lee de esta validación); reponer es otra transferencia de T del dueño a la cosa. Una cosa nunca tiene más T que la que una persona le dio"
+        "VG, 12-11 (issue #46): la T de una cosa al darla de alta no tiene defecto en la plantilla (se quitan los 60 minutos): es un parámetro que decide el dueño, con un desplegable por escalas (los minutos de cada escala del calendario, epoch.7: minuto, hora, día, semana, ciclo y año; contrato.opciones los lee de esta validación); reponer es otra transferencia de T del dueño a la cosa. Una cosa nunca tiene más T que la que una persona le dio",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -10834,7 +10788,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "commit-p.json",
-    "id": "9350e15110720d8f0cd5cead5d6be871fd18b7cce5d2e9d340238bfbce90e67d",
+    "id": "c31a285a9c140c924e90d56c94febc8b1382477644aabd5d29aa9accf10cb9f0",
     "registro": [
       [
         "commit P"
@@ -11015,25 +10969,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "=first ev.1.0"
           ],
           [
@@ -11051,7 +10986,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=me"
             ]
           ]
-        ]
+        ],
+        "=lock first memo.1.1 before.4.(first memo.1.0) from me exit it"
       ],
       [
         "2.1"
@@ -11059,7 +10995,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Votar (mapa §15 [D] (5): comprometer = bloquear P con la salida = la decisión), con la mirada opcional; el P de una mirada pesa solo si la decisión dice esa mirada en su criterio (2.2). Ancla en el 2.1 de X (criterio, cuánto): anclado en el 2 entero, el 3 del registro se leería como parte del 2.3 de X, la lista de quién cuenta"
+        "Votar (mapa §15 [D] (5): comprometer = bloquear P con la salida = la decisión), con la mirada opcional; el P de una mirada pesa solo si la decisión dice esa mirada en su criterio (2.2). Ancla en el 2.1 de X (criterio, cuánto): anclado en el 2 entero, el 3 del registro se leería como parte del 2.3 de X, la lista de quién cuenta",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -11075,7 +11012,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "reposition-p-toward-x.json",
-    "id": "52d0f4d069f7b5bb543a7fa546fce46b9d3ab74c475a97bf6708a374c4e82945",
+    "id": "916d6103dfcaecee8cbe960ee3f30947621406b6dd96c15605824f671bbf7d10",
     "registro": [
       [
         "reposition P toward X"
@@ -11256,25 +11193,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "=first ev.1.0"
           ],
           [
@@ -11312,7 +11230,9 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=me"
             ]
           ]
-        ]
+        ],
+        "=burn first memo.1.1 before.4.(first memo.1.0) from me",
+        "=first it.5 in up (first (before.4.(first memo.1.0)).0.1) and mint first memo.1.1 * first epoch.1.1.4.2 P.(it).(first (before.4.(first memo.1.0)).0.2) to me or first it.5 in down (first (before.4.(first memo.1.0)).0.1) and mint first memo.1.1 * last epoch.1.1.4.2 P.(it).(first (before.4.(first memo.1.0)).0.2) to me"
       ],
       [
         "2.1"
@@ -11320,7 +11240,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Un paso (N7): subir deja una décima, bajar añade una (epoch.1.1.4.2); la regla «P is repositioned one step at a time» lo comprueba"
+        "Un paso (N7): subir deja una décima, bajar añade una (epoch.1.1.4.2); la regla «P is repositioned one step at a time» lo comprueba",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -11336,7 +11257,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "declare-capacity-or-threshold.json",
-    "id": "74e758af804594f382ce4069980da2c1592f3e3b6090b6bdd07bbb4d30e04127",
+    "id": "054f43b35eac3a2b3961e235342b3ab8e7a93a017c75749ad28def074c2a9c39",
     "registro": [
       [
         "declare capacity or threshold"
@@ -11548,25 +11469,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "2.2"
@@ -11574,7 +11477,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Solo el dueño de X"
+        "Solo el dueño de X",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -11590,7 +11494,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "borrow-criteria-from-someone.json",
-    "id": "d79fc5c437eb74abb8e1fa636b84b383061d5cbbbf393681ad073a7773822fe9",
+    "id": "bb1277074776abfdee0661a9e971f6577af46338353ddc2edcb089338c01048f",
     "registro": [
       [
         "borrow criteria from someone"
@@ -11637,25 +11541,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "2.3",
@@ -11664,7 +11550,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Escribe el nombre en el 2.3 de mi alta (A.2.3, la lente de criterios): el registro es solo el nombre"
+        "Escribe el nombre en el 2.3 de mi alta (A.2.3, la lente de criterios): el registro es solo el nombre",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -11680,7 +11567,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attach-a-file.json",
-    "id": "6d875ed77dbd348a0c896e38bab2d3c5c821fa66b5b6b0b3de1a4e092feef8f1",
+    "id": "fcde7268faf0aea111fc7db8b010efd169b63630db60955827053557f808c152",
     "registro": [
       [
         "attach a file"
@@ -11892,25 +11779,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "0"
@@ -11918,7 +11787,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "Encargo pv0 (issues #21, #22, #24; VG 11-11): adjuntar un archivo es una acción del aro en el sitio 2 del elemento (el documento, el recurso), no preferente pero en la lista; dónde viven los archivos lo decide Core por ahora (lo definirá AARPIA): la función «archivos» del libro compartido, un bucket privado, y el registro guarda solo la referencia archivo:<sha256>",
         "Molde: el de las acciones del aro (encargo 3c-2a). Un parámetro cuyo 4 es «file» sale de subir un archivo: «file ref» es su referencia, «file format» el formato de la época con que se representa; los dos van al payload como cualquier otro",
-        "El registro que escribe es una representación rica de X (epoch.9.5): anclado en la raíz de X (colisiona con su 0), su 0 el mensaje (el texto alternativo), su 1 [tamaño mínimo, formato] y su 5 el recurso, la referencia al archivo; el HTML se pinta solo dentro de un iframe aislado, sin scripts (SEG-14)"
+        "El registro que escribe es una representación rica de X (epoch.9.5): anclado en la raíz de X (colisiona con su 0), su 0 el mensaje (el texto alternativo), su 1 [tamaño mínimo, formato] y su 5 el recurso, la referencia al archivo; el HTML se pinta solo dentro de un iframe aislado, sin scripts (SEG-14)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -11934,7 +11804,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "write-to-x.json",
-    "id": "a1110a0fdc249a98eb530f50f3bbd2c06f1ea5aed8b5a2c70b9c9d51e233aafc",
+    "id": "b011ee6c74ba9c482417b724c332de72de558946230f1272ca8f123424c47256",
     "registro": [
       [
         "write to X"
@@ -12116,25 +11986,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "R",
             "=me"
           ],
@@ -12230,7 +12081,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=first it.3"
             ]
           ]
-        ]
+        ],
+        "=first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3) each 1) < first ev.6.2.1 and put first ev.6.2.1 at me.1.(R.(me)).1 and transfer first ev.6.2.1 R.(me) from me to first it.3 or (first ev.6.2.0 = \"my R\" or first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3) each 1) >= first ev.6.2.1) and transfer first ev.6.2.1 R.(first it.3) from me to first it.3 or first ev.6.2.0 = \"E\" and transfer first ev.6.2.1 (first ((me.1 where E in it2.0.0.0 and it2.1 >= first ev.6.2.1) each 0)) from me to first it.3 or first ev.6.2.0 = \"P\" and transfer first ev.6.2.1 (first ((me.1 where P in it2.0.0.0 and it2.1 >= first ev.6.2.1 and first (first it.3).6 in path (first it2.0.0.1)) each 0)) from me to first it.3"
       ],
       [
         "3",
@@ -12240,7 +12092,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
         "El paquete con el pago que exige el grupo (VG: los seis grupos de R son seis precios): el precio es la lectura «attention price» de la propia candidata (ev.6.2); un movimiento por token posible, y solo mueve el que el precio nombra («their R» acuña antes la propia R que falte; «open record» no paga; al vetado no se le ofrece); se ancla en el 3 del alta del destinatario (el dueño de X)",
-        "VG, 12-11 (encargo pv3): la R es el precio universal, en los dos sentidos: si quien escribe tiene R del destinatario (se la dio, lo admitió), paga devolviéndosela (cerrar el canal es devolver; así escribe también una cosa, que no acuña); si no, acuña y paga con la suya (es la bandeja del destinatario, su 3.0)"
+        "VG, 12-11 (encargo pv3): la R es el precio universal, en los dos sentidos: si quien escribe tiene R del destinatario (se la dio, lo admitió), paga devolviéndosela (cerrar el canal es devolver; así escribe también una cosa, que no acuña); si no, acuña y paga con la suya (es la bandeja del destinatario, su 3.0)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición. Con la R de PV3 (encargo pv3): la sentencia dice lo mismo que la lista: si tengo R de first it.3 (la que me dio) la devuelvo (transfer R.(first it.3)); si no, pongo en mano mi R hasta el precio (put … at me.1.(R.(me)).1, acuña lo que falte) y la transfiero"
       ],
       [
         "epoch 0"
@@ -12256,7 +12109,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "give-own-r.json",
-    "id": "a29b9b379f3e861e3e3e19b8cd1c32b9617ed14e9aa7e1a3c2d29a6982f01fda",
+    "id": "7bd37078f7734cbe1cd2a724b64580f64b0b6354aadc6fa4a57b456afd332845",
     "registro": [
       [
         "give own R"
@@ -12404,25 +12257,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "R",
             "=me"
           ],
@@ -12460,7 +12294,9 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=first it.3"
             ]
           ]
-        ]
+        ],
+        "=put memo.1 at me.1.(R.(me)).1",
+        "=transfer memo.1 R.(me) from me to first it.3"
       ],
       [
         "3"
@@ -12468,7 +12304,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Ceder atención: quien recibe mi R obtiene P sobre el 3 de mi alta (N2, por mirada)"
+        "Ceder atención: quien recibe mi R obtiene P sobre el 3 de mi alta (N2, por mirada)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -12484,7 +12321,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "return-r-ask-for-attention.json",
-    "id": "a2903afa88be81ba996077d8aead129885c094004fdf1af77d4595bcc655dc12",
+    "id": "2357f2417e506c37272031e76745a1cab532a8e8ecb12491a7755443c4f95c81",
     "registro": [
       [
         "return R (ask for attention)"
@@ -12666,25 +12503,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "R",
             "=first it.3"
           ],
@@ -12702,7 +12520,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=first it.3"
             ]
           ]
-        ]
+        ],
+        "=transfer first memo.1 R.(first it.3) from me to first it.3"
       ],
       [
         "3",
@@ -12711,7 +12530,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Pedir atención (mapa §15 [D] «R según el corpus»): devolver la R de su emisor, anclado en el 3 de su alta; la atiende un registro suyo sobre la petición («attended»)"
+        "Pedir atención (mapa §15 [D] «R según el corpus»): devolver la R de su emisor, anclado en el 3 de su alta; la atiende un registro suyo sobre la petición («attended»)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -12727,7 +12547,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attend.json",
-    "id": "624473d731c9f5399afe6ff505cb7ce3d628f2213a94d33e6e759e00120af5b6",
+    "id": "be862106ffa77f5391ffc4bd159091c56492219a9fb8f84999042865fc2eeb5a",
     "registro": [
       [
         "attend"
@@ -12908,25 +12728,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "R",
             "=first it.3"
           ],
@@ -12944,7 +12745,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=first it.3"
             ]
           ]
-        ]
+        ],
+        "=transfer sum ((it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) each 1) R.(first it.3) from me to first it.3"
       ],
       [
         "0"
@@ -12953,7 +12755,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
         "X es una petición de atención a mí (devuelve mi R sobre mi alta): un registro mío sobre ella con T real la atiende (la lectura «attended», X.7.4)",
-        "VG, 12-11 (encargo pv3): la regla es la misma en los dos sentidos: quien escribe pone su R y atender la devuelve. Si X me trae R de su autor (un mensaje con su R, la bandeja del 3), atenderlo es además devolvérsela (perdonar la quema, «forgive»; dejarlo es pendiente)"
+        "VG, 12-11 (encargo pv3): la regla es la misma en los dos sentidos: quien escribe pone su R y atender la devuelve. Si X me trae R de su autor (un mensaje con su R, la bandeja del 3), atenderlo es además devolvérsela (perdonar la quema, «forgive»; dejarlo es pendiente)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo (bqlm.evaluarPlantilla): atender devuelve la R que X trajo de su autor (transfer de R.(first it.3) de me a first it.3, lo que sume esa R en X); 0 no se mueve. Mientras dure la migración, la lista de antes queda delante y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js). Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -12969,7 +12772,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "forgive.json",
-    "id": "be16ac1f715a3b9aa537d5cb1f336ed6c4986d3ba868021b6e58faad7c5f5cfb",
+    "id": "0319f3075ae44652db42e085dea42bd28b721219187883f41476d5169c4b1849",
     "registro": [
       [
         "forgive"
@@ -13117,25 +12920,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "R",
             "=first it.3"
           ],
@@ -13153,14 +12937,16 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "nobody"
             ]
           ]
-        ]
+        ],
+        "=burn first memo.1 R.(first it.3) from me"
       ],
       [
         "3"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
-        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe"
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -13176,7 +12962,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "set-a-group-price.json",
-    "id": "3fc84e94716dd1797116dc54b7880a044cc32ad36f974e19838b35d046a898b4",
+    "id": "7c453ebf5b2d5257253278b079dba1f6737c6242014998a1aeb73717808384bb",
     "registro": [
       [
         "set a group price"
@@ -13289,25 +13075,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "3.{zone}.2",
@@ -13316,7 +13084,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Solo sobre mi propia alta (X es mi alta): el registro [[en qué], [cuánto]] anclado en el 3.k.2 corrige el precio del grupo k (A.3.k.2: manda el último); el parámetro zone no va en el registro («-»), va en el ancla"
+        "Solo sobre mi propia alta (X es mi alta): el registro [[en qué], [cuánto]] anclado en el 3.k.2 corrige el precio del grupo k (A.3.k.2: manda el último); el parámetro zone no va en el registro («-»), va en el ancla",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -13332,7 +13101,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "admit-someone.json",
-    "id": "2965f8623b0bfde0972d590c850768eb0916530e2fa14ea6765dfa163c0512cb",
+    "id": "da5133756330c7f818f5eab5ba6d3825f4d2e2333d41a4f608d5bbb0eee520d7",
     "registro": [
       [
         "admit someone"
@@ -13545,25 +13314,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "R",
             "=me"
           ],
@@ -13620,7 +13370,10 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=last ev.3.1"
             ]
           ]
-        ]
+        ],
+        "=put first memo.1.0 at me.1.(R.(me)).1",
+        "=transfer first memo.1.0 R.(me) from me to first memo.3.1",
+        "=transfer first memo.1.1 T.1 from me to first memo.3.1"
       ],
       [
         "3"
@@ -13628,7 +13381,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Encargo equipo (VG, 11-11 noche): admitir a alguien en lo mío no es escribir su nombre: es un intercambio de tokens entre el dueño y esa identidad, R mía (la atención que me puede pedir: la comunicación) y, si se da, T (el trabajo que hace sobre lo mío). Es «give own R» con la identidad elegida (whom) sobre un registro mío y, como ella, ancla en el 3 de X («con quién»), donde la regla de elegibles (R8, src/elegibles.js) ya lee a quien el dueño nombra cuando el registro no tiene lista en su 2.3. No fija ninguna posición para colocar a nadie en un PV: lo que cada PV vea de ella lo ha de dar una lectura de sus movimientos"
+        "Encargo equipo (VG, 11-11 noche): admitir a alguien en lo mío no es escribir su nombre: es un intercambio de tokens entre el dueño y esa identidad, R mía (la atención que me puede pedir: la comunicación) y, si se da, T (el trabajo que hace sobre lo mío). Es «give own R» con la identidad elegida (whom) sobre un registro mío y, como ella, ancla en el 3 de X («con quién»), donde la regla de elegibles (R8, src/elegibles.js) ya lee a quien el dueño nombra cuando el registro no tiene lista en su 2.3. No fija ninguna posición para colocar a nadie en un PV: lo que cada PV vea de ella lo ha de dar una lectura de sus movimientos",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49; fusión con PV3): su 4 mueve con sentencias del BQL mínimo (bqlm.evaluarPlantilla), como «give own R» con la identidad elegida: pongo en mano mi R hasta lo que doy (put … at me.1.(R.(me)).1, acuña lo que falte), se la transfiero a whom y, si doy minutos, le transfiero esa T. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -13644,7 +13398,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "remove-someone.json",
-    "id": "24113a9228bc59f11d6d0aef317f7530ee5baaab49d9ef91c768fa0aa54bd47c",
+    "id": "15bf535b38c803ceefed5f37a049371ffbae60e052944f4f8c39d8cfe6a9e161",
     "registro": [
       [
         "remove someone"
@@ -13822,25 +13576,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "3"
@@ -13848,7 +13584,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): dejar de admitir es QUITAR a esa identidad de la posición mía donde la admití, una corrección del dueño sobre esa posición (la inversa de «admit someone», que ancla en el mismo sitio, el 3 de X): desde entonces la lectura del 3 no la coloca por lo admitido ahí y la regla de elegibles (R8, src/elegibles.js) no la admite en X ni en lo que cuelga de X. No mueve R: devolver la R es la liquidación, y puede venir después («return R»); vetar es otra cosa («veto someone», el grupo 5)"
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): dejar de admitir es QUITAR a esa identidad de la posición mía donde la admití, una corrección del dueño sobre esa posición (la inversa de «admit someone», que ancla en el mismo sitio, el 3 de X): desde entonces la lectura del 3 no la coloca por lo admitido ahí y la regla de elegibles (R8, src/elegibles.js) no la admite en X ni en lo que cuelga de X. No mueve R: devolver la R es la liquidación, y puede venir después («return R»); vetar es otra cosa («veto someone», el grupo 5)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49; fusión con PV3): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -13864,7 +13601,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "veto-someone.json",
-    "id": "99219d8cf3bc49ce06a0ed0cff758653608d526f1b39e30f7bd1ec9c1024e279",
+    "id": "b38c4188a6c34a469a378edb6796a10c4ee17a10f747383ab43577497a3d60cb",
     "registro": [
       [
         "veto someone"
@@ -13911,25 +13648,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "3.5.3",
@@ -13938,7 +13657,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): vetar es rechazar su R, el grupo 5 del 3 (vetados), y gana sobre cualquier R: el registro, con la identidad en su 0, se ancla en el 3.5.3 del alta de quien veta (los «quiénes» del grupo 5, A.3.5.3), así que la lectura «attention group» lo pone en la zona 5 (gana la más alta que lo nombra) y su precio es «nothing»: no le llegan sus mensajes («write to X» no se le ofrece y la regla de atención los rechaza); la lectura del 3 lo pone en el 3.5 y la regla de elegibles no lo admite en nada del que veta. Arrastrarlo al 3.5 en la carta es lo mismo («move to group» con la zona 5)"
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): vetar es rechazar su R, el grupo 5 del 3 (vetados), y gana sobre cualquier R: el registro, con la identidad en su 0, se ancla en el 3.5.3 del alta de quien veta (los «quiénes» del grupo 5, A.3.5.3), así que la lectura «attention group» lo pone en la zona 5 (gana la más alta que lo nombra) y su precio es «nothing»: no le llegan sus mensajes («write to X» no se le ofrece y la regla de atención los rechaza); la lectura del 3 lo pone en el 3.5 y la regla de elegibles no lo admite en nada del que veta. Arrastrarlo al 3.5 en la carta es lo mismo («move to group» con la zona 5)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49; fusión con PV3): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -13954,7 +13674,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "move-to-group.json",
-    "id": "9f6c6c613f048e28c513d1d9ca1553dd2286a38d28883d75d2a08462de0440ac",
+    "id": "a16936bd891d2ca6fda8f3b779f9aca876d31c746893c3da364cd22bf714432a",
     "registro": [
       [
         "move to group"
@@ -14033,25 +13753,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "3.{zone}.3",
@@ -14060,7 +13762,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): arrastrar a alguien de una caja del 3 a otra es reclasificar la conversación: el dueño la pone en el grupo que dice, anclando la identidad en el 3.<zone>.3 de su alta (los «quiénes» de ese grupo, A.3.k.3); la lectura del 3 toma el último que la nombra (gana sobre lo que dicen los mensajes) y el 5, vetar, gana sobre todo. No mueve tokens más que el T de escribir"
+        "VG, 12-11 (encargo pv3, issues #32, #35, #37 y #38): arrastrar a alguien de una caja del 3 a otra es reclasificar la conversación: el dueño la pone en el grupo que dice, anclando la identidad en el 3.<zone>.3 de su alta (los «quiénes» de ese grupo, A.3.k.3); la lectura del 3 toma el último que la nombra (gana sobre lo que dicen los mensajes) y el 5, vetar, gana sobre todo. No mueve tokens más que el T de escribir",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49; fusión con PV3): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -14076,7 +13779,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "aggregate-t.json",
-    "id": "2bd533ca2e2c33d60d18c8f80a614d231621ad8b0c92f04e271c76761020fb52",
+    "id": "d36e97ef35f1830a2aaf09d203fc055caef1d42c5a8b02ea79c9d0e886e58cce",
     "registro": [
       [
         "aggregate T"
@@ -14321,25 +14024,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "4"
@@ -14347,7 +14032,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Englobar hacia una escala superior sobre registros del eje: crea el registro de la escala superior en la fábrica de X (su 4) anclando los de abajo (sus hijos) en su 6; el libro local es del 3c-2b"
+        "Englobar hacia una escala superior sobre registros del eje: crea el registro de la escala superior en la fábrica de X (su 4) anclando los de abajo (sus hijos) en su 6; el libro local es del 3c-2b",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -14363,7 +14049,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "break-down.json",
-    "id": "3a115187e53b8a46b49a64b480ec306cc07b5382cdec539c1d1ed36ae213d493",
+    "id": "a223cf6e9c59e67cefd26164cb59a0cead52271e95d28071b9e55a453c13fa3f",
     "registro": [
       [
         "break down"
@@ -14607,32 +14293,15 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "4"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
-        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe"
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -14648,7 +14317,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "propose.json",
-    "id": "56f838a09eb654377bb06ed2fffb005a3f69aaf932cb4bf03ba1cd19bd5889ae",
+    "id": "e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d",
     "registro": [
       [
         "propose"
@@ -14827,25 +14496,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "4"
@@ -14853,7 +14504,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "La fábrica (PV4) sigue siendo donde se proponen registros, sin fases (mapa §15 [D])"
+        "La fábrica (PV4) sigue siendo donde se proponen registros, sin fases (mapa §15 [D])",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -14869,7 +14521,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "deliver.json",
-    "id": "67779033642aa7657714f8117fd2f428b47c4637ecb0b42d5ab7449fc20c2ca9",
+    "id": "dbc9ac7479a38d1fa379424a263b4d6bebc98e6f8fdeedbf29a1a127e78939b6",
     "registro": [
       [
         "deliver"
@@ -14904,7 +14556,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             1
           ],
           [
-            "=first (it.4.8 where first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0))",
+            "=first ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0) or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and not (E in it3.0.0.0)) > 0)",
             "the announced movement of mine that is not E (T to work, P to decide, R to attend; in the 4.1 of X) that I deliver"
           ]
         ],
@@ -15009,58 +14661,24 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "=count (it.4.8 where first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0)) > 0"
+        "=count ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0) or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and not (E in it3.0.0.0)) > 0) > 0"
       ],
       [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
-            "=last (first ev.1).0"
-          ],
-          [
-            "=last (first ev.1).1"
-          ],
-          [
-            "transfer"
-          ],
-          [
-            [
-              "=last (first ev.1).3.0"
-            ],
-            [
-              "=last (first ev.1).3.1"
-            ]
-          ]
-        ]
+        "=count (moves (first memo.1) where \"anunciado\" in it2.2) = 0 and transfer last (first memo.1).1 before.4.(last (first memo.1).0) from last (first memo.1).3.0 to last (first memo.1).3.1 or count ((moves (first memo.1)) where \"anunciado\" in it2.2 and transfer in it2.4 and it2.3.0 = me and transfer it2.1 it2.0 from it2.3.0 to it2.3.1) >= 0"
       ],
       [
-        "4"
+        "4",
+        "=first memo.1"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Las estaciones de trabajar (T), decidir (P) y atender (R): mueve lo anunciado que me toca y no es E (la lectura «stage», X.4.8, con before.4 para la familia); lo de E lo mueve «pay»"
+        "Las estaciones de trabajar (T), decidir (P) y atender (R): mueve lo anunciado que me toca y no es E (la lectura «stage», X.4.8, con before.4 para la familia); lo de E lo mueve «pay»",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición",
+        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js). Lee lo anunciado en la lectura «stage» ((first it.4).8: solo los anuncios; lo demás que haya en el 4.8 de X no es un registro que moves sepa leer)"
       ],
       [
         "epoch 0"
@@ -15076,7 +14694,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "pay.json",
-    "id": "6ed47b1b3d387fbda597f77748dc173288e5a997c1c641c08bf61afffbe365c2",
+    "id": "06675863d8226bb67e6d266d34f0e0c56595ee5ab161f8a40fe184e9e4fb4111",
     "registro": [
       [
         "pay"
@@ -15111,7 +14729,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             1
           ],
           [
-            "=first (it.4.8 where first it2.3.0 = me and E in (before.4.(first it2.0)).0.0)",
+            "=first ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and E in (before.4.(first it2.0)).0.0 or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and E in it3.0.0.0) > 0)",
             "the announced movement of E (in the 4.1 of X) that I pay"
           ]
         ],
@@ -15216,58 +14834,24 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "=count (it.4.8 where first it2.3.0 = me and E in (before.4.(first it2.0)).0.0) > 0"
+        "=count ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and E in (before.4.(first it2.0)).0.0 or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and E in it3.0.0.0) > 0) > 0"
       ],
       [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
-            "=last (first ev.1).0"
-          ],
-          [
-            "=last (first ev.1).1"
-          ],
-          [
-            "transfer"
-          ],
-          [
-            [
-              "=last (first ev.1).3.0"
-            ],
-            [
-              "=last (first ev.1).3.1"
-            ]
-          ]
-        ]
+        "=count (moves (first memo.1) where \"anunciado\" in it2.2) = 0 and transfer last (first memo.1).1 before.4.(last (first memo.1).0) from last (first memo.1).3.0 to last (first memo.1).3.1 or count ((moves (first memo.1)) where \"anunciado\" in it2.2 and transfer in it2.4 and it2.3.0 = me and transfer it2.1 it2.0 from it2.3.0 to it2.3.1) >= 0"
       ],
       [
-        "4"
+        "4",
+        "=first memo.1"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "La estación de pagar (E): mueve lo anunciado de la familia E que me toca («move what was announced», epoch.9.0.3)"
+        "La estación de pagar (E): mueve lo anunciado de la familia E que me toca («move what was announced», epoch.9.0.3)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición",
+        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): el anuncio es un movimiento anunciado del libro (estado «anunciado», lo lee moves) y lo cumple el registro que se ancla sobre él: esta plantilla ancla en el 4 del anuncio (su 5: el registro del parámetro announcement), así que un pago cumple uno solo. Lee las dos formas del anuncio, la nueva y la de antes (un payload que imita un movimiento, la de los ejemplos), y solo mueve lo que se transfiere. Su lista de antes (que solo sabía leer el anuncio como payload) se retira: no lee el movimiento anunciado; la prueba de igualdad la compara sobre los anuncios de antes (test/acciones.test.js). Lee lo anunciado en la lectura «stage» ((first it.4).8: solo los anuncios; lo demás que haya en el 4.8 de X no es un registro que moves sepa leer)"
       ],
       [
         "epoch 0"
@@ -15283,7 +14867,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "close.json",
-    "id": "f666e2efeed2e843b49fe31f7eea09b5182cc1e6b6f182a6834848f7c006a0d5",
+    "id": "e30ab690bcd81adfcfe9ad99ea47683accf3a8c03aa206cb5b8dde795faa7b61",
     "registro": [
       [
         "close"
@@ -15462,25 +15046,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "4"
@@ -15488,7 +15054,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Solo el dueño, cuando lo anunciado ha pasado (X.4.8 vacío): «cerrado» lo establece el proceso (N5), este registro solo lo dice"
+        "Solo el dueño, cuando lo anunciado ha pasado (X.4.8 vacío): «cerrado» lo establece el proceso (N5), este registro solo lo dice",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -15504,7 +15071,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "anchor-here.json",
-    "id": "8098780ae5167fe7182172e080231d320ca002f652f33a3ca8318b6da36a9c66",
+    "id": "90b6c802d6af10f45fca8e4505258d282e2dd88d36bc357fcc9679f894167476",
     "registro": [
       [
         "anchor here"
@@ -15842,25 +15409,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "0"
@@ -15868,7 +15417,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Un registro nuevo colgado de X; sobre el alta de otro no (ahí se escribe con «write to X», que paga la atención)"
+        "Un registro nuevo colgado de X; sobre el alta de otro no (ahí se escribe con «write to X», que paga la atención)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -15884,7 +15434,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "reference-x-from-another-record.json",
-    "id": "73a2035bf1a9eb1a3994158a52c41c49ae152ac39cc42f323d13ecede0c4d3b5",
+    "id": "1453fbac45a1cdec393c21d7cc27b3fed064f2c9ca8b0338c1efae9610916a8e",
     "registro": [
       [
         "reference X from another record"
@@ -16061,25 +15611,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "0",
@@ -16087,7 +15619,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
-        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe"
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -16144,7 +15677,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "commit-time.json",
-    "id": "0d1f901c08c82fb6c59eb2c244c03d5f592a523cb098ca157c873b09f2417f26",
+    "id": "3766e0e830fe85c3d1e55d8788fdd4b76d657f2c0a765b7937b48eab7a164a30",
     "registro": [
       [
         "commit time"
@@ -16357,25 +15890,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "=first ev.1.0"
           ],
           [
@@ -16393,7 +15907,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "=me"
             ]
           ]
-        ]
+        ],
+        "=lock first memo.1.1 before.4.(first memo.1.0) from me exit first memo.1.2"
       ],
       [
         "7"
@@ -16401,7 +15916,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Un plazo o una caducidad: bloquear hasta una fecha (la salida del bloqueo es la fecha)"
+        "Un plazo o una caducidad: bloquear hasta una fecha (la salida del bloqueo es la fecha)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -16417,7 +15933,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "declare-future-t.json",
-    "id": "476857f001ef33902c02ab59f9312fa4f229b0e692a843426501b6471bae1e50",
+    "id": "78683e97f10aa828a2bcd0eebd79df86622b9cc3051032dd12386fc881f7ea66",
     "registro": [
       [
         "declare future T"
@@ -16629,25 +16145,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "T",
             "futuro"
           ],
@@ -16666,7 +16163,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "nobody"
             ]
           ]
-        ]
+        ],
+        "=burn first memo.1.1 T.8 from me when first memo.1.0"
       ],
       [
         "7"
@@ -16674,7 +16172,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "T informativo (VG, 8-11): se consume y queda registrado con la fecha a la que se refiere (el segundo ocupante del 2 del movimiento)"
+        "T informativo (VG, 8-11): se consume y queda registrado con la fecha a la que se refiere (el segundo ocupante del 2 del movimiento)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -16690,7 +16189,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "expire-something-mine.json",
-    "id": "2601f60ed3e5c93e5bbc1ca29c4d1615376006462947d40c534186cda2b5b072",
+    "id": "12d4cc69e6b5043d9febef820a3c3df3439033dbf15359c3f92775abc2c6deaa",
     "registro": [
       [
         "expire something mine"
@@ -16871,25 +16370,6 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         [
           [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ],
-        [
-          [
             "=first ev.1.0"
           ],
           [
@@ -16906,14 +16386,16 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
               "nobody"
             ]
           ]
-        ]
+        ],
+        "=burn first memo.1.1 before.4.(first memo.1.0) from me"
       ],
       [
         "7"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
-        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe"
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo, una por ocupante, evaluadas en orden con it = X, me = quien la lanza y memo = el payload de la candidata (bqlm.evaluarPlantilla): los cinco símbolos como verbos (mint transfer lock release burn) con from, to, exit, when y price, la serie como posición de su familia (T.1, R.(me)…) o leída del libro (before.4.(…)), el condicional con el and perezoso y el nivel en mano put v at A.1.(S).1. La candidata la firma quien la lanza y la validan después las reglas, que solo leen (invariante del núcleo). Mientras dure la migración, la lista de antes (un movimiento por décupla) queda delante de las sentencias y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js); se retira cuando todas den igual. Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
       ],
       [
         "epoch 0"
@@ -16929,7 +16411,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "measure.json",
-    "id": "f6318461cc022563a680fc277a19f284e42094bdf4f087d879c1ea457191e25a",
+    "id": "7fe73fa25c3f125ccb7463772afab1a46b21304b5b41b5118f64e738c9b1331c",
     "registro": [
       [
         "measure"
@@ -17108,25 +16590,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "8"
@@ -17134,7 +16598,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Escribir la base del 8 de X, si tengo P sobre X o soy la cosa (su dueño)"
+        "Escribir la base del 8 de X, si tengo P sobre X o soy la cosa (su dueño)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -17150,7 +16615,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "change-cohort.json",
-    "id": "10d36b4e56820777fe931ad1e7924437e6608c42a1e7eddeda6fd09c528ba16b",
+    "id": "912fd4e24a15711da5aa61422f037e1c054c4a0bab5288233d822d851cce3464",
     "registro": [
       [
         "change cohort"
@@ -17329,32 +16794,15 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "me"
       ],
       [
-        [
-          [
-            "T:minuto"
-          ],
-          [
-            1
-          ],
-          [
-            "burn"
-          ],
-          [
-            [
-              "=me"
-            ],
-            [
-              "nobody"
-            ]
-          ]
-        ]
+        "write"
       ],
       [
         "8"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
-        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe"
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
       ],
       [
         "epoch 0"
@@ -17644,7 +17092,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "29625d5c91089ec57ed8d37aaef1373b45c5e878faec7f5c57a88032a8af0dd5";
+export const EPOCA_0_BTML_ID = "1f7d7e351768bc0a66759eb6def873d1cf21538affb04fff1cd450b4c7eef6a4";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

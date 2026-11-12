@@ -21,6 +21,7 @@ import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { raizDeAmbito } from '../src/tokens.js';
 import { generarClaves, firmar as firmarEvento } from '../src/autoridad.js';
+import { costeT, exigido, tDelCoste } from '../src/escritura.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 const T1 = '2026-11-08T12:00:00Z';
@@ -28,6 +29,8 @@ const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, 
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 const nombres = (lista) => lista.map((x) => x.nombre);
 const movs = (ev) => ev.movimientos.map((m) => [m.token, m.cantidad, m.de, m.a]);
+/** El coste de escribir una candidata (VG 12-11, decisión 7: la regla «the cost of writing», un minuto por posición; antes, un minuto copiado). */
+const coste = (ev) => ['T', costeT(ev.payload), ev.autor, null];
 
 /** Una copia de la época 0 con cambios: lo que el aro ofrece ha de cambiar con ella. */
 function epocaCon(cambiar) {
@@ -102,7 +105,8 @@ test('transaccion: una compra entera por el aro (acciones → transaccion → as
   const r = await A.transaccion(eje, 'apply a resource', { X: menu.id, quantity: 2, price: [['E:casa/EUR'], [12]] }, 'huesped', { t: T1 });
   assert.deepEqual(r.motivos, []);
   assert.equal(r.ok, true);
-  assert.deepEqual(movs(r.evento), [['T', 1, 'huesped', null], ['E', 24, 'huesped', 'cocina']], 'un minuto de T y el precio por la cantidad, de quien lanza al dueño de X');
+  assert.deepEqual(movs(r.evento), [coste(r.evento), ['E', 24, 'huesped', 'cocina']], 'el coste de escribir (un minuto por posición) y el precio por la cantidad, de quien lanza al dueño de X');
+  assert.deepEqual([movs(r.evento)[0][1], r.exigido], [10, 600], 'diez posiciones, diez minutos (600 segundos exigidos)');
   assert.deepEqual([r.evento.sobre, r.evento.en], [menu.id, '0000000000']);
   assert.deepEqual(r.evento.payload.slice(1), [[[{ ref: menu.id }], [2], [['E:casa/EUR'], [12]]], ['all announced movements happened'], ['huesped', 'cocina'], ['apply a resource'], ['purchase']]);
   assert.match(r.evento.payload[0], /^apply a resource: huesped gives 24 E:casa\/EUR to cocina for Menú del día$/);
@@ -157,7 +161,7 @@ test('write to X: la R es el precio universal (VG, 12-11, encargo pv3): los cinc
   const de = {};
   for (const quien of ['ana', 'bea', 'carla', 'dani', 'eli']) {
     de[quien] = await escribe(quien);
-    assert.deepEqual([de[quien].ok, movs(de[quien].evento), de[quien].evento.movimientos[1].emisor], [true, [['T', 1, quien, null], ['R', 1, quien, 'g']], 'g'], quien);
+    assert.deepEqual([de[quien].ok, movs(de[quien].evento), de[quien].evento.movimientos[1].emisor], [true, [coste(de[quien].evento), ['R', 1, quien, 'g']], 'g'], quien);
   }
   assert.deepEqual([de.ana.evento.sobre, de.ana.evento.en], [g, '3000000000'], 'anclado en el 3 del alta del destinatario');
   assert.deepEqual(de.ana.evento.payload, [['hola g'], ['their R', 1], [{ ref: plaza.id }], ['ana', 'g'], ['write to X']]);
@@ -209,7 +213,7 @@ test('encargo pv3: atender devuelve la R que trae el mensaje; quitar, vetar y ll
   // Quitar: en el 3 de un registro mío, con la identidad en su 3.1; no mueve más que el T de escribir.
   const plaza = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: ['Plaza'], movimientos: [minuto('g')] });
   const quitar = await lanzar('remove someone', plaza.id, { whom: 'ana' }, 'g');
-  assert.deepEqual([quitar.en, quitar.payload[3], movs(quitar)], ['3000000000', [['g'], ['ana']], [['T', 1, 'g', null]]]);
+  assert.deepEqual([quitar.en, quitar.payload[3], movs(quitar)], ['3000000000', [['g'], ['ana']], [coste(quitar)]]);
   assert.equal(nombres(A.acciones(eje, plaza.id, 3, 'ana')).includes('remove someone'), false, 'solo el dueño quita');
   // Los mínimos y la configuración: PV 0 (no en el aro), sobre lo mío, anclados en el nodo X.3.d.
   assert.deepEqual(nombres(A.acciones(eje, g, 0, 'g')), ['set a minimum', 'set a minimum rank', 'configure a place']);
@@ -369,19 +373,20 @@ test('camino: la reserva dice a la huésped lo que le falta (pagar) y lo que esp
   const h = await A.camino(eje, reserva.id, 'huesped', { t });
   const mios = h.pasos.filter((p) => p.hacer && !p.espera);
   const esperas = h.pasos.filter((p) => p.espera);
-  assert.deepEqual([mios.length, mios[0].hacer.plantilla, esperas.length, [...new Set(esperas.map((p) => p.espera))]], [1, 'pay', 3, ['casa']]);
+  // VG 12-11 (decisión 8): las tres noches van en un anuncio de la casa: una espera, con las tres.
+  assert.deepEqual([mios.length, mios[0].hacer.plantilla, esperas.length, [...new Set(esperas.map((p) => p.espera))]], [1, 'pay', 1, ['casa']]);
   assert.match(mios[0].falta, /^stage: .* · pagar 165 E:casa\/EUR huesped → casa$/);
-  assert.ok(esperas.every((p) => /ocupar 1 E:casa\/1100000000@2026-11-2\d@/.test(p.falta)));
+  assert.equal(esperas[0].falta.match(/1 E:casa\/1100000000@2026-11-2\d@/g).length, 3);
   assert.equal(h.niveles, undefined, 'la reserva ya tiene madurez: no hace falta ubicarse');
-  // La casa ve lo contrario: tres pasos suyos (las plazas) y la espera del pago.
+  // La casa ve lo contrario: un paso suyo (las tres plazas, en una transacción sobre su anuncio) y la espera del pago.
   const c = await A.camino(eje, reserva.id, 'casa', { t });
-  assert.deepEqual([c.pasos.filter((p) => p.hacer && !p.espera).map((p) => p.hacer.plantilla), c.pasos.filter((p) => p.espera).map((p) => p.espera)], [['pay', 'pay', 'pay'], ['huesped']]);
+  assert.deepEqual([c.pasos.filter((p) => p.hacer && !p.espera).map((p) => p.hacer.plantilla), c.pasos.filter((p) => p.espera).map((p) => p.espera)], [['pay'], ['huesped']]);
   // Autoejecutar: la huésped paga, la casa entrega, y la reserva queda cerrada; nadie mueve lo ajeno.
   const a = await A.autoejecutar(eje, reserva.id, 'huesped', null, { t });
   assert.deepEqual([a.hechos.length, a.parado, movs(a.hechos[0].evento)[1]], [1, null, ['E', 165, 'huesped', 'casa']]);
   assert.equal(cerrado(eje, reserva.id).cerrado, false);
   const b = await A.autoejecutar(eje, reserva.id, 'casa', null, { t });
-  assert.deepEqual([b.hechos.length, b.parado], [3, null]);
+  assert.deepEqual([b.hechos.length, b.parado, b.hechos[0].evento.movimientos.length], [1, null, 4], 'las tres noches en una transacción (con su T)');
   assert.equal(cerrado(eje, reserva.id).cerrado, true);
   assert.deepEqual((await A.camino(eje, reserva.id, 'huesped', { t })).pasos, []);
   // La firma que le pasa la carta se aplica a cada evento antes de asentarlo.
@@ -455,9 +460,10 @@ test('aggregate T engloba lo que cuelga de X en un registro de la fábrica de X 
   // Tasks: la organizadora paga lo anunciado con «pay» en vez de a mano.
   const t = await ejemploTarea({ hasta: 'entregada' });
   const pasos = (await A.camino(t.eje, t.tarea.id, 'organizadora', { t: '2026-11-13T18:00:00Z' })).pasos.filter((p) => p.hacer);
-  assert.deepEqual(pasos.map((p) => p.hacer.plantilla), ['pay', 'pay']);
+  // Un anuncio con los dos pagos (VG 12-11, decisión 8): un paso, una transacción anclada sobre él.
+  assert.deepEqual(pasos.map((p) => p.hacer.plantilla), ['pay']);
   const auto = await A.autoejecutar(t.eje, t.tarea.id, 'organizadora', null, { t: '2026-11-13T18:00:00Z' });
-  assert.deepEqual([auto.hechos.length, auto.parado, cerrado(t.eje, t.tarea.id).cerrado], [2, null, true]);
+  assert.deepEqual([auto.hechos.length, auto.parado, cerrado(t.eje, t.tarea.id).cerrado, auto.hechos[0].evento.sobre], [1, null, true, t.anuncios[0].id]);
 });
 
 test('el índice expone las acciones como espacio de nombres, y el contexto resuelve «me»', async () => {
@@ -504,4 +510,164 @@ test('ejecuciones: lo propio del 4 de X y cada registro anclado en X, con el PV 
   const otra = A.ejecuciones(c.eje, c.compra.id).find((x) => x.ocupante?.ref === nota.id);
   assert.deepEqual([otra.pv, otra.posicion, otra.accion], [null, 3, null]);
   assert.deepEqual(A.ejecuciones(c.eje, 'no-existe'), []);
+});
+
+// ---------- BQL mueve (VG 12-11, estudio BQL-transacciones, decisiones 5 a 8 y 10) ----------
+
+/** Los parámetros que las plantillas no traen por defecto, para lanzarlas sobre los ejemplos. */
+const EXTRA = {
+  'apply a resource': { price: [['E:casa/EUR'], [2]] },
+  'issue E tied to X': { denomination: 'racion' },
+  'write to X': { text: 'hola' },
+  'commit time': { until: '2026-12-01T00:00:00Z' },
+  'declare future T': { what: 'servir', when: '2026-12-01T00:00:00Z' },
+};
+
+/** La lista que tenían «pay» y «deliver» antes de leer el anuncio como movimiento (retirada: solo sabía el payload). */
+const LISTA_DE_PAGAR = [[['=last (first ev.1).0'], ['=last (first ev.1).1'], ['transfer'], [['=last (first ev.1).3.0'], ['=last (first ev.1).3.1']]]];
+
+test('doble ejecución: cada plantilla migrada da el mismo evento (mismos movimientos, mismo id) por su lista de antes y por sus sentencias en BQL, sobre los ejemplos', async () => {
+  const conLista = A.plantillasDeTransaccion().filter((p) => A.sentenciasDe(p.plantilla).length && A.recetasDe(p.plantilla).length);
+  const iguales = new Map(conLista.map((p) => [p.nombre, 0]));
+  const dos = async (eje, cual, params, yo) => {
+    const lista = await A.transaccion(eje, cual, params, yo, { t: T1, via: 'lista' });
+    const bql = await A.transaccion(eje, cual, params, yo, { t: T1, via: 'bql' });
+    assert.equal(Boolean(lista.evento), Boolean(bql.evento), cual + ' (' + yo + '): ' + JSON.stringify([lista.motivos, bql.motivos]));
+    if (!lista.evento) return false;
+    assert.deepEqual(bql.evento.movimientos, lista.evento.movimientos, cual + ' (' + yo + ')');
+    assert.equal(bql.evento.id, lista.evento.id, cual + ' (' + yo + ')');
+    // Sin forzar la vía: se ejecutan las dos y lo dicen (doble.igual).
+    const ambas = await A.transaccion(eje, cual, params, yo, { t: T1 });
+    assert.deepEqual([ambas.doble?.igual, ambas.evento?.id], [true, bql.evento.id], cual);
+    return true;
+  };
+  const recorrer = async (eje, X) => {
+    for (const yo of eje.identidades()) {
+      for (const { nombre, pv } of conLista) {
+        if (iguales.get(nombre) >= 2 || !A.acciones(eje, X, pv, yo).some((a) => a.nombre === nombre)) continue;
+        if (await dos(eje, nombre, { X, ...(EXTRA[nombre] ?? {}) }, yo)) iguales.set(nombre, iguales.get(nombre) + 1);
+      }
+    }
+  };
+  const c = await ejemploCompra();
+  await ejemploFabrica(c.eje, c);
+  for (const X of c.eje.orden.slice(-12)) await recorrer(c.eje, X);
+  const r = await ejemploReserva();
+  for (const X of r.eje.orden) await recorrer(r.eje, X);
+  const { eje: grupos, plaza } = await mundoDeGrupos();
+  await recorrer(grupos, plaza.id);
+  // La R de PV3 (encargo pv3) por las dos vías: los cinco remitentes que tienen R de g la devuelven y gus, un
+  // desconocido sin R de g, acuña la suya; g atiende el mensaje de gus (devuelve su R) y admite a alguien en la plaza.
+  await entrarPorInvitacion(grupos, { por: 'ana', quien: 'gus', t: T0 });
+  const g = grupos.genesisId;
+  for (const yo of ['ana', 'bea', 'carla', 'dani', 'eli', 'gus']) {
+    assert.ok(await dos(grupos, 'write to X', { X: plaza.id, text: 'hola g' }, yo), 'write to X (' + yo + ')');
+    iguales.set('write to X', iguales.get('write to X') + 1);
+  }
+  const deGus = await A.transaccion(grupos, 'write to X', { X: g, text: 'hola' }, 'gus', { t: T1 });
+  const msg = await grupos.anadir(deGus.evento);
+  assert.ok(await dos(grupos, 'attend', { X: msg.id }, 'g'), 'attend');
+  iguales.set('attend', iguales.get('attend') + 1);
+  for (const valores of [{ whom: 'gus' }, { whom: 'ana', amount: 2, minutes: 5 }]) {
+    assert.ok(await dos(grupos, 'admit someone', { X: plaza.id, ...valores }, 'g'), 'admit someone ' + JSON.stringify(valores));
+    iguales.set('admit someone', iguales.get('admit someone') + 1);
+  }
+  // Dar de alta una cosa (pide su clave y los minutos, sin defecto: #46): la casa, sobre su alta.
+  const cosa = await generarClaves();
+  if (await dos(c.eje, 'register a thing', { X: c.eje.alta('casa').id, thing: 'robot', minutes: 60, key: cosa.publica }, 'casa')) iguales.set('register a thing', iguales.get('register a thing') + 1);
+  assert.deepEqual([...iguales].filter(([, n]) => n === 0).map(([nombre]) => nombre), [], 'cada plantilla con las dos vías se comparó al menos una vez: ' + JSON.stringify(Object.fromEntries(iguales)));
+  // «pay» y «deliver» ya no llevan lista (no sabía leer el anuncio como movimiento): la que tenían da lo mismo que sus
+  // sentencias sobre los anuncios de antes (un payload que imita un movimiento).
+  const { eje, menu, compra } = await ejemploCompra();
+  const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
+  const anuncio = (serie, cantidad, que, de, a) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [[serie], [cantidad], [que], [[de], [a]]], movimientos: [minuto('cocina', 4)] });
+  const aE = await anuncio('E:casa/EUR', 5, 'pagar', 'huesped', 'cocina');
+  const aP = await anuncio('P:' + compra.id + '/huesped', 1, 'decidir', 'huesped', 'cocina');
+  for (const [cual, a] of [['pay', aE], ['deliver', aP]]) {
+    const nueva = A.plantillaDeTransaccion(cual);
+    const vieja = nueva.map((x, i) => (i === 4 ? LISTA_DE_PAGAR : x));
+    const params = { X: encargo.id, announcement: { ref: a.id } };
+    const [rv, rn] = [await A.transaccion(eje, vieja, params, 'huesped', { t: T1 }), await A.transaccion(eje, nueva, params, 'huesped', { t: T1 })];
+    assert.deepEqual([rv.ok, rn.ok, rn.evento.id], [true, true, rv.evento.id], cual);
+  }
+  // Nada queda sin migrar: «admit someone» (la de PV3) se migró al fundir las dos ramas.
+  assert.deepEqual(A.plantillasDeTransaccion().filter((p) => !A.migrada(p.plantilla) && !A.esLectura(p.plantilla) && !A.esCamino(p.plantilla)).map((p) => p.nombre), []);
+});
+
+test('el coste de escribir: una sola regla de la época, por posición (A3); la T en la escala pedida o en la menor que lo cubre; sin el minuto copiado en las plantillas', async () => {
+  const regla = EPOCA_0_BTML.lecturas.find((r) => r[0][0] === 'the cost of writing');
+  assert.ok(regla, 'la regla está en el 2 de la época, como lectura');
+  assert.deepEqual([exigido(['a', ['b', 'c']]), costeT(['a', ['b', 'c']]), tDelCoste(180), tDelCoste(180, 'hora'), tDelCoste(3600), tDelCoste(30)], [180, 3, { escala: 'minuto', cantidad: 3 }, { escala: 'hora', cantidad: 1 }, { escala: 'hora', cantidad: 1 }, { escala: 'segundo', cantidad: 30 }]);
+  // El minuto copiado ya no está en ninguna plantilla (tampoco en las de PV3, desde la fusión).
+  const minuto1 = JSON.stringify([['T:minuto'], [1], ['burn'], [['=me'], ['nobody']]]);
+  assert.deepEqual(A.plantillasDeTransaccion().filter((p) => Array.isArray(p.plantilla[4]) && p.plantilla[4].some((x) => JSON.stringify(x) === minuto1)).map((p) => p.nombre), []);
+  // Una plantilla cobra lo que exige su candidata, por posición; con la escala pedida, en esa escala.
+  const { eje, menu } = await ejemploCompra();
+  const nota = await A.transaccion(eje, 'anchor here', { X: menu.id, title: 'Nota' }, 'huesped', { t: T1 });
+  assert.deepEqual([nota.ok, nota.evento.movimientos, nota.exigido], [true, [{ token: 'T', escala: 'minuto', cantidad: costeT(nota.evento.payload), de: 'huesped', a: null }], 60 * costeT(nota.evento.payload)]);
+  const enHoras = await A.transaccion(eje, 'anchor here', { X: menu.id, title: 'Nota' }, 'huesped', { t: T1, escala: 'hora' });
+  assert.deepEqual([enHoras.ok, enHoras.evento.movimientos], [true, [{ token: 'T', escala: 'hora', cantidad: 1, de: 'huesped', a: null }]]);
+  // Cambiar la regla en una copia de la época cambia el coste: es un dato, no código (dos minutos por posición).
+  const cara = cargarEpocaBtml(JSON.parse(JSON.stringify(EPOCA_0_BTML_DATOS)), {
+    registros: REGLAS_DE_EPOCA_DATOS.map((r) => (r.registro[0][0] === 'the cost of writing' ? { ...r, registro: r.registro.map((x, i) => (i === 2 ? ['=2 * first (first it.8).6.1 * first epoch.7.0.1.1'] : x)) } : r)),
+    plantillas: PLANTILLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML.id,
+  });
+  assert.equal(exigido(['a'], { epoca: cara }), 120);
+});
+
+test('#48: un pago cumple un solo anuncio (el que lo lleva anclado); antes, uno solo cerraba dos anuncios iguales', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
+  const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
+  // Dos anuncios iguales: la huésped paga 5 euros a la cocina, dos veces.
+  const anuncio = (t) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t, payload: [['E:casa/EUR'], [5], ['pagar'], [['huesped'], ['cocina']]], movimientos: [minuto('cocina', 4)] });
+  const [a1, a2] = [await anuncio(T1), await anuncio('2026-11-08T12:01:00Z')];
+  // La fórmula de antes (el primer ocupante del 2 de «stage») casaba por existencia: un solo pago en X los cerraba los dos.
+  const antes = EPOCA_0_BTML.lecturas.find((r) => r[0][0] === 'stage')[2][0];
+  const pendientesAntes = () => evaluar(antes, ctx, { sujeto: encargo.id }).valor.length;
+  await eje.escribir({ autor: 'huesped', sobre: encargo.id, t: T1, payload: ['pago suelto'], movimientos: [minuto('huesped'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 5, de: 'huesped', a: 'cocina' }] });
+  assert.equal(pendientesAntes(), 0, 'el defecto, reproducido con la fórmula de antes: un pago de 5 cierra dos anuncios de 5');
+  // Ahora: un pago suelto no cumple ninguno; el que se ancla sobre un anuncio cumple ese, y solo ese.
+  assert.deepEqual(A.estaciones(eje, encargo.id)[0].pendientes, [a1.id, a2.id]);
+  const pago = await A.transaccion(eje, 'pay', { X: encargo.id, announcement: { ref: a1.id } }, 'huesped', { t: T1 });
+  assert.deepEqual([pago.ok, pago.evento.sobre, pago.evento.en], [true, a1.id, '4000000000'], 'el pago se ancla en el 4 del anuncio');
+  await eje.anadir(pago.evento);
+  assert.deepEqual([A.estaciones(eje, encargo.id)[0].pendientes, cerrado(eje, encargo.id).cerrado], [[a2.id], false], 'un anuncio cumplido deja de estar anunciado; el otro sigue');
+  // El siguiente paso del camino es el otro anuncio; pagado, el encargo se cierra.
+  const c = await A.camino(eje, encargo.id, 'huesped', { t: T1 });
+  assert.deepEqual(c.pasos.filter((p) => p.regla === 'stage').map((p) => p.anuncio), [a2.id]);
+  const auto = await A.autoejecutar(eje, encargo.id, 'huesped', null, { t: '2026-11-08T12:05:00Z' });
+  assert.deepEqual([auto.hechos.map((h) => h.evento.sobre), cerrado(eje, encargo.id).cerrado], [[a2.id], true], JSON.stringify(auto.parado));
+});
+
+test('el anuncio es un movimiento anunciado del libro: no toca saldos, lo lee moves (2 «anunciado», 4.1 «anuncio», 7.1 para cuándo), lo cumple lo que se ancla sobre él y pasa por las estaciones de la época', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
+  const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
+  const saldo = eje.saldo('huesped', 'E:casa/EUR');
+  const anunciado = { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 7, de: 'huesped', a: 'cocina', estado: 'anunciado', refiere: '2026-11-20T10:00:00Z' };
+  const a = await eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: 'pagar la cena', movimientos: [minuto('cocina'), anunciado] });
+  assert.equal(eje.saldo('huesped', 'E:casa/EUR'), saldo, 'no toca saldos');
+  const s = '("' + a.id + '")';
+  assert.deepEqual(evaluar('count ' + s + '.1', ctx).valor, [1], 'el 1 del registro: solo lo que se movió (su T)');
+  assert.deepEqual(evaluar('(moves ' + s + ' where "anunciado" in it.2) each 4.1', ctx).valor, ['anuncio']);
+  assert.deepEqual(evaluar('first ((moves ' + s + ' where "anunciado" in it.2) each 7.1)', ctx).valor, ['2026-11-20T10:00:00Z']);
+  // La estación: propuesta; el camino de la huésped la paga con «pay», anclada sobre el anuncio; ejecutada.
+  assert.deepEqual(A.estacionesDelAnuncio().map((e) => e.nombre), ['propuesta', 'autorizada', 'ejecutada', 'verificada']);
+  assert.equal(A.estacionDeAnuncio(eje, a.id), 'propuesta');
+  const [paso] = (await A.camino(eje, encargo.id, 'huesped', { t: T1 })).pasos.filter((p) => p.regla === 'stage');
+  assert.deepEqual([paso.hacer.plantilla, paso.anuncio], ['pay', a.id]);
+  assert.match(paso.falta, /pagar la cena 7 E:casa\/EUR huesped → cocina$/);
+  const pago = await A.transaccion(eje, 'pay', { X: encargo.id }, 'huesped', { t: T1 });
+  assert.deepEqual([pago.ok, pago.evento.sobre, movs(pago.evento)[1]], [true, a.id, ['E', 7, 'huesped', 'cocina']], JSON.stringify(pago.motivos));
+  await eje.anadir(pago.evento);
+  assert.deepEqual([A.estacionDeAnuncio(eje, a.id), cerrado(eje, encargo.id).cerrado, eje.saldo('huesped', 'E:casa/EUR')], ['ejecutada', true, saldo - 7]);
+  assert.deepEqual(A.ejecuciones(eje, encargo.id).filter((x) => x.ocupante?.ref === a.id).map((x) => [x.accion, x.estacion]), [['pay', 'ejecutada']]);
+  // En BQL, mover con fecha (when) en lo que no es T informativo es anunciar: la plantilla lo construye, no lo mueve.
+  const anuncia = epocaCon((e, plantillas) => {
+    const p = plantillas.find((x) => x.registro[0][0] === 'anchor here').registro;
+    p[4] = ['=transfer 3 E.("casa").("EUR") from "huesped" to "cocina" when "2026-11-21T10:00:00Z"'];
+  });
+  const r = await A.transaccion(eje, 'anchor here', { X: encargo.id, title: 'otro anuncio' }, 'cocina', { t: T1, epoca: anuncia });
+  assert.deepEqual(r.evento.movimientos[1], { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 3, de: 'huesped', a: 'cocina', estado: 'anunciado', refiere: '2026-11-21T10:00:00Z' });
 });

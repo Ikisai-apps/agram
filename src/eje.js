@@ -43,7 +43,7 @@
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
 // estudio de neutralidad): reglasDelTope, en src/condiciones/tope.js.
 
-import { claveToken, origenDe, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS, ambitoDe } from './tokens.js';
+import { claveToken, origenDe, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS, ambitoDe, esAnunciado } from './tokens.js';
 import { acotarAltaV2, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
 import { evaluarEscritura, nombreDeRegla } from './bqlm.js';
 import { EPOCA_0_BTML } from './epocas.js';
@@ -854,6 +854,8 @@ export class Eje {
     const conAsignacion = reglas3 && this.#escribePersona(ev);
     const paso = (m) => {
       if (!m || typeof m !== 'object' || validarMovimiento(m).length) return [];
+      // El movimiento anunciado (VG 12-11, decisión 8) no toca saldos: un paso vacío; lo lee `moves` con la clase «anuncio».
+      if (esAnunciado(m)) return [];
       const k = claveToken(m);
       const c = cantidadBase(m);
       // El P que se acuña a mano es una reposición (la regla «P is repositioned one step at a time» lo exige).
@@ -945,7 +947,7 @@ export class Eje {
     }
     // El cupo de cada serie en esta transacción: diez por unidad acuñada (antes, y lo que acuña la candidata) menos lo
     // que la regla ya acuñó por ella, de todos los orígenes; lo que se reparte aquí también se descuenta.
-    const acunadaAqui = (fuente) => (Array.isArray(ev.movimientos) ? ev.movimientos : []).reduce((s, m) => s + (m && typeof m === 'object' && m.de === null && !validarMovimiento(m).length && claveToken(m) === fuente ? cantidadBase(m) : 0), 0);
+    const acunadaAqui = (fuente) => (Array.isArray(ev.movimientos) ? ev.movimientos : []).reduce((s, m) => s + (m && typeof m === 'object' && m.de === null && !esAnunciado(m) && !validarMovimiento(m).length && claveToken(m) === fuente ? cantidadBase(m) : 0), 0);
     const usado = new Map();
     const cupo = (etiqueta, fuente) => DIEZ_POR_UNIDAD * (this.#libro.sumas({ primitiva: 'acunar', serie: fuente, clase: EMISION }) + acunadaAqui(fuente)) - this.obtenidoDeSerie(fuente, etiqueta) - (usado.get(L2(etiqueta, fuente)) ?? 0);
     const pasos = [];
@@ -1279,7 +1281,7 @@ export class Eje {
       if (!this.#series.has(k)) this.#series.set(k, { emisor, ...(contrato ? { contrato } : {}) });
     };
     ev.movimientos.forEach((m, i) => {
-      if (m.estado === 'bloqueo' || m.estado === 'liberacion') return;
+      if (m.estado === 'bloqueo' || m.estado === 'liberacion' || esAnunciado(m)) return;
       const k = claveToken(m);
       if (m.de === null) {
         const emisor = m.token === 'E' || m.token === 'R' ? m.emisor : ev.autor;

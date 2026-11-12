@@ -23,7 +23,7 @@
 // docs/BTML.md §12). Convive con el formato de siempre, que no cambia.
 
 import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
-import { esLectura, esEscritura, esLecturaDePv } from './bqlm.js';
+import { esLectura, esEscritura, esLecturaDePv, analizar, queMueve } from './bqlm.js';
 import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS, GUIA_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
@@ -313,6 +313,19 @@ export function cargarEpocaBtml(payload, { registros = [], plantillas = [], corr
     const formula = (x) => typeof x === 'string' && x.startsWith('=') && !x.startsWith('==');
     // La lectura de un punto de vista (encargo «lecturas»): cada ocupante de su 2, una fórmula o «js <nombre>».
     if (esLecturaDePv(efectiva) ? !efectiva[2].every((x) => formula(x) || /^js [a-z]+$/.test(x)) : !formula(c)) throw new TypeError(nombre + ': ' + donde + ' lleva su condición «=…» en el 2');
+    // Invariante del núcleo (VG 12-11, decisión 6 del estudio BQL-transacciones): las reglas de la época solo leen.
+    // Una regla con un verbo (mint transfer lock release burn) no se carga; un put, solo en una regla que escribe.
+    for (const x of efectiva[2]) {
+      if (!formula(x)) continue;
+      let mueve;
+      try {
+        mueve = queMueve(analizar(x, { sujeto: true }));
+      } catch {
+        continue; // lo que no se analiza lo dice la regla al evaluarse
+      }
+      if (mueve.verbo) throw new TypeError(nombre + ': ' + donde + ' mueve («' + mueve.verbo + '»): una regla solo lee; solo una plantilla de transacción mueve (invariante del núcleo)');
+      if (mueve.put && !esEscritura(efectiva)) throw new TypeError(nombre + ': ' + donde + ' coloca (put) sin ser una regla que escribe (put en su 4)');
+    }
     return Object.freeze({ id: ref, regla: congelarCopia(efectiva) });
   });
   // Las lecturas (B5: «read» en su 4) están en el 2 como las demás, pero no son condiciones: el contexto las

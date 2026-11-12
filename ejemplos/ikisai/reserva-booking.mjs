@@ -58,7 +58,7 @@ import { Eje } from '../../src/eje.js';
 import { direccion, indicesDe, esReferencia } from '../../src/btml.js';
 import { evaluar } from '../../src/bql.js';
 import { costeT } from '../../src/escritura.js';
-import { familiaDe } from '../../src/tokens.js';
+import { familiaDe, partirClave } from '../../src/tokens.js';
 import { capacidadDe, tramoDe, siguiente, cerrado, ANUNCIO } from '../../src/motor.js';
 import { entrarPorInvitacion } from './altas.mjs';
 
@@ -346,8 +346,9 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
  * anidada (1), porque LOCAL lee a su profundidad; su criterio (2) son los de la habitación y la plantilla de cerrado
  * (encargo 3b: el dueño la nombra en su PV2); 4 es lo que prepara. Lo lejano, por anclaje: las noches (la décupla
  * [[entrada], [salida]]) se anclan en el 7 de la propia reserva (la salida no se ocupa), y lo que se va a mover se
- * anuncia en su 4.1, un registro por movimiento (motor.ANUNCIO): la casa entrega un token de la plaza por noche y
- * quien reserva paga el total. Escribirla no reserva nada: las reservas de una plaza colisionan en ella y la validez
+ * anuncia en su 4.1 (motor.ANUNCIO) como movimientos anunciados del libro (VG 12-11, decisión 8: no tocan saldos):
+ * un anuncio con las noches que entrega la casa (un token de la plaza por noche) y otro con el total que paga quien
+ * reserva. Cada parte cumple el suyo con un registro anclado sobre él. Escribirla no reserva nada: las reservas de una plaza colisionan en ella y la validez
  * llega cuando cada parte escribe su movimiento.
  */
 export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, nombre, privada }) {
@@ -381,15 +382,18 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
   }, privada);
   // Lo que se va a mover (encargo 3b): la casa entrega un token de la plaza por noche; quien reserva paga el total.
   const total = evaluar(eje, reserva.id, [1, 3]);
-  const anuncios = [...lista.map((noche) => anuncio(seriePlaza(habitacion.id, k, noche), 1, 'ocupar', CASA, autor)), ...(total.valor?.tipo === 'magnitud' ? [anuncio(EUR, total.valor.cantidad, 'pagar', autor, CASA)] : [])];
-  for (const a of anuncios) {
-    await eje.escribir({ autor, sobre: reserva.id, en: ANUNCIO, t, movimientos: [minutos(autor, costeT(a))], payload: a }, privada);
+  const anuncios = [['ocupar', lista.map((noche) => anunciado(seriePlaza(habitacion.id, k, noche), 1, CASA, autor))], ...(total.valor?.tipo === 'magnitud' ? [['pagar', [anunciado(EUR, total.valor.cantidad, autor, CASA)]]] : [])];
+  for (const [que, movimientos] of anuncios) {
+    await eje.escribir({ autor, sobre: reserva.id, en: ANUNCIO, t, movimientos: [minutos(autor, costeT(que)), ...movimientos], payload: que }, privada);
   }
   return reserva;
 }
 
-/** Un movimiento anunciado: [[la serie], [cuánto], [para qué], [[de quién], [a quién]]] (motor.siguiente lo lee). */
-const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
+/** Un movimiento anunciado (VG 12-11, decisión 8): la serie, cuánto, de quién y a quién, sin tocar saldos (motor.siguiente lo lee). */
+function anunciado(serie, cantidad, de, a) {
+  const { token, emisor, denominacion, registro } = partirClave(serie);
+  return { token, emisor, denominacion, ...(registro ? { registro } : {}), cantidad, de, a, estado: 'anunciado' };
+}
 
 /**
  * Las noches que ocupa una reserva, comprobadas antes de mover nada: está anclada EXACTAMENTE en la plaza que
@@ -419,14 +423,17 @@ export function nochesDe(eje, reserva) {
 }
 
 /**
- * La parte de `quien`: lo que a la reserva le falta de ella (motor.siguiente), en un registro suyo anclado sobre la
- * reserva, con su T y sus movimientos. Si no le falta nada, no escribe y devuelve null.
+ * La parte de `quien`: lo que a la reserva le falta de ella (motor.siguiente), en un registro suyo anclado sobre el
+ * anuncio que lo pide (VG 12-11, decisión 8: así lo cumple, y solo a él), con su T y sus movimientos (todas las noches
+ * en una sola transacción: entera o nada). Si no le falta nada, no escribe y devuelve null.
  */
 async function cumplir(eje, reserva, quien, { t, titulo, privada }) {
   const { faltaDeMi } = siguiente(eje, reserva.id, quien);
-  const movimientos = faltaDeMi.filter((x) => x.plantilla === 'move what was announced').map((x) => x.transaccion.movimientos[1]);
-  if (!movimientos.length) return null;
-  return eje.escribir({ autor: quien, sobre: reserva.id, t, movimientos: [minutos(quien), ...movimientos], payload: titulo }, privada);
+  let ultimo = null;
+  for (const x of faltaDeMi.filter((f) => f.plantilla === 'move what was announced')) {
+    ultimo = await eje.escribir({ autor: quien, sobre: x.anuncio, en: x.transaccion.en, t, movimientos: [minutos(quien), ...x.transaccion.movimientos.slice(1)], payload: titulo }, privada);
+  }
+  return ultimo;
 }
 
 /**
@@ -440,7 +447,8 @@ async function cumplir(eje, reserva, quien, { t, titulo, privada }) {
 export async function confirmarReserva(eje, reserva, { claves = {}, t = '2026-11-09T09:00:00Z' } = {}) {
   const priv = (id) => claves[id]?.privada;
   const quien = reserva.autor;
-  const hecho = (autor, titulo) => eje.sobre(reserva.id).find((e) => e.autor === autor && e.payload === titulo) ?? null;
+  // Lo hecho cuelga de los anuncios de la reserva (VG 12-11, decisión 8).
+  const hecho = (autor, titulo) => eje.sobre(reserva.id, ANUNCIO).flatMap((a) => eje.sobre(a.id)).find((e) => e.autor === autor && e.payload === titulo) ?? null;
   // Las noches y el anclaje, siempre (también si la reserva ya está cerrada): una reserva sin anuncios en su 4.1 cumple
   // de vacío la plantilla de cerrado, y eso no la confirma.
   nochesDe(eje, reserva);

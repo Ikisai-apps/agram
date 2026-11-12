@@ -66,24 +66,20 @@
   ["me"],
   [
     [
-      ["T:minuto"],
-      [1],
-      ["burn"],
-      [["=me"], ["nobody"]]
-    ],
-    [
       ["R", "=first it.3"],
       ["=sum ((it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) each 1)"],
       ["transfer"],
       [["=me"], ["=first it.3"]]
-    ]
+    ],
+    "=transfer sum ((it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) each 1) R.(first it.3) from me to first it.3"
   ],
   ["0"],
   [
     "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
     "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
     "X es una petición de atención a mí (devuelve mi R sobre mi alta): un registro mío sobre ella con T real la atiende (la lectura «attended», X.7.4)",
-    "VG, 12-11 (encargo pv3): la regla es la misma en los dos sentidos: quien escribe pone su R y atender la devuelve. Si X me trae R de su autor (un mensaje con su R, la bandeja del 3), atenderlo es además devolvérsela (perdonar la quema, «forgive»; dejarlo es pendiente)"
+    "VG, 12-11 (encargo pv3): la regla es la misma en los dos sentidos: quien escribe pone su R y atender la devuelve. Si X me trae R de su autor (un mensaje con su R, la bandeja del 3), atenderlo es además devolvérsela (perdonar la quema, «forgive»; dejarlo es pendiente)",
+    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7 y 10; #49): su 4 mueve con sentencias del BQL mínimo (bqlm.evaluarPlantilla): atender devuelve la R que X trajo de su autor (transfer de R.(first it.3) de me a first it.3, lo que sume esa R en X); 0 no se mueve. Mientras dure la migración, la lista de antes queda delante y las dos vías han de dar el mismo evento (doble ejecución, test/acciones.test.js). Sin el minuto copiado: el coste de escribir lo cobra a toda candidata la regla de la época «the cost of writing», por posición"
   ],
   ["epoch 0"],
   [3, 4],

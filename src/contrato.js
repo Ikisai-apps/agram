@@ -666,7 +666,9 @@ export function celdaDeEjecucion(eje, id, opciones = {}) {
     const pv = p ? Number(hoja(p[8])) : NaN;
     return Number.isInteger(pv) ? pv : null;
   };
-  const anunciada = anclaje.startsWith('41') ? texto(ultima(h.payload?.[0])) ?? null : null;
+  // La serie anunciada: la del movimiento anunciado (VG 12-11, decisión 8) o, en la forma de antes, la que nombra su payload.
+  const anunciadoM = anclaje.startsWith('41') ? (Array.isArray(h.movimientos) ? h.movimientos : []).find((m) => m?.estado === 'anunciado') : null;
+  const anunciada = anunciadoM ? claveToken(anunciadoM) : anclaje.startsWith('41') ? texto(ultima(h.payload?.[0])) ?? null : null;
   const familiaAnunciada = familiaDeSerie(anunciada);
   let oficio = null;
   let porOficio = null;

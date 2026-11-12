@@ -452,7 +452,8 @@ test('MOT-14 el ciclo: descubrir → elegir o crear → consolidar en PV4 → an
   const e = await cumplir(eje, c.id, 'ana');
   assert.equal(cerrado(eje, c.id).cerrado, true);
   assert.equal(a.sobre, c.id);
-  assert.deepEqual(eje.hilo(e.id).slice(0, 2).map((x) => x.id), [e.id, c.id]);
+  // Lo que cumple el anuncio se ancla sobre él (VG 12-11, decisión 8; #48): propuesta → anuncio → movimiento.
+  assert.deepEqual(eje.hilo(e.id).slice(0, 3).map((x) => x.id), [e.id, a.id, c.id]);
 });
 
 test('MOT-15 el orden lo da la cadena: lo anunciado se mueve una vez y, hecho, ya no falta nada', async () => {
@@ -616,9 +617,10 @@ test('MOT-26 lo hecho deja evidencia: el registro que mueve lo anunciado cuelga 
   const { c, a } = await anunciada(eje, g);
   const e = await cumplir(eje, c.id, 'ana');
   assert.equal(a.sobre, c.id);
-  assert.equal(e.sobre, c.id);
+  // El movimiento cuelga del anuncio que cumple (VG 12-11, decisión 8; #48), y el anuncio de la propuesta.
+  assert.equal(e.sobre, a.id);
   assert.deepEqual(e.payload, ['mover 5 E:raiz/EUR de ana a raiz']);
-  assert.deepEqual(eje.hilo(e.id).slice(0, 3).map((x) => x.id), [e.id, c.id, g]);
+  assert.deepEqual(eje.hilo(e.id).slice(0, 4).map((x) => x.id), [e.id, a.id, c.id, g]);
 });
 
 test('MOT-26b la evidencia acredita el resultado material, no solo el proceso',
@@ -773,15 +775,17 @@ test('MOT-37 las consolidaciones no cerradas son futuro subjetivo', async () => 
 });
 
 test('MOT-38 se ejecuta en 4: lo anunciado se mueve con un registro nuevo que entra en la fábrica de la propuesta (X → cruz)', async () => {
-  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): ejecutar es registrar el movimiento anunciado; aquí ana lo ancla en el 4 de su propuesta.
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): ejecutar es registrar el movimiento anunciado.
+  // VG 12-11 (decisión 8; #48): ana lo ancla en el 4 del anuncio que cumple, que cuelga del 4.1 de su propuesta.
   const { eje, g } = await mundo();
-  const { c } = await anunciada(eje, g);
+  const { c, a } = await anunciada(eje, g);
   const antes = eje.orden.length;
   const e = await cumplir(eje, c.id, 'ana', { en: FABRICA });
   assert.equal(e.en, FABRICA);
-  assert.equal(e.sobre, c.id);
+  assert.equal(e.sobre, a.id);
   assert.equal(eje.orden.length, antes + 1);
-  assert.ok(ocupantes(eje, c.id, [4]).some((o) => o.evento === e.id));
+  assert.ok(ocupantes(eje, a.id, [4]).some((o) => o.evento === e.id));
+  assert.ok(ocupantes(eje, c.id, [4, 1]).some((o) => o.evento === a.id));
 });
 
 test('MOT-38b lo anunciado y movido en el 4 de la propuesta la cierra',

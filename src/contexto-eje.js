@@ -46,7 +46,7 @@
 // «Pendiente de integrar». No lee el tipo de ninguna identidad (R10).
 
 import { ARIDAD, esReferencia, esLista, direccion, indicesDe, resolver } from './btml.js';
-import { ESCALAS_T, ESCALAS_REALES, SEGUNDOS, claveToken, partirClave, franjaDe, diaCivil, validarMovimiento } from './tokens.js';
+import { ESCALAS_T, ESCALAS_REALES, SEGUNDOS, claveToken, partirClave, franjaDe, diaCivil, validarMovimiento, esAnunciado } from './tokens.js';
 import { esInstante, msUTC } from './instante.js';
 import { contenido } from './modos.js';
 import { pendiente, Parada, Presupuesto, SIMBOLOS, NADIE, leerRegla, posicionDeLectura, nombreDeRegla } from './bqlm.js';
@@ -63,6 +63,8 @@ const RE_SERIE = /^([EPRT]):(.+)$/;
 const RE_MAGNITUD = /^(?:(-?\d+(?:\.\d+)?)\s+([\p{L}€$%][\p{L}\p{N}_€$%]*)|([\p{L}€$%][\p{L}\p{N}_€$%]*)\s+(-?\d+(?:\.\d+)?))$/u;
 
 const CANDIDATA = Object.freeze({ k: 'ev' });
+// `memo` (VG 12-11, decisión 5): el payload de la candidata, sin movimientos ni metadatos.
+const MEMO = Object.freeze({ k: 'memo' });
 const EN_CURSO = Symbol('en curso');
 const EPOCA = Object.freeze({ k: 'epoch' });
 const ANTES = Object.freeze({ k: 'before' });
@@ -233,7 +235,9 @@ export class ContextoEje {
 
   /** El sujeto de una lectura de registro: la candidata o el registro del eje. */
   #sujetoDe(e) {
-    return e === this.#ev ? CANDIDATA : { k: 'reg', id: e.id };
+    // Una «candidata» que ya está en el eje (quien lee un registro asentado como ev) se lee como el registro: con lo que
+    // cuelga de él (la lectura «stage», VG 12-11, decisión 8, mira lo anclado sobre sus anuncios).
+    return e === this.#ev && !(typeof e.id === 'string' && this.#eje?.obtener(e.id)) ? CANDIDATA : { k: 'reg', id: e.id };
   }
 
   /** El nodo de 'ev', 'epoch' o 'before', o undefined si este contexto no lo tiene. */
@@ -243,7 +247,31 @@ export class ContextoEje {
     if (n === 'before') return this.#eje ? ANTES : undefined;
     // Encargo 3c-2a: `me` es la identidad que mira, un texto que se despliega como toda identidad con alta (sus vistas).
     if (n === 'me') return this.#me ?? undefined;
+    // VG 12-11 (decisión 5 del estudio BQL-transacciones): `memo` es el payload de la candidata, sin D-META (ni sus
+    // movimientos en el 1, ni el autor en el 3): acaba con el doble sentido de ev.1 en las plantillas.
+    if (n === 'memo') return this.#ev ? MEMO : undefined;
     return undefined;
+  }
+
+  /**
+   * La serie que nombran T.d, R.(x), E.(x).(y)[.(z)] y P.(x)[.(y)] (VG 12-11, decisión 5: la serie es una posición de
+   * su familia), como la serie del libro (D-SERIE), exista ya o no: su valor es su clave. undefined si las partes no
+   * hacen una serie (una escala que no es un dígito de las de T, una parte que no es un texto). Construirla no concede
+   * nada: lo que se haga con ella lo validan las reglas.
+   */
+  serie(familia, partes) {
+    const textos = partes.every((x) => typeof x === 'string' && x.length > 0);
+    let clave;
+    if (familia === 'T') {
+      const d = partes[0];
+      if (partes.length !== 1 || !Number.isInteger(d) || d < 0 || d >= ESCALAS_T.length) return undefined;
+      clave = 'T:' + ESCALAS_T[d];
+    } else if (!textos) return undefined;
+    else if (familia === 'R' && partes.length === 1) clave = claveToken({ token: 'R', emisor: partes[0] });
+    else if (familia === 'E' && (partes.length === 2 || partes.length === 3)) clave = claveToken({ token: 'E', emisor: partes[0], denominacion: partes[1], ...(partes[2] ? { registro: partes[2] } : {}) });
+    else if (familia === 'P' && (partes.length === 1 || partes.length === 2)) clave = claveToken({ token: 'P', ambito: partes[0], ...(partes[1] ? { origen: partes[1] } : {}) });
+    else return undefined;
+    return { k: 'serie', clave };
   }
 
   /**
@@ -324,6 +352,8 @@ export class ContextoEje {
       }
       case 'epoch':
         return this.#propio(this.#epoch, d, null, []);
+      case 'memo':
+        return this.#ev ? this.#propio(this.#ev.payload, d, null, []) : [];
       case 'regla':
         // Un registro de la época: lo suyo, con sus correcciones detrás (el cargador las pone en su posición).
         return this.#propio(nodo.v, d, null, []);
@@ -399,7 +429,7 @@ export class ContextoEje {
    */
   asientos(nodo, presupuesto) {
     const pres = presupuesto ?? this.#presupuesto ?? new Presupuesto();
-    if (nodo?.k === 'ev') return this.#ev ? this.#meta(this.#ev, 1) : undefined;
+    if (nodo?.k === 'ev') return this.#ev ? this.#declarados(this.#ev) : undefined;
     const libro = this.#eje?.libro;
     if (typeof libro?.asientos !== 'function') return undefined;
     let lista;
@@ -412,6 +442,11 @@ export class ContextoEje {
         lista = (e.sobre ? libro.asientos({ registro: e.sobre }) : libro.asientos()).filter((a) => a.tx?.id === e.id);
         memo.set(llave, lista);
       }
+      // Los movimientos anunciados del registro (VG 12-11, decisión 8): no tocan saldos, así que el libro no los
+      // asienta; moves los da detrás, con su D-MOV (2 «anunciado», 4.1 la clase «anuncio», 7.1 para cuándo).
+      const anunciados = this.#declarados(e).filter((x) => esAnunciado(x.m));
+      pres.gastar(lista.length + anunciados.length);
+      return [...lista.map((a) => ({ k: 'asiento', a })), ...anunciados];
     } else if (nodo?.k === 'serie' || nodo?.k === 'salida' || nodo?.k === 'clave') {
       if (nodo.k === 'salida' && !this.#esSerie(nodo.clave)) return undefined;
       lista = libro.asientos({ serie: nodo.clave });
@@ -442,6 +477,7 @@ export class ContextoEje {
       case 'regla': return nodo.id;
       case 'ev': return this.#ev.id ?? 'ev';
       case 'epoch': return 'epoch';
+      case 'memo': return 'memo';
       case 'before': return 'before';
       case 'dec': return JSON.stringify(nodo.v);
       case 'mov': return primitivaDe(nodo.m) + ' ' + nodo.m.cantidad + ' ' + claveToken(nodo.m) + ' (' + (nodo.m.de ?? 'nadie') + ' → ' + (nodo.m.a ?? 'nadie') + ')';
@@ -481,7 +517,8 @@ export class ContextoEje {
 
   /** D-META: los ocupantes implícitos del dígito d de un evento. */
   #meta(e, d) {
-    if (d === 1) return (Array.isArray(e.movimientos) ? e.movimientos : []).map((m, i) => ({ k: 'mov', m, i, e }));
+    // El 1: los movimientos que tocan saldos. Lo anunciado (VG 12-11, decisión 8) no se ha movido: lo lee moves (clase «anuncio»).
+    if (d === 1) return this.#declarados(e).filter((x) => !esAnunciado(x.m));
     // B4 (VG, 10-11): el firmante es el segundo ocupante del 3, siempre: «nadie» si no va firmado (así nada del
     // payload ocupa su sitio).
     if (d === 3) return [e.autor, e.firma && e.firmante ? e.firmante : NADIE];
@@ -503,6 +540,11 @@ export class ContextoEje {
     return [];
   }
 
+  /** Los movimientos declarados de un evento, como nodos D-MOV, por su índice (también los anunciados). */
+  #declarados(e) {
+    return (Array.isArray(e.movimientos) ? e.movimientos : []).map((m, i) => ({ k: 'mov', m, i, e }));
+  }
+
   /**
    * El reloj de la caducidad (SEG-03, SEG-05, RL-4): el menor entre el t de la candidata y el reloj de los demás
    * (el mayor t del libro entre las identidades que no son su autor ni emiten la E que ella acuña). Sin los demás
@@ -519,7 +561,7 @@ export class ContextoEje {
   #relojDeLosDemas() {
     const excluidos = new Set(this.#ev ? [this.#ev.autor] : []);
     for (const m of Array.isArray(this.#ev?.movimientos) ? this.#ev.movimientos : []) {
-      if (!m || m.token !== 'E' || m.de !== null) continue;
+      if (!m || m.token !== 'E' || m.de !== null || esAnunciado(m)) continue;
       excluidos.add(m.emisor);
       for (const x of Array.isArray(m.emisores) ? m.emisores : []) excluidos.add(x);
     }
@@ -637,7 +679,7 @@ export class ContextoEje {
     if (desplegarSerie(clave)) {
       const delLibro = this.#eje && this.#eje.serie(clave).emisor !== null;
       const acunada = (Array.isArray(this.#ev?.movimientos) ? this.#ev.movimientos : [])
-        .find((m) => m && typeof m === 'object' && m.de === null && !validarMovimiento(m).length && claveToken(m) === clave);
+        .find((m) => m && typeof m === 'object' && m.de === null && !esAnunciado(m) && !validarMovimiento(m).length && claveToken(m) === clave);
       if (delLibro || acunada) r = { delLibro, acunada };
     }
     this.#seriesConocidas.set(clave, r);
@@ -1068,7 +1110,7 @@ export class ContextoEje {
     const llave = 'medida|' + (e.id ?? 'ev');
     const memo = this.#presupuesto.memo;
     if (memo.has(llave)) return memo.get(llave);
-    const unidades = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos : []).reduce((s, m) => s + (m && Number.isFinite(m.cantidad) ? m.cantidad : 0), 0);
+    const unidades = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos : []).reduce((s, m) => s + (m && !esAnunciado(m) && Number.isFinite(m.cantidad) ? m.cantidad : 0), 0);
     const medida = { posiciones: contenido(e.payload), profundidad: 0, cantidad: unidades(e) };
     if (typeof e.id === 'string' && this.#eje?.obtener(e.id)) {
       const vistos = new Set([e.id]);
@@ -1097,7 +1139,7 @@ export class ContextoEje {
   #vistaDeMovimiento(m, e) {
     return {
       get serie() { return claveToken(m); }, cantidad: m.cantidad, estado: m.estado, salida: m.salida, caduca: m.caduca, refiere: m.refiere,
-      de: m.de, a: m.a, primitiva: primitivaDe(m), clase: null, token: m.token, emisor: m.emisor, registroE: m.registro, nota: m.nota,
+      de: m.de, a: m.a, primitiva: primitivaDe(m), clase: esAnunciado(m) ? 'anuncio' : null, token: m.token, emisor: m.emisor, registroE: m.registro, nota: m.nota,
       t: e?.t, registro: e ? (e === this.#ev ? CANDIDATA : { k: 'reg', id: e.id }) : null,
     };
   }

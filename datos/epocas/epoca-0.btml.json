@@ -148,12 +148,13 @@
     {"ref":"c05a09e6f3aa53caff2a05de738a0b5dcac3e0f4428d803b63b03e61ca91e335"},
     {"ref":"61684c984c1158c62f8a165d0d44a9e827961cd2526b96c4318a006f2b7f152a"},
     {"ref":"c18f55cc90fe2a94590a0dfedf5d92e35621c8f3c9dfbe818a897b00285fcfa8"},
-    {"ref":"6060969c90b7696379d90a36c90eb5e036a702700327878d0c530df600a0f1a1"},
+    {"ref":"3391bd026c160cb3a4ed261ca4a61366c72777b17616a9f2393a6852af1132b0"},
     {"ref":"18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71"},
     {"ref":"6ca50905d9242646b8c92ebf365d470b079504a010a36f7e17ac349425e59d75"},
     {"ref":"bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"},
-    {"ref":"7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09"},
-    {"ref":"e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574"},
+    {"ref":"4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7"},
+    {"ref":"fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a"},
+    {"ref":"5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"},
     {"ref":"9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"},
     {"ref":"f80ebc8da31aa6f366a0ceb043598b2e9885c20123aa6b81386879297893fffb"},
     {"ref":"ac849ec534e10f7139bd254bd2ec3a357df86b1d28babaa70f7b71526483e513"},
@@ -194,7 +195,10 @@
       ],
       [
         ["D-MOV"],
-        ["un movimiento como décupla: 0 serie, 1 cuánto, 2 estado, salida y caducidad, 3.0 de, 3.1 a, 4 primitiva, 5 registro, 7 caducidad o fecha a la que se refiere, 9 nota"]
+        [
+          "un movimiento como décupla: 0 serie, 1 cuánto, 2 estado, salida y caducidad, 3.0 de, 3.1 a, 4 primitiva, 5 registro, 7 caducidad o fecha a la que se refiere, 9 nota",
+          "VG 12-11 (decisión 8): el estado «anunciado» es lo que se moverá, sin tocar saldos; su 4.1, la clase «anuncio»; su 7.1, para cuándo (lo lee moves, no el 1 del registro)"
+        ]
       ],
       [
         ["D-SERIE"],
@@ -214,6 +218,20 @@
       [
         "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token; cada estación es [[familia], [qué se hace], [la plantilla de transacción que mueve un movimiento anunciado de esa familia: pay la E, deliver lo demás]]; la lectura «stage» (X.4.8) da lo anunciado y pendiente, y se agrupa por estación con before.4",
         "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): la cuarta posición de cada estación es lo que autoriza un anuncio pendiente, la estación intermedia «autorizada» entre propuesta y ejecutada; epoch.9.0.0 es el recuento del anuncio con el criterio de su dueño (motor.recuento: el P comprometido con él, con salida = el anuncio, pasa el umbral), la autorización como P que respalda; «-» si esa estación no tiene autorización. No cambia el motor ni la lectura «stage»: el anuncio sigue pendiente hasta que se mueve"
+      ]
+    ],
+    [
+      [
+        "stations of an announced movement",
+        "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48, #50): el anuncio es un movimiento anunciado del libro (estado «anunciado»: no toca saldos) que el registro que se ancla sobre él cumple moviendo lo mismo; las estaciones por las que pasa son datos de la época y el motor solo comprueba. Una fila por estación, en su orden: [[nombre], [lo que la comprueba: una fórmula del BQL mínimo con it = el anuncio, o epoch.9.0.0, el recuento del anuncio con el criterio de su dueño (motor.recuento)]]; la estación de un anuncio es la última que se cumple (acciones.estacionDeAnuncio). Los nombres son los de la fábrica (la carta los pinta con su color)",
+        "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, lo que lo cumplió está anclado en un bloque de Bitcoin (X.6.8.2, vacío hasta que exista el transporte: #50, «sin verificar no se ejecuta» queda por hacer). Core, pendiente de revisar VG"
+      ],
+      [["propuesta"], ["=count it.5 > 0"]],
+      [["autorizada"], ["epoch.9.0.0"]],
+      [["ejecutada"], ["=not (it in (first (first (up it)).4).8)"]],
+      [
+        ["verificada"],
+        ["=not (it in (first (first (up it)).4).8) and count ((down it) where count (first it2.6).8.2 > 0) > 0"]
       ]
     ]
   ],
@@ -1056,13 +1074,13 @@
       [
         ["cerrado"],
         [
-          [
-            ["all announced movements happened"],
-            ["=count (((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)) = 0"]
-          ]
+          [["all announced movements happened"], ["=count (first it.4).8 = 0"]]
         ],
         ["all announced movements happened"],
-        ["el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)"]
+        [
+          "el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)",
+          "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): lee la lectura «stage» (X.4.8, la primera de X.4: lo anunciado y aún no cumplido), la única fórmula de lo anunciado; un anuncio lo cumple el registro que se ancla sobre él moviendo lo mismo, así que un pago cumple uno solo"
+        ]
       ],
       [
         ["atención"],
@@ -1072,18 +1090,21 @@
       [
         ["siguiente"],
         [
-          [
-            ["what is missing"],
-            ["=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)"]
-          ],
+          [["what is missing"], ["=(first it.4).8"]],
           [
             ["move what was announced"],
-            ["una transferencia de quien la debe: la serie, cuánto, de quién y a quién del anuncio, y un minuto de su T"]
+            [
+              "una transferencia de quien la debe: la serie, cuánto, de quién y a quién del anuncio, y un minuto de su T",
+              "VG 12-11 (decisión 8; #48): anclada sobre el anuncio, que así queda cumplido (y solo ese)"
+            ]
           ],
           [["commit P"], ["bloquear P con la salida = X (mapa §15 [D] (5): comprometerse a una decisión)"]]
         ],
         ["what is missing"],
-        ["siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)"]
+        [
+          "siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)",
+          "VG 12-11 (decisión 8): «what is missing» es la lectura «stage» (X.4.8)"
+        ]
       ]
     ],
     [5, 4, 1, 7, 2, 8, 9, 3, "segunda alta"],
@@ -1680,6 +1701,7 @@
           "share: la parte del P que obtuvo una identidad, esté en la mano que esté, en el dominio del registro, que está sobre ese registro",
           "stage: lo que el registro anunció en su 4.1 y aún no ha pasado, por estación: E pagar, P decidir, R atender, T trabajar",
           "dated movement: el primer movimiento del registro que se refiere a una fecha: el T futuro declarado, lo bloqueado hasta una fecha, una emisión de E que caduca o la quema de E propia",
+          "the cost of writing: lo que un registro exige en T, en segundos: un minuto del calendario por cada posición de su payload",
           "for when: la fecha a la que se refiere el registro, en segundos: la de su movimiento con fecha, o su propio instante si quema E propia",
           "clocks out of order: el reloj del libro, la marca de Nostr y el bloque de Bitcoin no van en orden",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
@@ -2405,43 +2427,43 @@
         "the actions of the ring (encargo 3c-2a): one record per action in datos/epocas/plantillas/, with the rule mould adapted (0 name, 1 the parameters it asks for, 2 when it is offered: BQL with it = X and me = who looks, 3 who launches it, 4 what it moves or read/path, 5 where it anchors, 6 origin, 7 epoch, 8 [point of view, order], 9 message); 9.6.1 is the list of references, in the order of their 8; the first of each point of view is the default action"
       ],
       [
-        {"ref":"4696ab643e7d05644a4719ec6e31a14a1629b8fad23cef72c58b416da6e4c9b4"},
-        {"ref":"121e27901c3b39eab3fa5db2cf5c5f5c7ea58c366a5aebbef6078105090ed750"},
-        {"ref":"7423cca795184f42a1fe0b1c1c3b46b5748363c1fb02ba0412df86524c9e4b72"},
-        {"ref":"24fc2107e671a6ba31bfd4a847db7d6d7ce8b4db7659c0d52c17723cbe164532"},
-        {"ref":"e6a070b4401b97f057cd6dc5c923c79346321e090a92bea1369d7ff8dec1744b"},
-        {"ref":"806e9cf638e43b0a89da5877fd9d9a2b82dffb8b0e9298647e2c962a1cd42423"},
-        {"ref":"6673dd08e2ec537c4bb74d4e1935052c784f4e70148a5ad0458334dd4ae65f79"},
-        {"ref":"f62a8f285736655082b7ba61988e7a05fbf6fb1b31f6e886d7d901c779281300"},
-        {"ref":"9350e15110720d8f0cd5cead5d6be871fd18b7cce5d2e9d340238bfbce90e67d"},
-        {"ref":"52d0f4d069f7b5bb543a7fa546fce46b9d3ab74c475a97bf6708a374c4e82945"},
-        {"ref":"74e758af804594f382ce4069980da2c1592f3e3b6090b6bdd07bbb4d30e04127"},
-        {"ref":"d79fc5c437eb74abb8e1fa636b84b383061d5cbbbf393681ad073a7773822fe9"},
-        {"ref":"6d875ed77dbd348a0c896e38bab2d3c5c821fa66b5b6b0b3de1a4e092feef8f1"},
-        {"ref":"a1110a0fdc249a98eb530f50f3bbd2c06f1ea5aed8b5a2c70b9c9d51e233aafc"},
-        {"ref":"a29b9b379f3e861e3e3e19b8cd1c32b9617ed14e9aa7e1a3c2d29a6982f01fda"},
-        {"ref":"a2903afa88be81ba996077d8aead129885c094004fdf1af77d4595bcc655dc12"},
-        {"ref":"624473d731c9f5399afe6ff505cb7ce3d628f2213a94d33e6e759e00120af5b6"},
-        {"ref":"be16ac1f715a3b9aa537d5cb1f336ed6c4986d3ba868021b6e58faad7c5f5cfb"},
-        {"ref":"3fc84e94716dd1797116dc54b7880a044cc32ad36f974e19838b35d046a898b4"},
-        {"ref":"2965f8623b0bfde0972d590c850768eb0916530e2fa14ea6765dfa163c0512cb"},
-        {"ref":"24113a9228bc59f11d6d0aef317f7530ee5baaab49d9ef91c768fa0aa54bd47c"},
-        {"ref":"99219d8cf3bc49ce06a0ed0cff758653608d526f1b39e30f7bd1ec9c1024e279"},
-        {"ref":"9f6c6c613f048e28c513d1d9ca1553dd2286a38d28883d75d2a08462de0440ac"},
-        {"ref":"2bd533ca2e2c33d60d18c8f80a614d231621ad8b0c92f04e271c76761020fb52"},
-        {"ref":"3a115187e53b8a46b49a64b480ec306cc07b5382cdec539c1d1ed36ae213d493"},
-        {"ref":"56f838a09eb654377bb06ed2fffb005a3f69aaf932cb4bf03ba1cd19bd5889ae"},
-        {"ref":"67779033642aa7657714f8117fd2f428b47c4637ecb0b42d5ab7449fc20c2ca9"},
-        {"ref":"6ed47b1b3d387fbda597f77748dc173288e5a997c1c641c08bf61afffbe365c2"},
-        {"ref":"f666e2efeed2e843b49fe31f7eea09b5182cc1e6b6f182a6834848f7c006a0d5"},
-        {"ref":"8098780ae5167fe7182172e080231d320ca002f652f33a3ca8318b6da36a9c66"},
-        {"ref":"73a2035bf1a9eb1a3994158a52c41c49ae152ac39cc42f323d13ecede0c4d3b5"},
+        {"ref":"bb768564b1e470e33daa566eeac73dc9579bb589d7f397aa9e8816d9b64e9b3b"},
+        {"ref":"266504d8d6f8a4bf3af07ed8d9b93fc375421db24fca096f5b2a028620fa9a5a"},
+        {"ref":"a7045948d9ae109c13007161dd297f4aadb2bfee1d3b9fc2adda776958708377"},
+        {"ref":"9a12d4ebcde2e6b66b1fd9cc77728bd7344edd4bdcc3140a98b812645bfc5603"},
+        {"ref":"3fe6969985b509f4074bd93f2b4fad859439cf8414a5f9a4303b7a8b131f642a"},
+        {"ref":"87c4d55c920f362dc374fa14a099d3d05156228d5181e568eb55d5f06771a5d8"},
+        {"ref":"6d8cddcc67064e803c5ca565a0d665276c576206206f9ef4d85e7ac76c64d6e7"},
+        {"ref":"560825a89844484ceee3be07cd738738cb4c0280ff961c206102f5978135658f"},
+        {"ref":"c31a285a9c140c924e90d56c94febc8b1382477644aabd5d29aa9accf10cb9f0"},
+        {"ref":"916d6103dfcaecee8cbe960ee3f30947621406b6dd96c15605824f671bbf7d10"},
+        {"ref":"054f43b35eac3a2b3961e235342b3ab8e7a93a017c75749ad28def074c2a9c39"},
+        {"ref":"bb1277074776abfdee0661a9e971f6577af46338353ddc2edcb089338c01048f"},
+        {"ref":"fcde7268faf0aea111fc7db8b010efd169b63630db60955827053557f808c152"},
+        {"ref":"b011ee6c74ba9c482417b724c332de72de558946230f1272ca8f123424c47256"},
+        {"ref":"7bd37078f7734cbe1cd2a724b64580f64b0b6354aadc6fa4a57b456afd332845"},
+        {"ref":"2357f2417e506c37272031e76745a1cab532a8e8ecb12491a7755443c4f95c81"},
+        {"ref":"be862106ffa77f5391ffc4bd159091c56492219a9fb8f84999042865fc2eeb5a"},
+        {"ref":"0319f3075ae44652db42e085dea42bd28b721219187883f41476d5169c4b1849"},
+        {"ref":"7c453ebf5b2d5257253278b079dba1f6737c6242014998a1aeb73717808384bb"},
+        {"ref":"da5133756330c7f818f5eab5ba6d3825f4d2e2333d41a4f608d5bbb0eee520d7"},
+        {"ref":"15bf535b38c803ceefed5f37a049371ffbae60e052944f4f8c39d8cfe6a9e161"},
+        {"ref":"b38c4188a6c34a469a378edb6796a10c4ee17a10f747383ab43577497a3d60cb"},
+        {"ref":"a16936bd891d2ca6fda8f3b779f9aca876d31c746893c3da364cd22bf714432a"},
+        {"ref":"d36e97ef35f1830a2aaf09d203fc055caef1d42c5a8b02ea79c9d0e886e58cce"},
+        {"ref":"a223cf6e9c59e67cefd26164cb59a0cead52271e95d28071b9e55a453c13fa3f"},
+        {"ref":"e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d"},
+        {"ref":"dbc9ac7479a38d1fa379424a263b4d6bebc98e6f8fdeedbf29a1a127e78939b6"},
+        {"ref":"06675863d8226bb67e6d266d34f0e0c56595ee5ab161f8a40fe184e9e4fb4111"},
+        {"ref":"e30ab690bcd81adfcfe9ad99ea47683accf3a8c03aa206cb5b8dde795faa7b61"},
+        {"ref":"90b6c802d6af10f45fca8e4505258d282e2dd88d36bc357fcc9679f894167476"},
+        {"ref":"1453fbac45a1cdec393c21d7cc27b3fed064f2c9ca8b0338c1efae9610916a8e"},
         {"ref":"d546b658762027b2f20e2fef81405e5ae3f05eaf4fd3d166c7d49f9677bce20b"},
-        {"ref":"0d1f901c08c82fb6c59eb2c244c03d5f592a523cb098ca157c873b09f2417f26"},
-        {"ref":"476857f001ef33902c02ab59f9312fa4f229b0e692a843426501b6471bae1e50"},
-        {"ref":"2601f60ed3e5c93e5bbc1ca29c4d1615376006462947d40c534186cda2b5b072"},
-        {"ref":"f6318461cc022563a680fc277a19f284e42094bdf4f087d879c1ea457191e25a"},
-        {"ref":"10d36b4e56820777fe931ad1e7924437e6608c42a1e7eddeda6fd09c528ba16b"},
+        {"ref":"3766e0e830fe85c3d1e55d8788fdd4b76d657f2c0a765b7937b48eab7a164a30"},
+        {"ref":"78683e97f10aa828a2bcd0eebd79df86622b9cc3051032dd12386fc881f7ea66"},
+        {"ref":"12d4cc69e6b5043d9febef820a3c3df3439033dbf15359c3f92775abc2c6deaa"},
+        {"ref":"7fe73fa25c3f125ccb7463772afab1a46b21304b5b41b5118f64e738c9b1331c"},
+        {"ref":"912fd4e24a15711da5aa61422f037e1c054c4a0bab5288233d822d851cce3464"},
         {"ref":"38652d1164cea262a3802dc4aaf0313f0418226e981976f46b31c51c365a9f3c"},
         {"ref":"600cf1d6b656a584ed9e6be01e9e0fc3bafaf6133bc28a22617c94873e02f311"},
         {"ref":"33d96e96eebb51af9c69a37e5396525f00d8674d34961aa0b38e63186d64b7cf"},
@@ -2531,9 +2553,9 @@
       [
         [4],
         ["ciclo"],
-        ["=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) - count (((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0))"],
+        ["=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) - count (first it.4).8"],
         ["=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3)"],
-        ["the stage of the cycle: the announced movements (the records the owner anchored in the 4.1 of X) that already happened, out of all announced: the same condition as the closing template of epoch.9.0.1 and «what is missing» of epoch.9.0.3; with nothing announced, 0 of 0"]
+        ["the stage of the cycle: the announced movements (the records the owner anchored in the 4.1 of X) that already happened, out of all announced: those no longer in the reading «stage» (X.4.8, VG 12-11 decision 8: an announcement is fulfilled by the record anchored on it that moves the same), the same reading as the closing template of epoch.9.0.1 and «what is missing» of epoch.9.0.3; with nothing announced, 0 of 0"]
       ],
       [
         [8],

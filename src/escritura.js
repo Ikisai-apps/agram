@@ -49,12 +49,18 @@
 // solo por la base; escribirSalida mide la salida entera y, si no cabe, la
 // rechaza sin anclar nada ([X] decidir VG si desdeMapped también ancla por
 // límites, y qué celdas).
-// Coste de cartón piedra: cada posición del registro mueve un minuto de T
-// del autor, la heredada también, como antes ([X] decidir VG si el relleno
-// se cobra).
+// El coste de escribir (VG 12-11, decisión 7 del estudio BQL-transacciones): una sola regla de la época, «the cost
+// of writing» (una lectura de su 2 con it = la candidata), que dice lo que el registro exige en T por posición: hoy un
+// minuto del calendario por posición del payload (A3), la heredada también, como antes ([X] decidir VG si el relleno
+// se cobra). Lo usan escribirDesde (costeT) y las plantillas de transacción (src/acciones.js, transaccion): el minuto
+// fijo de las plantillas era un sucedáneo.
 
 import { ARIDAD, esDireccion, esReferencia, esTerminal, esLista, direccion, validarPayload } from './btml.js';
 import { contarPosiciones, nombreModo, tope, proporcionDe, alcanceDe } from './modos.js';
+import { EPOCA_0_BTML } from './epocas.js';
+import { ContextoEje } from './contexto-eje.js';
+import { leerRegla, nombreDeRegla } from './bqlm.js';
+import { SEGUNDOS, ESCALAS_REALES } from './tokens.js';
 
 /**
  * Las clases de modificación: los diez PV como dígito de clase (VG,
@@ -422,9 +428,46 @@ export function desdeMapped(eje, entrada, foco, camino = []) {
   return { payload, heredadas, vistas, anclados, camino: [...camino] };
 }
 
-/** Minutos de T que mueve un registro: uno por posición del registro (las heredadas también). */
-export function costeT(payload) {
-  return contarPosiciones(payload);
+/** El nombre de la regla del coste de escribir (VG 12-11, decisión 7): una lectura de la época, it = la candidata. */
+export const REGLA_DEL_COSTE = 'the cost of writing';
+
+/**
+ * Lo que un registro exige en T por escribirlo, en segundos: la regla «the cost of writing» de la época leída sobre
+ * la candidata (su payload; it = ev): la suma de lo que exige cada posición (A3: un minuto del calendario por
+ * posición, epoch.7.0.1). Una época sin esa regla cobra lo de A3 tal cual. Con `eje`, las referencias del payload se
+ * siguen en él (la medida del 8 las alcanza).
+ */
+export function exigido(payload, { epoca = EPOCA_0_BTML, eje = null } = {}) {
+  const regla = (epoca?.lecturas ?? []).find((r) => nombreDeRegla(r) === REGLA_DEL_COSTE);
+  if (!regla) return contarPosiciones(payload) * SEGUNDOS.minuto;
+  const ctx = new ContextoEje(eje, { ev: { autor: null, payload, movimientos: [] }, epoch: epoca });
+  const r = leerRegla(regla, ctx.nombre('ev'), ctx);
+  if (r.estado !== 'RESUELTO' || r.valor.length !== 1 || typeof r.valor[0] !== 'number') throw new Error(REGLA_DEL_COSTE + ': ' + (r.motivo ?? 'no da un número: ' + r.texto));
+  return r.valor[0];
+}
+
+/** Minutos de T que mueve un registro: lo que exige la regla del coste (uno por posición del registro, las heredadas también). */
+export function costeT(payload, opciones) {
+  return Math.ceil(exigido(payload, opciones) / SEGUNDOS.minuto - 1e-9);
+}
+
+/** Las escalas en que se propone el coste sin escala pedida (las de semana, ciclo y año van en partes diarias). */
+const ESCALAS_DEL_COSTE = Object.freeze(['dia', 'hora', 'minuto', 'segundo']);
+
+/**
+ * La T que cubre lo exigido (VG 12-11, decisión 7): en la escala pedida (una real), las unidades que lo cubren; sin
+ * pedirla, la menor cantidad que lo cubre sin pagar de más: la escala más gruesa cuya unidad cabe un número entero de
+ * veces en lo exigido (con un minuto por posición, el minuto). → { escala, cantidad }, o null si no exige nada. El
+ * ajuste fino por escalas (1 h 11 min) es de la carta.
+ */
+export function tDelCoste(segundos, escala) {
+  if (!(segundos > 0)) return null;
+  if (escala !== undefined && escala !== null) {
+    if (!ESCALAS_REALES.includes(escala)) throw new Error('la T del coste va en una escala real (' + ESCALAS_REALES.join(', ') + '), no «' + escala + '»');
+    return { escala, cantidad: Math.ceil(segundos / SEGUNDOS[escala] - 1e-9) };
+  }
+  const exacta = ESCALAS_DEL_COSTE.find((e) => Math.abs(segundos / SEGUNDOS[e] - Math.round(segundos / SEGUNDOS[e])) < 1e-9);
+  return exacta ? { escala: exacta, cantidad: Math.round(segundos / SEGUNDOS[exacta]) } : { escala: 'segundo', cantidad: Math.ceil(segundos) };
 }
 
 /**
@@ -511,7 +554,7 @@ async function escribirRegistro(eje, { modo, autor, sobre, en, payload, t = new 
     sobre,
     en: destino,
     t,
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT(cuerpo), de: autor, a: null }],
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT(cuerpo, { eje }), de: autor, a: null }],
     payload: cuerpo,
     contexto: { ...contexto, modo, ...(relleno.length ? { heredadas: [...relleno] } : {}) },
   }, privada);

@@ -10,8 +10,13 @@
 //                              el registro declara para la identidad que da el parámetro p y su prueba de posesión,
 //                              fuera del payload: así da de alta una cosa con su clave, encargo core-escribe)
 //   2 cuándo se ofrece       BQL mínimo con it = X y me = la identidad que mira (el nombre `me` del contexto)
-//   3 quién la lanza         4 lo que mueve: un movimiento por décupla (0 serie, 1 cuánto, 2 primitiva y su salida,
-//                              precio o fecha, 3 [[de], [a]]), «read» si solo lee, «path» si lanza el camino
+//   3 quién la lanza         4 lo que mueve (VG 12-11, decisiones 5 a 7 del estudio BQL-transacciones): las sentencias
+//                              «=…» del BQL mínimo con los cinco verbos (mint transfer lock release burn), una por
+//                              ocupante, evaluadas en orden (bqlm.evaluarPlantilla); «write» si no mueve nada más que el
+//                              coste de escribir (la regla de la época «the cost of writing», que transaccion cobra a
+//                              toda candidata); «read» si solo lee; «path» si lanza el camino. Mientras dure la
+//                              migración, la lista de antes (un movimiento por décupla: 0 serie, 1 cuánto, 2 primitiva
+//                              y su salida, precio o fecha, 3 [[de], [a]]) convive con las sentencias: doble ejecución
 //   5 dónde ancla            el dígito (o camino, con huecos {parámetro}) de X y, si no es X, el registro
 //   6 procedencia  7 época  8 [punto de vista, orden] (la primera de cada uno es la acción por defecto)  9 mensaje
 //
@@ -28,9 +33,10 @@
 
 import { EPOCA_0_BTML } from './epocas.js';
 import { ContextoEje } from './contexto-eje.js';
-import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
-import { crearEvento } from './evento.js';
-import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
+import { evaluar, rellenar, nombreDeRegla, evaluarPlantilla } from './bqlm.js';
+import { crearEvento, canonico } from './evento.js';
+import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS, ANUNCIADO, esAnunciado, claveToken } from './tokens.js';
+import { exigido as exigidoDe, tDelCoste } from './escritura.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
 import { plantilla as plantillaDeDatos, etiqueta as etiquetaDe, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones, celdaDeEjecucion } from './contrato.js';
 import { recuento } from './motor.js';
@@ -46,6 +52,7 @@ const raizDe = (epoca) => (Array.isArray(epoca) ? epoca : epoca.registro ?? epoc
 const SITIO = Object.freeze({
   acciones: [9, 6], // la lista de referencias a las plantillas de transacción
   estaciones: [4, 2], // [[familia], [qué se hace], [la plantilla que cumple un movimiento anunciado]]
+  estacionesDelAnuncio: [4, 3], // [[nombre], [lo que la comprueba: una fórmula con it = el anuncio, o epoch.9.0.0]] (VG 12-11, decisión 8)
   identidad: [3, 0], // la plantilla de identidad: su 9 es el tutorial del alta
   recuentos: [9, 0, 0, 1], // las plantillas de recuento: [[nombre], [fórmula]]
   dia: [7, 0, 3, 1], // los segundos de un día del calendario
@@ -234,9 +241,12 @@ function preparar(eje, plantilla, X, yo, params, { t, epoca, idioma }) {
   const [ruta, formulaRegistro] = hojas(plantilla[5]);
   let sobre = X.id;
   const provisional = { autor: yo, sobre, en: '0000000000', t, movimientos: [], payload };
+  // El registro del ancla, si la plantilla lo dice (su 5): si sale de un parámetro que aún no está (un defecto, como el
+  // anuncio que «pay» cumple: VG 12-11, decisión 8), se vuelve a mirar con los defectos puestos.
+  let sinAncla = false;
   if (esFormula(formulaRegistro)) {
     const r = valores0(eje, epoca, formulaRegistro, provisional, yo, X);
-    if (typeof r !== 'string' || !eje.obtener(r)) motivos.push({ regla: nombre, mensaje: motivoDe('anchor not in ledger', { name: nombre, formula: String(formulaRegistro) }, { idioma, epoca }) });
+    if (typeof r !== 'string' || !eje.obtener(r)) sinAncla = true;
     else sobre = r;
   }
   const rutaLlena = conHuecos(ruta ?? '0', valores);
@@ -253,6 +263,11 @@ function preparar(eje, plantilla, X, yo, params, { t, epoca, idioma }) {
       colocar();
     }
   }
+  if (sinAncla) {
+    const r = valores0(eje, epoca, formulaRegistro, candidata, yo, X);
+    if (typeof r !== 'string' || !eje.obtener(r)) motivos.push({ regla: nombre, mensaje: motivoDe('anchor not in ledger', { name: nombre, formula: String(formulaRegistro) }, { idioma, epoca }) });
+    else candidata.sobre = r;
+  }
   // Validar: lo requerido está, y cada valor cumple su 2.
   const ctx = contextoDe(eje, epoca, { ev: candidata, me: yo });
   for (const p of lista) {
@@ -264,7 +279,7 @@ function preparar(eje, plantilla, X, yo, params, { t, epoca, idioma }) {
     if (p.validacion && !cumple(p.validacion, ctx, sujetoDeValor(v))) motivos.push({ regla: p.nombre, mensaje: p.etiqueta + ': ' + p.ayuda, parametro: p.nombre });
   }
   for (const h of huecos(payload)) motivos.push({ regla: nombre, mensaje: motivoDe('position without value', { name: nombre, position: h }, { idioma, epoca }) });
-  return { sobre, en: candidata.en, payload, valores, parametros: lista, motivos, candidata };
+  return { sobre: candidata.sobre, en: candidata.en, payload, valores, parametros: lista, motivos, candidata };
 }
 
 /** Lo que vale una fórmula sobre it = X, me = yo y la candidata, como lista plana (vacía si no se resuelve). */
@@ -341,8 +356,25 @@ function serieDe(partes) {
 }
 
 /**
- * Los movimientos que describe el 4 de la plantilla, evaluados sobre la candidata: cada décupla da un movimiento (o
- * ninguno, si su cuánto es cero o nada). Devuelve { movimientos, motivos }.
+ * El minuto copiado (VG 12-11, decisión 7): la receta «quema un minuto de T de quien escribe» que llevaban las
+ * plantillas era un sucedáneo del coste de escribir; ahora lo cobra la regla de la época a toda candidata, así que una
+ * lista que aún la lleve (una plantilla sin migrar) no la cuenta dos veces.
+ */
+const MINUTO_COPIADO = JSON.stringify([['T:minuto'], [1], ['burn'], [['=me'], ['nobody']]]);
+
+/** La lista de antes (la de la doble ejecución): las recetas del 4, una décupla por movimiento, sin el minuto copiado. */
+export const recetasDe = (plantilla) => (Array.isArray(plantilla?.[4]) ? plantilla[4] : []).filter((r) => Array.isArray(r) && esDecupla(r) && JSON.stringify(r) !== MINUTO_COPIADO);
+
+/** Las sentencias del 4 (VG 12-11, decisiones 5 y 6): las fórmulas «=…» del BQL mínimo con los verbos, en su orden. */
+export const sentenciasDe = (plantilla) => (Array.isArray(plantilla?.[4]) ? plantilla[4] : []).filter(esFormula);
+
+/** ¿Está migrada la plantilla? (VG 12-11, decisión 10): su 4 lleva sentencias, o «write» si no mueve más que el coste. */
+export const migrada = (plantilla) => sentenciasDe(plantilla).length > 0 || (Array.isArray(plantilla?.[4]) && plantilla[4].includes('write'));
+
+/**
+ * Los movimientos que describe la lista de antes del 4 de la plantilla (las recetas), evaluados sobre la candidata:
+ * cada décupla da un movimiento (o ninguno, si su cuánto es cero o nada). Devuelve { movimientos, motivos }. Es la vía
+ * vieja de la doble ejecución: se retira cuando todas las plantillas den lo mismo por las sentencias (movimientosBql).
  */
 function movimientosDe(eje, epoca, plantilla, candidata, yo, X, idioma) {
   const nombre = nombreDeAccion(plantilla);
@@ -354,8 +386,7 @@ function movimientosDe(eje, epoca, plantilla, candidata, yo, X, idioma) {
   };
   const movimientos = [];
   const motivos = [];
-  for (const receta of Array.isArray(plantilla[4]) ? plantilla[4] : []) {
-    if (!Array.isArray(receta) || !esDecupla(receta)) continue;
+  for (const receta of recetasDe(plantilla)) {
     const cuanto = vale(hoja(receta[1]))[0];
     if (!(typeof cuanto === 'number' && cuanto > 1e-12)) continue; // lo que da cero o nada no se mueve
     const partes = hojas(receta[0]).map((h) => vale(h)[0]);
@@ -381,6 +412,66 @@ function movimientosDe(eje, epoca, plantilla, candidata, yo, X, idioma) {
     else movimientos.push(m);
   }
   return { movimientos, motivos };
+}
+
+/**
+ * Los movimientos de las sentencias del 4 (VG 12-11, decisiones 5 y 6): bqlm.evaluarPlantilla las evalúa en orden sobre
+ * la candidata (it = X, me = yo, memo = su payload) y anota lo que mueven sus verbos; aquí solo se recoge, se redondea
+ * y pasa la forma (validarMovimiento, el suelo). Lo que construye una plantilla no concede nada: la candidata la firma
+ * quien la lanza y la validan después las reglas, que solo leen; nombrar una serie no da nada: lo que no está en la
+ * cartera de quien la mueve, el libro no lo deja salir (saldo insuficiente). `when` en lo que no es T informativo lo
+ * anuncia (decisión 8).
+ * Devuelve { movimientos, motivos }, como movimientosDe.
+ */
+function movimientosBql(eje, epoca, plantilla, candidata, yo, X, idioma) {
+  const nombre = nombreDeAccion(plantilla);
+  const ctx = contextoDe(eje, epoca, { ev: candidata, me: yo });
+  const r = evaluarPlantilla(sentenciasDe(plantilla), ctx, { sujeto: sujetoDe(X) });
+  if (r.estado !== 'RESUELTO') return { movimientos: [], motivos: [{ regla: nombre, mensaje: nombre + ': ' + r.estado + ': ' + r.motivo }] };
+  const movimientos = [];
+  const motivos = [];
+  const sinSerie = (cantidad) => motivos.push({ regla: nombre, mensaje: motivoDe('no series', { name: nombre, amount: cantidad }, { idioma, epoca }) });
+  for (const v of r.movimientos) {
+    const serie = typeof v.serie === 'string' ? serieDe([v.serie]) : null;
+    if (!serie) { sinSerie(v.cantidad); continue; }
+    const m = { ...serie, cantidad: Math.round(v.cantidad * 1e9) / 1e9 };
+    const informativo = serie.token === 'T' && ESCALAS_INFORMATIVAS.includes(serie.escala);
+    if (v.verbo === 'mint') {
+      Object.assign(m, { de: null, a: v.a });
+      const p = v.precio === undefined ? undefined : plano(v.precio, ctx);
+      if (serie.token === 'E' && Array.isArray(p) && esDecupla(p)) m.precio = [hoja(p[0]), hoja(p[1])];
+    } else if (v.verbo === 'burn') {
+      Object.assign(m, { de: v.de, a: null });
+      if (informativo && typeof v.cuando === 'string') m.refiere = v.cuando;
+    } else if (v.verbo === 'lock' || v.verbo === 'release') {
+      Object.assign(m, { de: v.de, a: v.de, estado: v.verbo === 'lock' ? 'bloqueo' : 'liberacion', salida: v.salida });
+    } else {
+      Object.assign(m, { de: v.de, a: v.a, ...(v.salida === undefined ? {} : { salida: v.salida }) });
+    }
+    // Lo que lleva fecha y no es T informativo es un movimiento anunciado (VG 12-11, decisión 8): no se mueve todavía.
+    if (v.cuando !== undefined && !informativo) Object.assign(m, { estado: ANUNCIADO, refiere: v.cuando });
+    const errores = validarMovimiento(m);
+    if (errores.length) motivos.push({ regla: nombre, mensaje: nombre + ': ' + errores.join('; ') });
+    else movimientos.push(m);
+  }
+  return { movimientos, motivos };
+}
+
+/** ¿Dan lo mismo las dos vías de la doble ejecución? Los mismos movimientos (en canónico) y, si fallan, las dos fallan. */
+function mismaEjecucion(a, b) {
+  if (a.motivos.length || b.motivos.length) return a.motivos.length > 0 && b.motivos.length > 0;
+  return canonico(a.movimientos) === canonico(b.movimientos);
+}
+
+/**
+ * El coste de escribir la candidata (VG 12-11, decisión 7): lo que exige la regla de la época «the cost of writing»
+ * (por posición) y la T que lo cubre, en la escala pedida (`escala`, una real) o en la menor que lo cubre
+ * (escritura.tDelCoste). → { exigido (segundos), movimiento (la quema de T de quien escribe) | null }.
+ */
+export function costeDe(payload, yo, { epoca, escala, eje } = {}) {
+  const segundos = exigidoDe(payload, { epoca, eje });
+  const t = tDelCoste(segundos, escala);
+  return { exigido: segundos, movimiento: t ? { token: 'T', escala: t.escala, cantidad: t.cantidad, de: yo, a: null } : null };
 }
 
 /**
@@ -444,12 +535,39 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   }
   const prep = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
   if (prep.motivos.length) return { ok: false, evento: null, motivos: prep.motivos };
-  const { movimientos, motivos } = movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
-  if (motivos.length) return { ok: false, evento: null, motivos };
+  // Lo que mueve (VG 12-11, decisiones 5, 6 y 10): las sentencias del 4 en BQL, si las lleva; la lista de antes, si no
+  // (una plantilla aún sin migrar). Mientras convivan las dos (doble ejecución), se ejecutan las dos: si las dos mueven
+  // y no mueven lo mismo, la transacción no sale; si una no mueve (la lista no sabe leer el anuncio como movimiento),
+  // manda la de BQL y `doble.igual` lo dice. `opciones.via` («lista» o «bql») fuerza una sola (la prueba de igualdad).
+  const sentencias = sentenciasDe(plantilla).length > 0;
+  const lista = recetasDe(plantilla).length > 0;
+  const porBql = sentencias && opciones.via !== 'lista';
+  const hecha = porBql ? movimientosBql(eje, epoca, plantilla, prep.candidata, yo, X, idioma) : movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
+  let doble = null;
+  if (sentencias && lista && opciones.via === undefined) {
+    const vieja = movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
+    doble = { igual: mismaEjecucion(vieja, hecha), lista: vieja.movimientos, bql: hecha.movimientos };
+    if (!doble.igual && !vieja.motivos.length && !hecha.motivos.length) {
+      const motivo = { regla: nombre, mensaje: nombre + ': doble ejecución: la lista del 4 y sus sentencias en BQL no dan lo mismo (' + canonico(vieja.movimientos) + ' frente a ' + canonico(hecha.movimientos) + ')' };
+      return { ok: false, evento: null, motivos: [...hecha.motivos, motivo], doble };
+    }
+  }
+  const motivos = hecha.motivos;
+  const movimientos = [...hecha.movimientos];
+  if (motivos.length) return { ok: false, evento: null, motivos, ...(doble ? { doble } : {}) };
   const payload = prep.payload;
   // La representación del registro: el mensaje de la plantilla, salvo que un parámetro ocupe el 0.
   // Se rellena sobre la candidata sin movimientos: así el 1 y el 3 del payload no colisionan con D-META.
   if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, prep.candidata, yo, X);
+  // El coste de escribir (VG 12-11, decisión 7): una regla de la época para toda candidata, por posición; va delante,
+  // donde iba el minuto copiado. La escala, la pedida (opciones.escala) o la menor que lo cubre.
+  let coste;
+  try {
+    coste = costeDe(payload, yo, { epoca, escala: opciones.escala, eje });
+  } catch (e) {
+    return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: nombre + ': ' + e.message }] };
+  }
+  if (coste.movimiento) movimientos.unshift(coste.movimiento);
   // Las claves que el registro declara y sus pruebas de posesión (un parámetro con «key {p}» o «proof {p}» en su 4): la
   // clave va en el contexto (el 5 del evento, dentro del cuerpo), la prueba fuera del cuerpo, como la firma; así una
   // persona da de alta una cosa con la clave de la cosa (la prueba la firma la cosa sobre el id de este registro).
@@ -474,7 +592,7 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   }
   const textos = await eje.validar(evento);
   const delEje = motivosDelEje(eje, textos, evento, idioma, opciones);
-  return { ok: delEje.length === 0, evento, motivos: delEje };
+  return { ok: delEje.length === 0, evento, motivos: delEje, exigido: coste.exigido, ...(doble ? { doble } : {}) };
 }
 
 // ---------- 3b. las opiniones como registros ----------
@@ -545,10 +663,41 @@ export function estacionesDeLaEpoca(opciones = {}) {
 /** Lo que una estación sabe leer como autorización (epoch.4.2, su cuarta posición): el recuento del anuncio (motor.recuento). */
 const AUTORIZA = Object.freeze({ recuento: 'epoch.9.0.0' });
 
-/** ¿Está autorizado un anuncio pendiente? Si su estación lo dice con el recuento: el de su dueño pasa el umbral. */
-function autorizado(eje, id, e) {
-  if (e.autoriza !== AUTORIZA.recuento) return false;
+/** ¿Pasa el recuento de un anuncio (el de su dueño, motor.recuento) su umbral? Lo que autoriza un anuncio pendiente. */
+function recuentoPasa(eje, id) {
   try { return recuento(eje, id).pasa === true; } catch { return false; }
+}
+
+/**
+ * Las estaciones por las que pasa un movimiento anunciado (VG 12-11, decisión 8; #50): datos de la época (epoch.4.3),
+ * en su orden, [{ nombre, comprueba }]: `comprueba` es una fórmula del BQL mínimo con it = el anuncio, o `epoch.9.0.0`
+ * (el recuento del anuncio con el criterio de su dueño, motor.recuento). Hoy: propuesta, autorizada, ejecutada y
+ * verificada. Sin ellas en la época, las tres de antes (propuesta, autorizada por el recuento, ejecutada si no está en
+ * la lectura «stage» de su registro).
+ */
+export function estacionesDelAnuncio(opciones = {}) {
+  const filas = hojas(en(raizDe(epocaDe(opciones)), SITIO.estacionesDelAnuncio)).filter((x) => Array.isArray(x) && esDecupla(x));
+  const de = filas.map((x) => ({ nombre: texto(hoja(x[0])), comprueba: texto(ultima(x[1])) })).filter((x) => x.nombre && x.comprueba);
+  return de.length ? de : [
+    { nombre: 'propuesta', comprueba: '=count it.5 > 0' },
+    { nombre: 'autorizada', comprueba: AUTORIZA.recuento },
+    { nombre: 'ejecutada', comprueba: '=not (it in (first (first (up it)).4).8)' },
+  ];
+}
+
+/**
+ * La estación de un anuncio (VG 12-11, decisión 8): la última de epoch.4.3 que se cumple, comprobada sobre el anuncio
+ * (el motor solo comprueba: los nombres y las condiciones son de la época). null si no es un registro del eje.
+ */
+export function estacionDeAnuncio(eje, id, opciones = {}) {
+  if (!eje?.obtener(id)) return null;
+  const ctx = contextoDe(eje, epocaDe(opciones), {});
+  let fuera = null;
+  for (const { nombre, comprueba } of estacionesDelAnuncio(opciones)) {
+    const cumple_ = comprueba === AUTORIZA.recuento ? recuentoPasa(eje, id) : esFormula(comprueba) && cumple(comprueba, ctx, id);
+    if (cumple_) fuera = nombre;
+  }
+  return fuera;
 }
 
 /**
@@ -566,11 +715,21 @@ export function estaciones(eje, X, opciones = {}) {
   // Los anuncios de X: los registros que su dueño ancla en su 4.1 (como los lee la plantilla de cerrado, por `down`:
   // lo anclado en el 4 de X no se confunde con ellos); los pendientes, la lectura «stage».
   const anuncios = '((down ' + s + ') where last (first it.6).5 = "4100000000" and first it.3 = first ' + s + '.3)';
+  // La familia de un anuncio: la de su movimiento anunciado (VG 12-11, decisión 8: D-MOV 0.0.0) o, en la forma de antes
+  // (un payload que imita un movimiento), la de la serie que nombra, buscada por su valor en las del libro (before.4).
+  const familia = (f) => f + ' in (first (moves it where "anunciado" in it2.2)).0.0.0 or count (moves it where "anunciado" in it2.2) = 0 and ' + f + ' in (before.4.(first it.0)).0.0';
   return estacionesDeLaEpoca(opciones).map((e) => {
-    const de = (expr) => (valores('((' + expr + ' where count it.5 > 0) where ' + e.familia + ' in (before.4.(first it.0)).0.0) each 5', ctx).valores ?? []).filter((x) => typeof x === 'string');
+    const de = (expr) => (valores('((' + expr + ' where count it.5 > 0) where ' + familia(e.familia) + ') each 5', ctx).valores ?? []).filter((x) => typeof x === 'string');
     const anunciados = [...new Set(de(anuncios))];
     const pendientes = [...new Set(de(s + '.4.8'))];
-    return { ...e, anunciados, pendientes, hechos: anunciados.filter((id) => !pendientes.includes(id)), autorizados: pendientes.filter((id) => autorizado(eje, id, e)) };
+    // La estación de cada anuncio (epoch.4.3); «autorizada» solo si la estación de su familia autoriza (su 4 de epoch.4.2).
+    const estacion = new Map(anunciados.map((id) => { const x = estacionDeAnuncio(eje, id, opciones); return [id, x === 'autorizada' && !e.autoriza ? 'propuesta' : x]; }));
+    return {
+      ...e, anunciados, pendientes, hechos: anunciados.filter((id) => !pendientes.includes(id)),
+      autorizados: pendientes.filter((id) => estacion.get(id) === 'autorizada'),
+      verificados: anunciados.filter((id) => estacion.get(id) === 'verificada'),
+      estacionDe: Object.fromEntries(estacion),
+    };
   });
 }
 
@@ -594,8 +753,8 @@ export function ejecuciones(eje, X, opciones = {}) {
   const plantillaDe = new Map();
   for (const e of estaciones(eje, ev.id, opciones)) {
     for (const id of e.anunciados) plantillaDe.set(id, e.plantilla);
-    for (const id of e.pendientes) estacionDe.set(id, e.autorizados.includes(id) ? 'autorizada' : 'propuesta');
-    for (const id of e.hechos) estacionDe.set(id, 'ejecutada');
+    // La estación de cada anuncio la dice la época (epoch.4.3; VG 12-11, decisión 8): el motor solo comprueba.
+    for (const id of e.anunciados) estacionDe.set(id, e.estacionDe[id] ?? (e.pendientes.includes(id) ? (e.autorizados.includes(id) ? 'autorizada' : 'propuesta') : 'ejecutada'));
   }
   const anclados = eje.sobre(ev.id);
   const deX = new Set(anclados.map((h) => h.id));
@@ -616,8 +775,18 @@ export function ejecuciones(eje, X, opciones = {}) {
 
 // ---------- 5. el camino ----------
 
-/** Un movimiento anunciado (un registro en el 4.1 de X): { serie, cantidad, que, de, a }, o null. */
+/**
+ * Un movimiento anunciado (un registro en el 4.1 de X): { serie, cantidad, que, de, a }, o null. El anuncio es un
+ * movimiento anunciado del libro (VG 12-11, decisión 8; para qué, el 0 del registro); mientras los ejemplos lo escriban
+ * como antes, también un payload que imita un movimiento.
+ */
 function anuncioDe(registro) {
+  const anunciados = (Array.isArray(registro?.movimientos) ? registro.movimientos : []).filter(esAnunciado);
+  if (anunciados.length) {
+    const que = typeof registro.payload === 'string' ? registro.payload : hojas(registro.payload?.[0]).find((x) => typeof x === 'string') ?? '';
+    const movimientos = anunciados.map((m) => ({ serie: claveToken(m), cantidad: m.cantidad, de: m.de, a: m.a, ...(m.refiere ? { cuando: m.refiere } : {}) }));
+    return { ...movimientos[0], que, movimientos };
+  }
   const p = registro?.payload;
   const h = (x) => (Array.isArray(x) ? x[x.length - 1] : x);
   const serie = h(p?.[0]);
@@ -625,7 +794,7 @@ function anuncioDe(registro) {
   const de = h(p?.[3]?.[0]);
   const a = h(p?.[3]?.[1]);
   if (typeof serie !== 'string' || typeof cantidad !== 'number' || typeof de !== 'string' || typeof a !== 'string') return null;
-  return { serie, cantidad, que: h(p?.[2]), de, a };
+  return { serie, cantidad, que: h(p?.[2]), de, a, movimientos: [{ serie, cantidad, de, a }] };
 }
 
 /** Los nombres que un registro o una plantilla escriben en su 9 (hojas de texto). */
@@ -690,15 +859,21 @@ export async function camino(eje, X, yo, opciones = {}) {
   const estacionDe = new Map(estacionesDeLaEpoca(opciones).map((e) => [e.familia, e]));
   const pendientes = (valores('("' + ev.id + '").4.8', ctx).valores ?? []).filter((x) => typeof x === 'string').map((id) => eje.obtener(id)).filter(Boolean);
   for (const anuncio of pendientes) {
-    const m = anuncioDe(anuncio);
-    if (!m) continue;
-    const estacion = estacionDe.get(partirClave(m.serie).token);
-    const que = (mensaje(eje, 'stage', idioma, opciones) ?? 'stage') + ' · ' + (m.que ?? '') + ' ' + m.cantidad + ' ' + m.serie + ' ' + m.de + ' → ' + m.a;
-    if (m.de === yo && estacion) {
-      const paso = mio(estacion.plantilla, { announcement: { ref: anuncio.id } });
-      if (paso) { pasos.push({ fuente: 'reglas', regla: 'stage', ...paso, falta: que, hecho: false, espera: null, anuncio: anuncio.id }); continue; }
+    const a = anuncioDe(anuncio);
+    if (!a) continue;
+    // Un anuncio puede llevar varios movimientos (VG 12-11, decisión 8: las noches de una reserva): un paso por quien los
+    // mueve, con todos los suyos; el mío, con la plantilla de la estación de su familia.
+    const porQuien = new Map();
+    for (const m of a.movimientos) porQuien.set(m.de, [...(porQuien.get(m.de) ?? []), m]);
+    for (const [de, ms] of porQuien) {
+      const que = (mensaje(eje, 'stage', idioma, opciones) ?? 'stage') + ' · ' + (a.que ?? '') + ' ' + ms.map((m) => m.cantidad + ' ' + m.serie + ' ' + m.de + ' → ' + m.a).join('; ');
+      const estacion = estacionDe.get(partirClave(ms[0].serie).token);
+      if (de === yo && estacion) {
+        const paso = mio(estacion.plantilla, { announcement: { ref: anuncio.id } });
+        if (paso) { pasos.push({ fuente: 'reglas', regla: 'stage', ...paso, falta: que, hecho: false, espera: null, anuncio: anuncio.id }); continue; }
+      }
+      pasos.push({ fuente: 'reglas', regla: 'stage', falta: que, hacer: null, espera: de, hecho: false, anuncio: anuncio.id });
     }
-    pasos.push({ fuente: 'reglas', regla: 'stage', falta: que, hacer: null, espera: m.de, hecho: false, anuncio: anuncio.id });
   }
   // El recuento del dueño, si lo declara y no pasa.
   const recuentos = hojas(en(raiz, SITIO.recuentos)).filter(Array.isArray).map((x) => hoja(x[0]));

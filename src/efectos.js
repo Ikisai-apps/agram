@@ -30,7 +30,7 @@
 // tipo); datos/efectos.js es su copia importable, generada.
 
 import { ARIDAD, esReferencia, esLista, esDireccion, indicesDe, direccion } from './btml.js';
-import { claveToken } from './tokens.js';
+import { claveToken, movimientosReales } from './tokens.js';
 import { RAIZ } from './evento.js';
 import { ocupantes } from './encaje.js';
 import { propuestas } from './motor.js';
@@ -323,7 +323,7 @@ export function efectosDe(eje, evento, { marco } = {}) {
     }
   }
 
-  for (const m of ev.movimientos ?? []) {
+  for (const m of movimientosReales(ev)) { // lo anunciado no se mueve todavía (VG 12-11, decisión 8)
     const familia = CATALOGO.familias[m.token];
     if (!familia) throw new Error('familia de token sin mundo: ' + m.token);
     const movimiento = m.de === null ? 'emitir' : m.a === null ? 'consumir' : 'mover';

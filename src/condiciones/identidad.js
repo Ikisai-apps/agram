@@ -10,7 +10,8 @@ import { motivoTipo, EMITEN_V2, T_NO_SE_EMITE, SIN_TIPO } from '../ciclo.js';
 import { verificar, verificarPosesion, clavePublicaValida } from '../autoridad.js';
 
 const enEnteros = (k) => 'la serie ' + k + ' va en enteros: no se declaró divisible (divisible: true en su primera emisión)';
-const objetos = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos.filter((m) => m && typeof m === 'object') : []);
+// Lo anunciado (VG 12-11, decisión 8) no da tokens a nadie todavía: no cuenta.
+const objetos = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos.filter((m) => m && typeof m === 'object' && m.estado !== 'anunciado') : []);
 
 /**
  * Suelo: la firma verifica (criptografía, src/autoridad.js), y la bandera exigirFirmas del eje. Quién firma (el

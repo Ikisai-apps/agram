@@ -43,6 +43,7 @@ function referencia(eje) {
     // Su propia alta: la cuenta nace con lo que acuña de su asignación del día al gastarla.
     if (conAsignacion && !altas.has(ev.autor) && ev.movimientos.some((m) => gastaAsignacion(m, ev.autor, true))) { altas.set(ev.autor, ev.id); if (!saldos.has(ev.autor)) saldos.set(ev.autor, new Map()); }
     for (const m of ev.movimientos) {
+      if (m.estado === 'anunciado') continue; // lo anunciado no toca saldos (VG 12-11, decisión 8)
       const k = claveToken(m);
       if (m.a !== null && !altas.has(m.a)) altas.set(m.a, ev.id);
       if (m.estado) {
@@ -161,6 +162,8 @@ test('capa cero: cada evento es una transacción (acuñar, transferir, bloquear,
     assert.ok(tx.movimientos.slice(ev.movimientos.length).flat().every((x) => x.primitiva === 'acunar' && x.clase === 'obtencion' && x.serie.startsWith('P:')));
     ev.movimientos.forEach((m, i) => {
       const paso = tx.movimientos[i];
+      // Lo anunciado (VG 12-11, decisión 8) es un paso vacío: el libro no lo aplica.
+      if (m.estado === 'anunciado') return assert.deepEqual(paso, []);
       const principal = paso[paso.length - 1];
       const esperada = m.de === null ? 'acunar' : m.estado === 'bloqueo' ? 'bloquear' : m.estado === 'liberacion' ? 'liberar' : m.a === null ? 'quemar' : 'transferir';
       assert.equal(principal.primitiva, esperada, JSON.stringify(m));
