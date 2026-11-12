@@ -215,8 +215,8 @@ test('PENDIENTE POR LÍMITE: se cobra lo que la lectura examina, contado mientra
   const costeHermanos = 1 + coste(ej.menu.id);
   const costeGeneral = 1 + coste(eje.genesisId);
   // El menú: la base y cinco escritos; el génesis: todo el árbol de bases (encargo 3b: con la emisión inicial de la casa y
-  // sus invitaciones a huesped y vecina, que cuelgan del génesis, y las altas que cuelgan de ellas, B1).
-  assert.deepEqual([costeHermanos, costeGeneral], [6, 25]);
+  // sus invitaciones a huesped y vecina, que cuelgan del génesis, y las altas que cuelgan de ellas, B1, y el alta de cocina).
+  assert.deepEqual([costeHermanos, costeGeneral], [6, 26]);
   // FRESCURA() gasta un paso; con un argumento, dos. Lo demás es la lectura.
   const corto = conPresupuesto('FRESCURA()', costeHermanos);
   assert.equal(corto.estado, 'PENDIENTE POR LÍMITE');

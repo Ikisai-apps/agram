@@ -90,10 +90,11 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
   // Las personas entran aceptando la invitación de la casa (encargo 3b): su aceptación es su alta (VG, 10-11, B1).
   for (const id of ['huesped', 'vecina']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: T, clave: claves[id], privadaDe: priv });
 
-  // Proyecto A: el comedor da de alta a cocina y a su cosa, y da euros a huesped y vecina.
   // La cocina es una cosa de la casa (su máquina: escribe con el T que le da), sin clave en el eje de demostración:
-  // así la única cosa con clave que da de alta el comedor es el propio comedor (identidadDe).
-  const comedor = await escribir({
+  // así la única cosa con clave que da de alta el comedor es el propio comedor (identidadDe). La casa la da de alta en su
+  // propio registro, con su nombre en el 0, y con la T que le da su dueña (una cosa no tiene más T que la que una persona
+  // le dio, #46).
+  await escribir({
     autor: 'casa',
     sobre: eje.genesisId,
     t: T,
@@ -102,6 +103,17 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
       { token: 'T', escala: 'hora', cantidad: 20, de: 'casa', a: 'cocina' },
       minutos('casa', 'cocina', 700),
       segundos('casa', 'cocina', 30000),
+    ],
+    payload: ['cocina'],
+  });
+
+  // Proyecto A: el comedor da de alta a su cosa y la casa da euros a huesped y vecina.
+  const comedor = await escribir({
+    autor: 'casa',
+    sobre: eje.genesisId,
+    t: T,
+    movimientos: [
+      minuto('casa'),
       eur('casa', 'huesped', 60),
       eur('casa', 'vecina', 40),
       minutos('casa', 'comedor', 10),
