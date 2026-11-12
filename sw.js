@@ -3,7 +3,7 @@
 // origen que la carta pide (src/, datos/, ejemplos/, antigua/, arte/): caché primero, red si falta, y lo que llega de
 // la red se guarda. Lo de otros orígenes (lottie-web desde cdnjs) no se toca. Al cambiar la versión se borran las
 // cachés anteriores.
-const VERSION = 'agram-carta-v16';
+const VERSION = 'agram-carta-v17';
 const ARMAZON = ['./', './index.html', './manifest.webmanifest', './carta/estilo.css', './carta/app.js', './carta/carta.js', './carta/dom.js', './carta/gestos.js', './carta/textos.js', './carta/cuentas.js', './carta/sincronia.js', './carta/opinar.js', './carta/guia.js', './carta/externa.js', './carta/texto.js', './carta/icono.svg'];
 
 self.addEventListener('install', (e) => {
