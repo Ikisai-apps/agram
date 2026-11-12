@@ -140,6 +140,15 @@ export const TEXTOS = Object.freeze({
     matrizSinPosicion: 'sin posición',
     matrizSinPosicionTitulo: 'lo que el núcleo no sabe colocar: sin tipo de interacción o sin posición modificada',
     matrizMas: '+{n} más',
+    // la matriz del 4 con oficios y ejecución, la escalera y el rango (encargo «el4», VG 12-11, #39, #41)
+    matrizEsquinaOficios: 'oficio ↓ · ejecución →',
+    matrizEjesTituloOficios: 'filas: el oficio (el tipo de acción); columnas: la ejecución (lo que se mueve); la diagonal marcada es la escalera: la fila k con la columna k+1',
+    matrizAbrir: 'abrir la celda: sus movimientos',
+    matrizCelda: '{oficio} · {ejecucion}',
+    matrizEscalonTitulo: 'peldaño {nivel} {nombre} de la escalera ({direccion})',
+    rangoDelFoco: 'rango {nivel} {nombre}',
+    caminoDisponibles: 'posiciones disponibles: {n}',
+    caminoActual: 'aquí está, por su rango',
     // lo que el núcleo mide de cada hijo (encargo «datos», issue #11)
     hijoUmbral: 'umbral {umbral} · faltan {faltan}',
     hijoVotos: 'P {comprometidos} comprometido · {reposicionables} reposicionable',

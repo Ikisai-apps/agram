@@ -1286,23 +1286,42 @@ function estadoDeCelda(nodos) {
   return estados.length === 1 ? estados[0] : null;
 }
 
+/** Cuántos movimientos enseña una celda abierta de la matriz del 4 (VG 12-11, #49.8: «hasta diez»); los demás, contados. */
+const EJECUCIONES_EN_CELDA_ABIERTA = 10;
+
 /**
- * La matriz 10 × 10 del 4, con sus dos ejes nombrados (columnas: los diez PV como tipo de interacción, con su etiqueta
- * corta; filas: la posición que se modifica, con su nombre de la regla corta a profundidad 1) y la diagonal marcada.
- * Si la fila de la época mide el PV de interacción («pv» en lo que mide, epoch.8.7; encargo «datos2», issue #11), cada
- * ejecución de la fábrica de R va en su celda (acciones.ejecuciones: columna = el PV de la plantilla que la escribió o
- * que la cumple, fila = la posición que modifica), la celda es su lista, cada una con su estación (propuesta,
- * autorizada, ejecutada) y lo que el núcleo no sabe colocar va aparte, en la fila «sin posición» (`sinPosicion`), sin
- * inventar celda. Si no, los ocupantes del PV van por orden, por filas, en páginas de matrices enteras («‹ n de m ›»).
+ * La matriz 10 × 10 del 4, con sus dos ejes nombrados y la diagonal marcada. Encargo «el4» (VG 12-11, #41): si la fila de
+ * la época mide la ejecución («execution» en lo que mide, epoch.8.7), las filas son los oficios y las columnas la
+ * ejecución, con sus nombres de la época (`d.ejes`, contrato.ejesDeLaMatriz, en el idioma), cada ejecución de la fábrica
+ * de R va en la celda de su oficio y de lo que mueve (acciones.ejecuciones: `oficio`, `ejecucion`) y la diagonal son las
+ * celdas de la escalera dulce (contrato.escalera: la fila k con la columna k+1), cada una con su peldaño (`escalon`). La
+ * celda es su lista, cada una con su estación (propuesta, autorizada, ejecutada); pulsarla la abre (`estado.celdaMatriz`
+ * de R, a pantalla completa): `abierta`, su lista hasta diez, con su estación, y cuántas más. Lo que el núcleo no sabe
+ * colocar va aparte, en la fila «sin posición» (`sinPosicion`), sin inventar celda. Sin ejes pero con «pv» en lo que mide
+ * (encargo «datos2»), como antes: columnas = el PV de la plantilla, filas = la posición que modifica. Sin una cosa ni
+ * otra, los ocupantes del PV van por orden, por filas, en páginas de matrices enteras («‹ n de m ›»).
  */
 function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
+  const conEjes = Boolean(d.ejes?.filas?.length && d.ejes?.columnas?.length);
+  const escalones = new Map((conEjes ? contrato.escalera(ctx.opciones) : []).map((p) => [p.fila + '.' + p.columna, p]));
   const celdas = [];
-  for (let fila = 0; fila < g.filas; fila++) for (let columna = 0; columna < g.columnas; columna++) celdas.push({ fila, columna, pv, ocupantes: [], ocupante: null, entra: false, diagonal: fila === columna, estado: null });
-  const ejes = {
-    columnas: POSICIONES.slice(0, g.columnas).map((k) => ({ pv: k, etiqueta: contrato.etiqueta(eje, null, k, ctx.opciones) })),
-    filas: POSICIONES.slice(0, g.filas).map((k) => ({ digito: k, nombre: contrato.etiqueta(eje, null, [0, k], ctx.opciones) })),
-  };
-  if ((d.mide ?? []).includes('pv')) {
+  for (let fila = 0; fila < g.filas; fila++) {
+    for (let columna = 0; columna < g.columnas; columna++) {
+      const p = escalones.get(fila + '.' + columna);
+      celdas.push({ fila, columna, pv, ocupantes: [], ocupante: null, entra: false, diagonal: conEjes ? Boolean(p) : fila === columna, estado: null, ...(p ? { escalon: { peldano: p.indice, nivel: p.nivel, grado: p.grado, nombre: p.nombre, direccion: p.direccion } } : {}) });
+    }
+  }
+  const ejes = conEjes
+    ? {
+      columnas: d.ejes.columnas.slice(0, g.columnas).map((c) => ({ pv: c.indice, etiqueta: c.texto ?? c.nombre })),
+      filas: d.ejes.filas.slice(0, g.filas).map((f) => ({ digito: f.indice, nombre: f.texto ?? f.nombre })),
+      oficios: true,
+    }
+    : {
+      columnas: POSICIONES.slice(0, g.columnas).map((k) => ({ pv: k, etiqueta: contrato.etiqueta(eje, null, k, ctx.opciones) })),
+      filas: POSICIONES.slice(0, g.filas).map((k) => ({ digito: k, nombre: contrato.etiqueta(eje, null, [0, k], ctx.opciones) })),
+    };
+  if (conEjes || (d.mide ?? []).includes('pv')) {
     const lista = acciones.ejecuciones(eje, R, ctx.opciones);
     const nodos = nodosDeCelda(eje, R, lista.map((x) => x.ocupante), pv, pv, d, ctx, entrar);
     const sinPosicion = [];
@@ -1310,7 +1329,8 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
       const n = nodos[i];
       n.estado = x.estacion;
       n.accion = x.accion;
-      const celda = x.pv === null || x.posicion === null ? null : celdas.find((c) => c.fila === x.posicion && c.columna === x.pv);
+      const [fila, columna] = conEjes ? [x.oficio, x.ejecucion] : [x.posicion, x.pv];
+      const celda = fila === null || fila === undefined || columna === null || columna === undefined ? null : celdas.find((c) => c.fila === fila && c.columna === columna);
       if (celda) celda.ocupantes.push(n);
       else sinPosicion.push(n);
     });
@@ -1319,8 +1339,14 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
       c.entra = c.ocupantes.some((n) => n.entra);
       c.estado = c.ocupantes.length ? estadoDeCelda(c.ocupantes) : null;
       c.total = c.ocupantes.length;
+      if (conEjes && entrar && c.total) c.abrir = c.fila + '.' + c.columna;
     }
-    return { celdas, ejes, sinPosicion, pagina: { actual: 1, de: 1 } };
+    // La celda abierta (VG 12-11, #49.8): su lista de movimientos, hasta diez, cada uno con el color de su estación.
+    const pedida = conEjes && entrar && ctx.estado?.celdaMatriz?.X === R ? celdas.find((c) => c.abrir && c.abrir === ctx.estado.celdaMatriz.celda) : null;
+    const abierta = pedida
+      ? { fila: pedida.fila, columna: pedida.columna, oficio: ejes.filas[pedida.fila]?.nombre ?? null, ejecucion: ejes.columnas[pedida.columna]?.etiqueta ?? null, lista: pedida.ocupantes.slice(0, EJECUCIONES_EN_CELDA_ABIERTA), mas: Math.max(0, pedida.total - EJECUCIONES_EN_CELDA_ABIERTA), escalon: pedida.escalon ?? null }
+      : null;
+    return { celdas, ejes, sinPosicion, pagina: { actual: 1, de: 1 }, ...(abierta ? { abierta } : {}) };
   }
   const de = Math.max(1, Math.ceil(contrato.ocupantes(eje, R, pv, 0, 0, ctx.opciones).total / celdas.length));
   const actual = Math.min(Math.max(1, pagina), de);
@@ -1413,15 +1439,20 @@ function franjasDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
  */
 function cieloDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
   const c = contrato.cohorteDe(eje, R, { ...ctx.opciones, cohorte: ctx.estado?.cohorte ?? undefined });
-  const kPropio = typeof c?.caja === 'number' ? c.caja : null;
+  // Encargo «el4» (VG 12-11, #39): un solo rango, el del 8; cada comparable va en la caja de su rango (el peldaño de la
+  // escalera que ha alcanzado, contrato.rango) y la cuota queda como medida del foco (`cuota`, en el panel).
+  const porRango = (d.mide ?? []).includes('rank');
+  const cajaDe = (x) => (porRango ? x?.rango : x?.caja);
+  const kPropio = typeof cajaDe(c) === 'number' ? cajaDe(c) : null;
+  const kCuota = typeof c?.caja === 'number' ? c.caja : null;
   const caben = Math.max(1, Math.floor(hueco.ancho / Math.max(1, g.columnas) / ctx.medidas.tarjeta)) * Math.max(1, Math.floor(hueco.alto / Math.max(1, g.filas) / (ctx.medidas.linea * 2)) - 1);
   const bandas = d.bandas.map((b) => ({ ...b, items: [], mas: 0, foco: kPropio !== null && (b.escala ?? b.indice) === kPropio }));
   const sinBanda = [];
   const tipoDato = contrato.tipo(eje, R, pv, ctx.opciones);
   const sobrio = sobrioDe(ctx);
-  const estrella = (x) => ({ ...nodoOcupante(eje, { ref: x.ref }, tamanoDeNivel(2, ctx.opciones), sobrio, tipoDato, { pv, lado: GEOMETRIA[pv]?.lado ?? 0, posicion: pv, anidar: 0 }), ...(x.foco ? { foco: true } : {}) });
+  const estrella = (x) => ({ ...nodoOcupante(eje, { ref: x.ref }, tamanoDeNivel(2, ctx.opciones), sobrio, tipoDato, { pv, lado: GEOMETRIA[pv]?.lado ?? 0, posicion: pv, anidar: 0 }), ...(x.foco ? { foco: true } : {}), ...(porRango && typeof x.rango === 'number' ? { rango: x.rango } : {}) });
   for (const x of c?.comparables ?? []) {
-    const banda = x.caja === null ? null : bandas.find((b) => (b.escala ?? b.indice) === x.caja);
+    const banda = cajaDe(x) === null || cajaDe(x) === undefined ? null : bandas.find((b) => (b.escala ?? b.indice) === cajaDe(x));
     if (banda) banda.items.push(estrella(x)); else sinBanda.push(estrella(x));
   }
   const escribir = accionPorDefecto(eje, R, pv, ctx);
@@ -1434,7 +1465,8 @@ function cieloDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
   const base = c?.base ?? null;
   return {
     bandas, sinBanda, pagina: null,
-    cuota: kPropio !== null ? { nombre: d.paso, k: kPropio, de: (d.paso ? pasosDe.tabla(ctx.opciones).find((x) => x.nombre === d.paso)?.de : null) ?? null } : null,
+    cuota: kCuota !== null ? { nombre: d.paso, k: kCuota, de: (d.paso ? pasosDe.tabla(ctx.opciones).find((x) => x.nombre === d.paso)?.de : null) ?? null } : null,
+    ...(porRango ? { rango: rangoDeR(eje, R, ctx) } : {}),
     enElFoco: POSICIONES.filter((k) => contrato.ocupantes(eje, R, k, 0, 0, ctx.opciones).total > 0),
     cohorte: c ? { valor: c.cohorte, texto: c.texto, elegida: c.elegida, opciones: c.cohortes.length > 1 ? c.cohortes.map((x) => ({ valor: x.valor, texto: x.texto, actual: x.valor === c.cohorte })) : [] } : null,
     base: base ? { escrita: base.escrita, autor: base.autor ? legibleDe(eje, base.autor, ['identity'], ctx.opciones).texto : null, t: base.t ?? null } : null,
@@ -1451,10 +1483,20 @@ function cieloDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
 function caminoDeRejilla(eje, R, pv, d, g, ctx) {
   const escribir = accionPorDefecto(eje, R, pv, ctx);
   const m = contrato.madurez(eje, R, ctx.opciones);
+  // Encargo «el4» (VG 12-11, #39): el 9 lee el rango del 8; situarse es elegir entre las posiciones que ese rango deja
+  // (las disponibles, del primer peldaño al suyo; la suya, `actual`), sin rango declarado.
+  const r = (d.mide ?? []).includes('rank') ? rangoDeR(eje, R, ctx) : null;
   return {
-    bandas: d.bandas.map((b) => ({ ...b, items: [], mas: 0, escribir })), camino: true, sinBanda: [], pagina: null,
+    bandas: d.bandas.map((b) => ({ ...b, items: [], mas: 0, escribir, ...(r ? { disponible: r.disponibles.includes(b.indice), actual: r.peldano === b.indice } : {}) })), camino: true, sinBanda: [], pagina: null,
     madurez: m && m.nivel !== null ? { nombre: m.nombre, nivel: m.nivel, de: m.de } : null,
+    ...(r ? { rango: r } : {}),
   };
+}
+
+/** El rango de R para la carta (contrato.rango): el peldaño, su nivel.grado y su nombre, la dirección medida y las disponibles. */
+function rangoDeR(eje, R, ctx) {
+  const r = contrato.rango(eje, R, ctx.opciones);
+  return r ? { peldano: r.peldano, nivel: r.nivel, grado: r.grado, nombre: r.nombre, direccion: r.direccion, medida: r.medida?.direccion ?? null, exacto: r.exacto, disponibles: r.disponibles } : null;
 }
 
 /**

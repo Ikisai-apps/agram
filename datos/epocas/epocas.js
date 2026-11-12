@@ -538,10 +538,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "0c7930e68a4629bb536656f718f456d5bbbacd50bb113e71cb00aab06996dd56"
     },
     {
-      "ref": "42ccc655be7f6b8c07eb1ea29bf9c16c13efb8ce022d7ae182b78cca7e4b4e5a"
+      "ref": "a787f172195bcdb8aab325702d7068aa596df552b5ffec8753e0816b002abd0b"
     },
     {
-      "ref": "b68e8a458fdaf257885f8ab1895a813e1476304d860fe67f61b266eaef956bd2"
+      "ref": "c63bc40ef1a4ef5644854d87c2ee868000f8aca50b4b8c13998ff2b21d7d364f"
     }
   ],
   [
@@ -2691,20 +2691,76 @@ export const EPOCA_0_BTML_DATOS = [
             "matriz"
           ],
           [
-            "epoch.5",
-            "pv"
+            "office",
+            "execution"
           ],
           [
             "-"
           ],
           [
-            "10 × 10: columnas = los diez PV como tipo de interacción, filas = posición modificada; la celda es la lista de ejecuciones"
+            "10 × 10: filas = los diez oficios (el tipo de acción), columnas = la ejecución (lo que se mueve); la celda es la lista de sus ejecuciones; la escalera del 8 son las celdas de la fila k con la columna k+1 (la fila 9 vuelve a la columna 0)"
           ],
           [
             "-"
           ],
           [
-            "-"
+            [
+              "show",
+              "manage",
+              "administer",
+              "coordinate",
+              "do",
+              "verify",
+              "record",
+              "plan",
+              "measure",
+              "guide"
+            ],
+            [
+              [
+                "content shown",
+                "content"
+              ],
+              [
+                "E",
+                "token E"
+              ],
+              [
+                "P",
+                "token P"
+              ],
+              [
+                "R",
+                "token R"
+              ],
+              [
+                "T",
+                "token T"
+              ],
+              [
+                "verification without its own token",
+                "content at 5"
+              ],
+              [
+                "adjudication to the past",
+                "scale pasado",
+                "content at 6"
+              ],
+              [
+                "projection to the future",
+                "scale futuro",
+                "dated",
+                "content at 7"
+              ],
+              [
+                "growth that generates ranks",
+                "content at 8"
+              ],
+              [
+                "content that guides",
+                "content at 9"
+              ]
+            ]
           ]
         ],
         [
@@ -2729,12 +2785,12 @@ export const EPOCA_0_BTML_DATOS = [
             "-"
           ],
           [
-            "una franja vertical por escala de T que el calendario mide, la más cercana a ahora a la derecha; cuatro hilos horizontales (los PV 1 3 2 4, en ese orden de filas)"
+            "una franja vertical por escala de T que el calendario mide, la más cercana a ahora a la derecha; cuatro hilos horizontales (los PV 1 2 3 4, en ese orden de filas: el orden de ver)"
           ],
           [
             1,
-            3,
             2,
+            3,
             4
           ],
           [
@@ -2767,13 +2823,13 @@ export const EPOCA_0_BTML_DATOS = [
             "-"
           ],
           [
-            "espejo del 6: la franja más cercana a ahora a la izquierda; cuatro hilos horizontales (los PV 2 4 1 3, en ese orden de filas)"
+            "espejo del 6: la franja más cercana a ahora a la izquierda; cuatro hilos horizontales (los PV 1 2 3 4, en ese orden de filas: el orden de ver)"
           ],
           [
-            2,
-            4,
             1,
-            3
+            2,
+            3,
+            4
           ],
           [
             "-"
@@ -2798,19 +2854,29 @@ export const EPOCA_0_BTML_DATOS = [
           [
             "hitos",
             "cuota",
-            "cohort"
+            "cohort",
+            "rank"
           ],
           [
             "-"
           ],
           [
-            "las diez cajas nivel.grado de los hitos; cada comparable de la cohorte, en la caja de su cuota en ella (el paso «cuota» de epoch.9.8 frente a la cohorte entera)"
+            "las diez cajas nivel.grado de los hitos, los diez peldaños de la escalera; cada comparable de la cohorte, en la caja de su rango (el peldaño que ha alcanzado por la escalera de su matriz del 4); la cuota en la cohorte queda como medida"
           ],
           [
             "-"
           ],
           [
-            "-"
+            "1000000000",
+            "2200000000",
+            "3330000000",
+            "4444000000",
+            "5555500000",
+            "6666660000",
+            "7777777000",
+            "8888888800",
+            "9999999990",
+            "0000000000"
           ]
         ],
         [
@@ -2828,13 +2894,14 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "hitos",
-            "epoch.9.8"
+            "epoch.9.8",
+            "rank"
           ],
           [
             "-"
           ],
           [
-            "primero las diez posiciones nivel.grado para situarse; después los pasos del camino (acciones.camino)"
+            "primero las diez posiciones nivel.grado para situarse, disponibles las que deja el rango (el del 8, sin rango declarado); después los pasos del camino (acciones.camino)"
           ],
           [
             "-"
@@ -2849,7 +2916,8 @@ export const EPOCA_0_BTML_DATOS = [
         "Encargo «datos» (issue #11, primera parte; Core, pendiente de revisar VG): la posición 8 de cada fila (la novena, detrás de los hilos) es el enlace, lo que cada hijo es de lo que la fila mide, uno por hijo y en su orden («-» si nada). El 2 mide el P por mirada (epoch.1.1: sus hijos 1-5 son las miradas 1-5 de su P, el enlace 1 2 3 4 5) y el recuento (epoch.9.0.0: el umbral del dueño si su criterio dice esa mirada, «view d»); el 3 mide los seis grupos de atención (epoch.1.2.1: hijo 1 ↔ zona 0 general, 2 ↔ 1 comercial, 3 ↔ 2 expertos, 4 ↔ 3 poder o cercanos, 5 ↔ 4 equipo, 6 ↔ 5 vetados, el enlace 0 1 2 3 4 5, con el precio de esa zona para el dueño del registro) y el estado de cada paquete (la lectura «attended»: una devolución de R pendiente o atendida; una R quemada por su tenedor, perdonada) (docs/CONTRATO.md §4.2)",
         "VG, 11-11 (#18): la posición 9 (la décima, detrás del enlace) es el orden de las listas verticales del 6 y el 7 (un orden de 8.5): el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian; «-» en los demás",
         "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): el 1 mide epoch.9.2 (el coste: lo que el registro declara en el <dígito>.2 del hijo, «a qué precio» en el 1.2 de «purchase» y de «booking»), capacity (la capacidad: el último «declare capacity or threshold» del dueño o el 2 del registro más cercano de su hilo que la declara, con lo comprometido del E atado a él, por franja) y epoch.4.0 (lo que entra y sale de E y de T por las primitivas, visto desde el dueño); su enlace es qué hijo mide qué: 1 cuánto ↔ el coste, 2 con qué condición ↔ la capacidad, 3 con quién ↔ lo que entra y sale (cada movimiento tiene un de y un a), 4 qué se hace ↔ nada (lo que se hace es la fábrica, el 4) (docs/CONTRATO.md §4.2)",
-        "Encargo «datos3» (issue #11, tercera parte; Core, pendiente de revisar VG): el 7 mide «cuando» antes de «escala» (dos pasos de epoch.9.8, en su orden): cada entrada va en la franja de la fecha a la que se refiere (el «when» de «declare future T», la salida con fecha de un bloqueo, la caducidad de una emisión de E; la escala del calendario de su distancia al reloj del libro) y, si no se refiere a ninguna, en la de la escala del T que quema; es incongruente si las dos no coinciden. El 8 mide «cohort»: los comparables de la cohorte (la que se pida o la que eligió el dueño con «change cohort»: siblings, project o genesis), cada uno en la caja de su cuota en ella, con quién escribió la base de la cohorte (docs/CONTRATO.md §4.2)"
+        "Encargo «datos3» (issue #11, tercera parte; Core, pendiente de revisar VG): el 7 mide «cuando» antes de «escala» (dos pasos de epoch.9.8, en su orden): cada entrada va en la franja de la fecha a la que se refiere (el «when» de «declare future T», la salida con fecha de un bloqueo, la caducidad de una emisión de E; la escala del calendario de su distancia al reloj del libro) y, si no se refiere a ninguna, en la de la escala del T que quema; es incongruente si las dos no coinciden. El 8 mide «cohort»: los comparables de la cohorte (la que se pida o la que eligió el dueño con «change cohort»: siblings, project o genesis), cada uno en la caja de su cuota en ella, con quién escribió la base de la cohorte (docs/CONTRATO.md §4.2)",
+        "VG, 12-11 (#39, #40, #41; encargo el4): el orden de ver es 1 2 3 4, así que los hilos del 6 y el 7 son 1 2 3 4 de arriba abajo. La matriz del 4: filas = los diez oficios (0 mostrar, 1 gestionar, 2 administrar, 3 coordinar, 4 hacer, 5 verificar, 6 registrar, 7 planear, 8 medir, 9 guiar), columnas = la ejecución (0 contenido que se muestra, 1 E, 2 P, 3 R, 4 T, 5 verificación sin token propio, 6 adjudicación al pasado, 7 proyección al futuro, 8 crecimiento que genera rangos, 9 contenido que guía); sus nombres van en el enlace de la fila del 4, [[oficios], [[ejecución, criterio…]…]], con lo que coloca cada ejecución en su columna (Core, pendiente de revisar VG: token F, lo que mueve de esa familia; scale s, el T de esa escala de epoch.1.3.1 (pasado, futuro); dated, lo que tiene fecha; content at k, nada movido escrito en la posición k; content, nada movido). La escalera dulce: el enlace de la fila del 8, una dirección por caja: la fila k ↔ el dígito k+1 repetido k+1 veces con ceros detrás (la fila es el tipo de acción y la dirección el intercambio hecho, un dígito más porque cambiar es más que ver); 5555500000 → 3.2, el punto dulce; diez ceros → 5.3, el ciclo da la vuelta (un foco currado del todo, una época). Un solo rango, el del 8 (contrato.rango); un desajuste puntúa hacia arriba; el 9 se sitúa entre las posiciones que ese rango deja, sin rango declarado (docs/CONTRATO.md §4.2)"
       ]
     ]
   ],
@@ -4964,6 +5032,22 @@ export const EPOCA_0_BTML_DATOS = [
           "legible cohort siblings: hermanos",
           "legible cohort project: proyecto",
           "legible cohort genesis: general",
+          "office show: mostrar",
+          "office manage: gestionar",
+          "office administer: administrar",
+          "office coordinate: coordinar",
+          "office do: hacer",
+          "office verify: verificar",
+          "office record: registrar",
+          "office plan: planear",
+          "office measure: medir",
+          "office guide: guiar",
+          "execution content shown: contenido que se muestra",
+          "execution verification without its own token: verificación sin token propio",
+          "execution adjudication to the past: adjudicación al pasado",
+          "execution projection to the future: proyección al futuro",
+          "execution growth that generates ranks: crecimiento que genera rangos",
+          "execution content that guides: contenido que guía",
           "legible not a number: no es un número: {text}",
           "legible not an instant: no es una fecha (AAAA-MM-DD o AAAA-MM-DDTHH:MM): {text}",
           "legible unknown identity: ninguna identidad conocida se llama {text}",
@@ -6635,7 +6719,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "against-others.json",
-    "id": "42ccc655be7f6b8c07eb1ea29bf9c16c13efb8ce022d7ae182b78cca7e4b4e5a",
+    "id": "a787f172195bcdb8aab325702d7068aa596df552b5ffec8753e0816b002abd0b",
     "registro": [
       [
         "against others"
@@ -6660,7 +6744,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
         "En BQL: frente a otros, sus hermanos (lo anclado sobre el mismo registro); la cuota y los hitos son medidas, no ocupantes (contrato.madurez, pasos)",
-        "Encargo «datos3» (issue #11, Core, pendiente de revisar VG): envuelta, además, los comparables de la cohorte que el dueño eligió con «change cohort» en el 8 del nodo (project: el subárbol del proyecto; genesis: todo el libro), cada uno con la caja de su cuota en ella (contrato.cohorteDe); con la cohorte de los hermanos no añade nada: ya los da el BQL"
+        "Encargo «datos3» (issue #11, Core, pendiente de revisar VG): envuelta, además, los comparables de la cohorte que el dueño eligió con «change cohort» en el 8 del nodo (project: el subárbol del proyecto; genesis: todo el libro), cada uno con la caja de su cuota en ella (contrato.cohorteDe); con la cohorte de los hermanos no añade nada: ya los da el BQL",
+        "Encargo «el4» (VG 12-11, #39 y #41; Core, pendiente de revisar VG): un solo rango, el del 8, el peldaño de la escalera dulce (el enlace de la fila del 8 en epoch.8.7) que el nodo ha alcanzado por las celdas de la escalera de su matriz del 4 (la fila k con la columna k+1) y la profundidad a la que las cubre; un desajuste puntúa hacia arriba (contrato.rango). Cada comparable de la cohorte lleva su rango, y el cielo pone cada uno en la caja de su rango; la cuota queda como medida"
       ],
       [
         "epoch 0"
@@ -7172,7 +7257,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "how.json",
-    "id": "b68e8a458fdaf257885f8ab1895a813e1476304d860fe67f61b266eaef956bd2",
+    "id": "c63bc40ef1a4ef5644854d87c2ee868000f8aca50b4b8c13998ff2b21d7d364f",
     "registro": [
       [
         "how"
@@ -7196,7 +7281,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-        "Envuelta: el tutorial del camino (acciones.camino, su primera fuente): las plantillas de transacción que nombra el 9 de la plantilla del nodo o el suyo propio; el resto del camino construye transacciones candidatas (asíncrono) y no es una lectura"
+        "Envuelta: el tutorial del camino (acciones.camino, su primera fuente): las plantillas de transacción que nombra el 9 de la plantilla del nodo o el suyo propio; el resto del camino construye transacciones candidatas (asíncrono) y no es una lectura",
+        "Encargo «el4» (VG 12-11, #39; Core, pendiente de revisar VG): situarse lee el rango del 8 (contrato.rango, la regla «against others»): las posiciones nivel.grado disponibles son las que ese rango deja, del primer peldaño al suyo; no hay rango declarado"
       ],
       [
         "epoch 0"
@@ -16396,7 +16482,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "4a41d4ab2bdc30658914b2b3258ce01219de52bcf6a3c259ac1393bad3330d04";
+export const EPOCA_0_BTML_ID = "daaabb683793d3dfe46527d134aae747b9990c5e0acbad9b0f626856983dfce5";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

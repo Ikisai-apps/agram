@@ -5,6 +5,10 @@
 // (CSS). Interactuar en pantalla o por el aro es lo mismo: aquí solo se traducen los eventos del navegador a las
 // llamadas de la app; nada se decide.
 //
+// Arrastrar al centro = foco (#23, VG 12-11; encargo «el4»): solo en Mapped (en Sequenced no: se confundiría con el
+// scroll del hilo). Lo que tiene un registro detrás (data-x) y no es el centro ni un PV entero, soltado sobre el centro
+// (data-centro dentro de la carta en matriz), pasa a ser el foco, como con el doble clic.
+//
 // Un clic y un clic mantenido (VG, 11-11, issues #5, #6, #9), con un solo gestor por delegación para todo lo pulsable:
 // un clic entra en profundidad (lo de siempre: una celda, un registro, un PV, una fila); mantener (≈ medio segundo, o el
 // clic derecho en el ordenador) sobre cualquier cosa con un registro detrás (data-x) abre el aro alrededor, anclado al
@@ -22,6 +26,8 @@ const UMBRAL_DESLIZAR = 40;
 const UMBRAL_PELLIZCO = 30;
 /** Arrastrar desde la esquina de un PV (Mapped): cada tanto de esta fracción del lado menor de la escena es un paso. */
 const UMBRAL_ASA = 1 / 8;
+/** Arrastrar un elemento al centro (Mapped, #23): lo que hay que moverlo, en píxeles, para que cuente como arrastre. */
+const UMBRAL_ARRASTRE = 24;
 
 /**
  * Engancha los gestos en `raiz` y los traduce a los manejadores de la app:
@@ -57,13 +63,15 @@ const UMBRAL_ASA = 1 / 8;
  *   preferencia(clave, valor) un interruptor de la barra (sobrio o animado): escribir esa preferencia
  *   pagina(pv, delta)        Mapped: la página siguiente o la anterior de un PV (sin scroll)
  *   celda(pv, X)             Mapped, pantalla completa: entrar en una celda de la rejilla de un PV (un nivel más adentro)
+ *   celdaMatriz(X, celda)    la matriz del 4 a pantalla completa: abrir la celda «fila.columna» de X (su lista de movimientos); null la cierra
  *   subir(pv)                volver un nivel de profundidad en la rejilla de un PV (Mapped a pantalla completa, o una fila abierta de Sequenced)
  *   bajar(pv, d)             bajar un nivel por el dígito d de una celda de la rejilla (la dirección crece un dígito: 1 → 1.1)
  *   fila(pv)                 Sequenced: abrir o cerrar la fila de un PV en la tarjeta del foco (las del hilo llevan al pasado o al futuro)
  *   digito(pv)               Sequenced: la fila de dígitos de abajo; ir a la fila de ese PV y abrirla
  *   menu()                   Sequenced: abrir o cerrar el menú de la barra de una línea
  * En Mapped, nivel(pv, delta, X) llega también de los botoncitos de cada PV (data-tamano) y del arrastre desde su
- * esquina (data-asa: tantos pasos como umbrales recorre en la dirección que va de su esquina al centro).
+ * esquina (data-asa: tantos pasos como umbrales recorre en la dirección que va de su esquina al centro); y foco(X, 0),
+ * de arrastrar un elemento y soltarlo sobre el centro (#23).
  * Devuelve una función que quita los ganchos.
  */
 export function instalar(raiz, m) {
@@ -194,6 +202,9 @@ export function instalar(raiz, m) {
       return;
     }
     if ((el = b('[data-voltear]'))) { e.preventDefault(); m.voltear?.(); return; }
+    // La matriz del 4 (encargo «el4»): pulsar una celda la abre (su lista de movimientos); ✕ o pulsarla otra vez la cierra.
+    if ((el = b('[data-celda-matriz-cerrar]'))) { e.preventDefault(); m.celdaMatriz?.(el.closest('[data-rejilla]')?.dataset.huecoX ?? null, null); return; }
+    if (!b('.matriz-abierta') && (el = b('[data-celda-matriz]'))) { e.preventDefault(); m.celdaMatriz?.(el.closest('[data-rejilla]')?.dataset.huecoX ?? null, el.dataset.celdaMatriz); return; }
     // Entrar en una celda: la profundidad es la del mundo de la rejilla (data-rejilla), no la del dígito del hijo donde está el ocupante.
     if ((el = b('[data-celda]'))) { e.preventDefault(); const k = Number(el.closest('.rejilla-celda.hijo[data-pv]')?.dataset.pv); m.celda?.(Number(el.closest('[data-rejilla]')?.dataset.rejilla ?? el.dataset.pv), el.dataset.celda, ...(Number.isInteger(k) ? [k] : [])); return; }
     // Bajar por el dígito de una celda (encargo «lecturas»: 1 → 1.1 → 1.1.1), en el mundo de la rejilla.
@@ -274,10 +285,26 @@ export function instalar(raiz, m) {
       pellizco = { d0: Math.hypot(a.x - b.x, a.y - b.y), el: pvDe(a.el) ?? pvDe(b.el), hecho: false };
     }
   });
+  /** El centro de Mapped bajo el punto (x, y), si lo hay: donde se suelta lo arrastrado (#23). */
+  const centroBajo = (x, y, objetivo) => {
+    const el = documento.elementFromPoint?.(x, y) ?? objetivo;
+    const centro = el?.closest?.('[data-centro]');
+    return centro && centro.closest?.('.carta-matriz') ? centro : null;
+  };
+  /** Lo que se arrastra al centro: un elemento con registro detrás que no es el centro ni está en un diálogo. */
+  const arrastrable = (el) => (el?.closest?.('[data-centro], .aro, .formulario, .guia, input, textarea, select') ? null : elementoDe(el));
+  let sobreCentro = null;
+  const marcarCentro = (c) => {
+    if (sobreCentro === c) return;
+    sobreCentro?.classList?.remove('soltar-aqui');
+    sobreCentro = c;
+    sobreCentro?.classList?.add('soltar-aqui');
+  };
   on('pointermove', (e) => {
     const p = punteros.get(e.pointerId);
     if (!p) return;
     if (mantener && Math.hypot(e.clientX - mantener.x, e.clientY - mantener.y) > 8) cancelarMantener();
+    if (punteros.size === 1 && Math.hypot(e.clientX - p.x, e.clientY - p.y) > UMBRAL_ARRASTRE && arrastrable(p.el)) marcarCentro(centroBajo(e.clientX, e.clientY, e.target));
     if (pellizco && punteros.size === 2) {
       punteros.set(e.pointerId, { ...p, x: e.clientX, y: e.clientY });
       const [a, b] = [...punteros.values()];
@@ -304,10 +331,17 @@ export function instalar(raiz, m) {
     const p = punteros.get(e.pointerId);
     punteros.delete(e.pointerId);
     cancelarMantener();
+    marcarCentro(null);
     if (punteros.size === 0) pellizco = null;
     if (!p || pellizco) return;
     const dx = e.clientX - p.x;
     const dy = e.clientY - p.y;
+    // Arrastrar al centro (#23, solo Mapped): lo soltado sobre el centro pasa a ser el foco; el clic que sigue no cuenta.
+    if (Math.hypot(dx, dy) > UMBRAL_ARRASTRE) {
+      const X = arrastrable(p.el);
+      const centro = X ? centroBajo(e.clientX, e.clientY, e.target) : null;
+      if (centro && centro.dataset?.x !== X) { arrastrado = Date.now(); m.foco?.(X, 0); return; }
+    }
     if (Date.now() - p.t > 900) return;
     if (Math.abs(dx) > UMBRAL_DESLIZAR && Math.abs(dx) > Math.abs(dy) * 1.5 && !p.el.closest?.('input, .formulario, .aro, .guia')) {
       m.hermano?.(dx < 0 ? +1 : -1, pvDe(p.el) ? Number(pvDe(p.el).dataset.pv) : null);
@@ -316,7 +350,7 @@ export function instalar(raiz, m) {
     }
   };
   on('pointerup', soltar);
-  on('pointercancel', (e) => { punteros.delete(e.pointerId); cancelarMantener(); pellizco = null; asa = null; });
+  on('pointercancel', (e) => { punteros.delete(e.pointerId); cancelarMantener(); marcarCentro(null); pellizco = null; asa = null; });
 
   // ---- rueda con Ctrl: profundidad ----
   on('wheel', (e) => {
