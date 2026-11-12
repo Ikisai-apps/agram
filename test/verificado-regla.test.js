@@ -2,7 +2,7 @@
 // las lecturas «sealed» (X.6.8.5: la prueba del sello de tiempo copiada en X.6.8.2, la décupla del SIP 0, que desde el
 // encargo «taproot» ancla por Taproot: VG 13-11, H20) y «received» (X.6.8.4: el recibo de llegada copiado en X.6.8.1) son
 // reglas de la época escritas con las primitivas de verificación; contrato.verificado es la fachada que las evalúa. Y
-// «paid» (X.6.8.6: el recibo de pago de StateArk copiado en X.6.8.3), con el carril de pagos de la simulación 0ddd6e7. Sellos completos sintéticos (test/ayudas-sello.js) y los de la
+// «paid» (X.6.8.6: el recibo de pago de StateArk copiado en X.6.8.3), con el carril de pagos de la simulación ddcc475 (observador y puntero). Sellos completos sintéticos (test/ayudas-sello.js) y los de la
 // simulación de StateArk (servidor/sim/sello-agram.js): verdadero con todo; PENDIENTE si falta un dato; falso con una
 // clave no declarada, una firma mala o una prueba que no cuadra. Y «sin verificar no se ejecuta»: las estaciones de
 // epoch.4.3 con y sin sello configurado, y «pendiente de sello» en la carta.
@@ -315,7 +315,7 @@ test('el reverso de un registro con sello configurado y sin sello comprobado dic
   assert.match(html(r), /<p class="verificado-linea"><small class="pendiente-sello" title="[^"]+">pendiente de sello<\/small><\/p>/);
 });
 
-// ---------- «paid» (X.6.8.6): el recibo de pago de StateArk copiado en X.6.8.3 (encargo «taproot», Core AGRAM 13-11) ----------
+// ---------- «paid» (X.6.8.6): el recibo de pago de StateArk copiado en X.6.8.3 (encargos «taproot» y «pago2», Core AGRAM 13-11) ----------
 
 const INICIO_PAGO = '2026-11-12T00:00:00.000Z';
 const ordenDePago = (destino, extra = {}) => ({
@@ -325,50 +325,69 @@ const ordenDePago = (destino, extra = {}) => ({
   on_timeout: 'caducado', correlation_id: 'AGRAM-PAID', ...extra,
 });
 
+/** Un observador de cabeceras que firma con BIP-340 real (la noble de src/vendor) y su clave x-only: { custodia, nombre, clave }. */
+async function observadorDeLaSim() {
+  const custodia = new Custodia({ esquema: esquemaNoble(schnorr) });
+  await custodia.crearClave('nostr', 'observador');
+  return { custodia, nombre: 'observador', clave: await custodia.publica('nostr', 'observador') };
+}
+
 /**
- * Un pago del carril de la simulación de StateArk (0ddd6e7), con `n` pagos en el mismo bloque: el carril, la custodia
- * del carril (BIP-340 real: la noble de src/vendor, lo que comprueba signed) y `firmar(campos)`, el sobre del recibo
- * único (Custodia.firmarRecibo) de unos campos (los de Carril.reciboPago, o unos tocados).
+ * Un pago del carril de la simulación de StateArk (ddcc475), con `n` pagos en el mismo bloque, observado por `observador`
+ * (la clave que declara la cuenta raíz) y con `puntero` (el id de AGRAM) en el primero; sin él, sin puntero. Da el carril,
+ * `pagar()` (un pago más, aún sin minar), la custodia del carril (BIP-340 real: lo que comprueba signed) y `firmar(campos)`,
+ * el sobre del recibo único (Custodia.firmarRecibo) de unos campos (los de Carril.reciboPago, o unos tocados).
  */
-async function pagoDeLaSim(n = 1) {
-  const sim = await Simulacion.crear({ inicio: INICIO_PAGO, reloj: () => Date.parse(INICIO_PAGO) });
+async function pagoDeLaSim(n = 1, { observador, puntero } = {}) {
+  const sim = await Simulacion.crear({ inicio: INICIO_PAGO, reloj: () => Date.parse(INICIO_PAGO), observador: { custodia: observador.custodia, nombre: observador.nombre } });
   const c = sim.carril;
   const vg = await sha256Texto('clave vg');
   await c.crearCartera('vg', { titular: vg });
   await c.crearCartera('aina', { titular: await sha256Texto('clave aina') });
   for (let k = 0; k < n; k++) await c.acunar(await c.direccion('vg'), 200_000);
   await sim.minar();
-  const pagar = async () => {
-    const ins = ordenDePago({ clase: 'bitcoin/address', valor: await c.direccion('aina') });
+  const pagar = async (extra = {}) => {
+    const ins = ordenDePago({ clase: 'bitcoin/address', valor: await c.direccion('aina') }, extra);
     const plan = await c.preparar('vg', ins);
     const firma = await firmaSimulada(vg, await mensajeAutorizacion(await huella(plan)));
     return c.ejecutar('vg', ins, plan, await c.autorizar(plan, { titular: vg, firma }));
   };
   const txids = [];
-  for (let k = 0; k < n; k++) txids.push((await pagar()).posicion.txid);
+  for (let k = 0; k < n; k++) txids.push((await pagar(k === 0 && puntero ? { puntero } : {})).posicion.txid);
   await sim.minar();
   const custodia = new Custodia({ esquema: esquemaNoble(schnorr) });
   await custodia.crearClave('nostr', 'carril');
-  const firmar = (campos) => custodia.firmarRecibo('carril', campos, { t: INICIO_PAGO });
+  let k = 0; // cada recibo, un segundo antes que el anterior: marcarPago se queda con el recibo más antiguo de un registro, y así cada caso reemplaza al de antes
+  const firmar = (campos) => custodia.firmarRecibo('carril', campos, { t: new Date(Date.parse(INICIO_PAGO) - 1000 * k++).toISOString() });
   return { sim, c, txid: txids[0], pagar, firmar };
 }
 
-test('«paid» con el recibo de pago de la simulación (0ddd6e7): la transacción cruda está en el bloque y paga cuánto al destino, y el emisor firmó el recibo: verdadero; verificado lo da en «pago»', async () => {
-  for (const n of [1, 3]) {
-    const { c, txid, firmar } = await pagoDeLaSim(n);
-    const sobre = await firmar(await c.reciboPago(txid));
-    const { eje, e1, e2 } = await ejeDePrueba();
+test('«paid» con el recibo de pago de la simulación (ddcc475): la transacción cruda está en el bloque firmado por el observador declarado, paga cuánto al destino y apunta a este registro, y el emisor firmó el recibo: verdadero; verificado lo da en «pago»', async () => {
+  for (const [n, conPuntero] of [[1, true], [3, true], [1, false], [3, false]]) {
+    const obs = await observadorDeLaSim();
+    const { eje, e1, e2 } = await ejeDePrueba({ observadores: [obs.clave] });
+    const { c, txid, firmar } = await pagoDeLaSim(n, { observador: obs, puntero: conPuntero ? e1.id : undefined });
+    const campos = await c.reciboPago(txid);
+    assert.equal(campos.ata.some(([k]) => k === 'puntero'), conPuntero);
+    const sobre = await firmar(campos);
     assert.equal(eje.marcarPago(e1.id, sobre), true);
     const copiado = eje.pago(e1.id).decupla;
     // Dónde va cada cosa: el mapa del recibo de pago.
-    const en = (k) => selloDe.POSICIONES_DEL_PAGO[k].split('.').map(Number).reduce((y, d) => y?.[d], copiado);
+    const P = selloDe.POSICIONES_DEL_PAGO;
+    const en = (k) => P[k].split('.').map(Number).reduce((y, d) => y?.[d], copiado);
     assert.deepEqual(en('clase'), ['recibo', 'pago']);
     assert.deepEqual(en('sujeto'), [txid]);
-    assert.deepEqual([en('emisor'), en('t'), en('id'), en('firma')], [sobre.emisor, sobre.t, sobre.id, sobre.firma]);
+    assert.deepEqual([en('emisor'), en('t'), en('id'), en('firmaEmisor')], [sobre.emisor, sobre.t, sobre.id, sobre.firma]);
     assert.match(en('tx')[0], /^02000000/);
-    assert.equal(copiado[4].length, n === 1 ? 2 : 4, 'sin camino «bitcoin» si la transacción está sola en su bloque');
+    assert.match(en('cabecera')[0], /^[0-9a-f]{160}$/);
+    assert.match(en('firma')[0], /^[0-9a-f]{128}$/);
+    assert.deepEqual([en('clave'), en('alturaLe')], [[obs.clave], [campos.evidencia[3][0]]]);
+    assert.equal(copiado[2].includes(P.puntero), conPuntero, 'la clave «puntero» va en las claves 2 (y su valor en 3) solo si el recibo la trae');
+    if (conPuntero) assert.equal(copiado[3][copiado[2].indexOf(P.puntero)], e1.id);
+    assert.equal(copiado[3][copiado[2].indexOf('altura')], String(campos.ata[2][1]), 'la altura es TEXTO en el recibo');
+    assert.equal(copiado[4].length, n === 1 ? 5 : 7, 'sin camino «bitcoin» si la transacción está sola en su bloque');
     assert.equal(validarPayload(copiado).ok, true);
-    assert.deepEqual(leer(eje, e1.id, 6).valor, [true], `«paid» con ${n} pagos en el bloque`);
+    assert.deepEqual(leer(eje, e1.id, 6).valor, [true], `«paid» con ${n} pagos en el bloque${conPuntero ? ' y puntero' : ''}`);
     const v = contrato.verificado(eje, e1.id);
     assert.deepEqual([v.pago, v.pendiente.map((p) => p.lectura)], [true, ['sello']], 'el pago se da aparte; no entra en ok, que es de los relojes');
     // Sin recibo de pago: PENDIENTE, y verificado no lo exige.
@@ -377,45 +396,86 @@ test('«paid» con el recibo de pago de la simulación (0ddd6e7): la transacció
   }
 });
 
-test('«paid» falso con un recibo firmado que miente (otro importe, otro destino, otro bloque, otro camino) o con la firma de otro; PENDIENTE sin recibo (un pago sin bloque); marcarPago no guarda lo que no da su id', async () => {
-  const { c, txid, pagar, firmar } = await pagoDeLaSim(3);
+test('«paid» falso con un recibo firmado que miente (otro importe, destino, bloque, altura, camino, firma o clave del observador, puntero) o con la firma de otro; PENDIENTE sin recibo, sin observador (unobserved) o sin su evidencia; marcarPago no guarda lo que no da su id', async () => {
+  const obs = await observadorDeLaSim();
+  const { eje, e1, e2 } = await ejeDePrueba({ observadores: [obs.clave] });
+  const { c, txid, pagar, firmar, sim } = await pagoDeLaSim(3, { observador: obs, puntero: e1.id });
   const campos = await c.reciboPago(txid);
   const ata = (k, v) => ({ ...structuredClone(campos), ata: campos.ata.map(([a, b]) => [a, a === k ? v : b]) });
+  const evid = (f) => { const x = structuredClone(campos); f(x.evidencia); return x; };
+  const otroObs = await observadorDeLaSim();
+  const altura = campos.ata.find(([k]) => k === 'altura')[1];
   const casos = [
     ['otro importe', { ...structuredClone(campos), cuanto: [61_001, 'sat'] }],
     ['otra unidad', { ...structuredClone(campos), cuanto: [61_000, 'EUR'] }],
     ['otro destino', ata('destino', '0014' + '00'.repeat(20))],
     ['otro bloque', ata('bloque', '00'.repeat(32))],
-    ['otro hermano del camino «bitcoin»', (() => { const x = structuredClone(campos); x.evidencia[3][0] = '11'.repeat(32); return x; })()],
+    ['otra altura (no es la firmada)', ata('altura', String(Number(altura) + 1))],
+    ['la altura con un cero delante', ata('altura', '0' + altura)],
+    ['otro hermano del camino «bitcoin»', evid((e) => { e[6][0] = '11'.repeat(32); })],
     ['otro txid en el sujeto', { ...structuredClone(campos), sujeto: ['ab'.repeat(32)] }],
+    ['otra firma del observador', evid((e) => { e[2][0] = 'ab'.repeat(64); })],
+    ['otra altura firmada', evid((e) => { e[3][0] = '63000000'; })],
+    ['una clave de observador no declarada (con su firma)', evid((e) => { e[4][0] = otroObs.clave; })],
+    ['otro puntero en el recibo', ata('puntero', 'ab'.repeat(32))],
   ];
   for (const [que, tocados] of casos) {
-    const { eje, e1 } = await ejeDePrueba();
     assert.equal(eje.marcarPago(e1.id, await firmar(tocados)), true, que + ': el recibo es BTML y da su id; la regla dice si es verdad');
     assert.deepEqual(leer(eje, e1.id, 6).valor, [false], que);
     assert.equal(contrato.verificado(eje, e1.id).pago, false, que);
   }
-  // La firma de otro recibo (el id es el de este cuerpo, pero no lo firmó su emisor): falso.
-  const { eje, e1, e2 } = await ejeDePrueba();
+  // El recibo bueno, pero la cuenta raíz no declara al observador: falso.
+  const { eje: sinDeclarar, e1: s1 } = await ejeDePrueba();
+  assert.equal(sinDeclarar.marcarPago(s1.id, await firmar(campos)), true);
+  assert.deepEqual(leer(sinDeclarar, s1.id, 6).valor, [false], 'el observador no es de la cuenta raíz');
+  // El mismo recibo en otro registro (el puntero es el de e1, no el de e2): falso.
   const bueno = await firmar(campos);
+  assert.equal(eje.marcarPago(e2.id, bueno), true);
+  assert.deepEqual(leer(eje, e2.id, 6).valor, [false], 'el puntero es el de e1, no el de e2');
+  // El puntero del recibo es el de este registro, pero la transacción apunta a otro: falso.
+  const otroPago = await pagoDeLaSim(1, { observador: obs, puntero: 'cd'.repeat(32) });
+  const otroCampos = await otroPago.c.reciboPago(otroPago.txid);
+  const miente = { ...structuredClone(otroCampos), ata: otroCampos.ata.map(([a, b]) => [a, a === 'puntero' ? e1.id : b]) };
+  assert.equal(eje.marcarPago(e1.id, await firmar(miente)), true);
+  assert.deepEqual(leer(eje, e1.id, 6).valor, [false], 'la transacción no lleva agram:<id de e1>');
+  // La firma de otro recibo (el id es el de este cuerpo, pero no lo firmó su emisor): falso.
   const otro = await firmar({ ...structuredClone(campos), noAfirma: ['nada'] });
-  assert.equal(eje.marcarPago(e1.id, { ...bueno, firma: otro.firma }), true);
-  assert.deepEqual(leer(eje, e1.id, 6).valor, [false]);
+  const { eje: eje3, e1: g1 } = await ejeDePrueba({ observadores: [obs.clave] });
+  assert.equal(eje3.marcarPago(g1.id, { ...bueno, firma: otro.firma }), true);
+  assert.deepEqual(leer(eje3, g1.id, 6).valor, [false]);
   // Lo que no se guarda: un id que no es el de su cuerpo, otra clase, otro esquema, un registro que el eje no tiene.
-  assert.equal(eje.marcarPago(e2.id, { ...bueno, id: otro.id }), false);
-  assert.equal(eje.marcarPago(e2.id, { ...bueno, schema: 'otro@1' }), false);
-  assert.equal(eje.marcarPago(e2.id, await firmar({ clase: 'sello', sujeto: [txid], universo: 'x', noAfirma: ['nada'] })), false);
-  assert.equal(eje.marcarPago('cd'.repeat(32), bueno), false);
-  assert.equal(eje.pago(e2.id), null);
-  assert.equal(leer(eje, e2.id, 6).estado, 'PENDIENTE');
-  // Un pago aún sin bloque no tiene recibo de pago («unconfirmed»): no hay nada que copiar y «paid» queda PENDIENTE.
+  const { eje: eje2, e1: f1, e2: f2 } = await ejeDePrueba({ observadores: [obs.clave] });
+  assert.equal(eje2.marcarPago(f2.id, { ...bueno, id: otro.id }), false);
+  assert.equal(eje2.marcarPago(f2.id, { ...bueno, schema: 'otro@1' }), false);
+  assert.equal(eje2.marcarPago(f2.id, await firmar({ clase: 'sello', sujeto: [txid], universo: 'x', noAfirma: ['nada'] })), false);
+  assert.equal(eje2.marcarPago('cd'.repeat(32), bueno), false);
+  assert.equal(eje2.pago(f2.id), null);
+  assert.equal(leer(eje2, f2.id, 6).estado, 'PENDIENTE');
+  // Un recibo sin lo del observador (la evidencia de antes: [[tx], [cabecera]]) no dice nada de la cadena buena: PENDIENTE.
+  const sola = await pagoDeLaSim(1, { observador: obs, puntero: f1.id });
+  const camposSola = await sola.c.reciboPago(sola.txid);
+  assert.equal(eje2.marcarPago(f1.id, await sola.firmar({ ...structuredClone(camposSola), evidencia: camposSola.evidencia.slice(0, 2) })), true);
+  assert.equal(leer(eje2, f1.id, 6).estado, 'PENDIENTE', 'sin la firma del observador, ni verdadero ni falso');
+  assert.deepEqual(contrato.verificado(eje2, f1.id).pendiente.map((p) => p.lectura).sort(), ['pago', 'sello'], 'verificado lo da en «pendiente», no como verdadero');
+  assert.notEqual(contrato.verificado(eje2, f1.id).pago, true);
+  // El observador aún no ha firmado la cabecera de ese bloque («unobserved»), o el pago aún no está en un bloque
+  // («unconfirmed»): no hay recibo de pago que copiar y «paid» queda PENDIENTE.
+  sim.carril.sellador.observaciones.delete(Number(altura));
+  await assert.rejects(c.reciboPago(txid), /unobserved/);
   const r = await pagar();
   await assert.rejects(c.reciboPago(r.posicion.txid), /unconfirmed/);
-  assert.deepEqual(contrato.verificado(eje, e2.id).pendiente.map((p) => p.lectura), ['sello']);
-  assert.equal(contrato.verificado(eje, e2.id).pago, null);
+  assert.deepEqual(contrato.verificado(eje2, f2.id).pendiente.map((p) => p.lectura), ['sello']);
+  assert.equal(contrato.verificado(eje2, f2.id).pago, null);
 });
 
 test('un solo mapa del recibo de pago: la fórmula de «paid» es la que escribe formulaDePago() con él', () => {
   assert.equal(regla('paid')[2].at(-1), selloDe.formulaDePago());
   assert.notEqual(selloDe.formulaDePago({ ...selloDe.POSICIONES_DEL_PAGO, firma: '9' }), selloDe.formulaDePago());
+  assert.notEqual(selloDe.formulaDePago({ ...selloDe.POSICIONES_DEL_PAGO, hermanos: '4.7' }), selloDe.formulaDePago());
+  const f = regla('paid')[2].at(-1);
+  assert.match(f, /^=signed\(bytes\(first \(first \(first it\.6\)\.8\.3\)\.8\)/, 'primero la firma del emisor: sin recibo, PENDIENTE');
+  assert.match(f, /merkle\(.*\.4\.5, .*\.4\.6, "bitcoin"\)/, 'el camino «bitcoin» está en 4.5 y 4.6');
+  assert.match(f, /hash\(le\(bytes\(first .*\.4\.3\)\)\) = sha256\(utf8\(first lookup\(.*"altura"\)\)\)/, 'la altura del recibo (texto) contra la firmada');
+  assert.match(f, / in before\.8\.6 /, 'la clave del observador, declarada');
+  assert.match(f, /"puntero" in .* or .* = first it\.5.*6a46/, 'el puntero, si lo hay, es este registro y va en una salida 6a46 ‖ agram:<id>');
 });

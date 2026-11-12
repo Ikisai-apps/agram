@@ -231,20 +231,25 @@ export function formulaDeSellado(p = POSICIONES_DEL_SELLO) {
 }
 
 /**
- * EL MAPA DE POSICIONES DEL RECIBO DE PAGO copiado en X.6.8.3 (encargo «taproot», Core AGRAM 13-11; eje.marcarPago): 0-4
- * la décupla del recibo único de StateArk de clase «pago» tal cual (SIP 0 0a445b2, B19; `Carril.reciboPago` de la
- * simulación 0ddd6e7): 0 ["recibo", "pago"], 1 el sujeto (el txid, orden interno), 2 las claves y 3 los valores, en
- * paralelo (destino: el script de la salida en hex; bloque: su hash, orden interno; altura; orden; universo; cuánto, como
- * «61000 sat»; no afirma…), 4 la evidencia, SIEMPRE una décupla: [[transacción cruda], [cabecera], lados, hermanos del
- * camino «bitcoin» si los hay]; y detrás lo del sobre que hace falta para la firma: 5 el emisor (clave x-only), 6 su t,
- * 7 el id del sobre (SHA-256 de canonico({ schema, emisor, t, recibo }): lo recalcula el núcleo al guardarlo) y 8 la
- * firma BIP-340 del emisor sobre ese id. La regla «paid» (X.6.8.6) se escribe con `formulaDePago()`.
+ * EL MAPA DE POSICIONES DEL RECIBO DE PAGO copiado en X.6.8.3 (encargos «taproot» y «pago2», Core AGRAM 13-11; eje.marcarPago):
+ * 0-4 la décupla del recibo único de StateArk de clase «pago» tal cual (SIP 0, B19; `Carril.reciboPago` de la simulación
+ * ddcc475): 0 ["recibo", "pago"], 1 el sujeto (el txid, orden interno), 2 las claves y 3 los valores, en paralelo (destino:
+ * el script de la salida en hex; bloque: su hash, orden interno; altura, como TEXTO, como todos los valores; orden; puntero,
+ * el id de AGRAM, solo si lo hay, tras «orden» y antes de «universo»; universo; cuánto, como «61000 sat»; no afirma…),
+ * 4 la evidencia, SIEMPRE una décupla: [[transacción cruda], [cabecera], [firma del observador], [altura LE], [clave del
+ * observador], lados, hermanos del camino «bitcoin» si los hay]; de 4.1 a 4.6 es lo mismo que el 7 del sello (7.0 a 7.5:
+ * la cabecera firmada por el observador declarado, H9; sin esa firma la simulación lanza «unobserved» y no hay recibo);
+ * y detrás lo del sobre que hace falta para la firma: 5 el emisor (clave x-only), 6 su t, 7 el id del sobre (SHA-256 de
+ * canonico({ schema, emisor, t, recibo }): lo recalcula el núcleo al guardarlo) y 8 la firma BIP-340 del emisor sobre ese
+ * id. La regla «paid» (X.6.8.6) se escribe con `formulaDePago()`. `puntero` es la clave del valor que apunta al registro
+ * y `scriptPuntero` el principio del script de la salida que lo lleva (OP_RETURN, empuje de 70 bytes) seguido de
+ * `prefijoPuntero` en UTF-8: 6a46 ‖ utf8("agram:" ‖ id), con 0 sats y en cualquier vout.
  */
 export const POSICIONES_DEL_PAGO = Object.freeze({
-  marca: 'pago', unidad: 'sat',
+  marca: 'pago', unidad: 'sat', puntero: 'puntero', prefijoPuntero: 'agram:', scriptPuntero: '6a46',
   clase: '0', sujeto: '1', claves: '2', valores: '3',
-  tx: '4.0', cabecera: '4.1', lados: '4.2', hermanos: '4.3',
-  emisor: '5', t: '6', id: '7', firma: '8',
+  tx: '4.0', cabecera: '4.1', firma: '4.2', alturaLe: '4.3', clave: '4.4', lados: '4.5', hermanos: '4.6',
+  emisor: '5', t: '6', id: '7', firmaEmisor: '8',
 });
 
 /**
@@ -252,9 +257,14 @@ export const POSICIONES_DEL_PAGO = Object.freeze({
  * registro, T su transacción cruda y C la cabecera de su bloque. Comprueba, sin salir del libro y sin fiarse de quien
  * pagó: la firma del emisor sobre el id del recibo; que es un recibo de pago; que la transacción es la del sujeto (su
  * txid); que su txid, con el camino «bitcoin» (ninguno si es la única del bloque), da la raíz de Merkle de la cabecera;
- * que la cabecera da el bloque que el recibo afirma y cumple su prueba de trabajo; y que una salida de la transacción
- * paga exactamente «cuánto» (en sat) al script «destino». La firma va primero: sin recibo (o sin su evidencia, como el
- * de un pago aún sin bloque) queda PENDIENTE, nunca verdadera ni falsa.
+ * que la cabecera da el bloque que el recibo afirma y cumple su prueba de trabajo; que la altura firmada por el
+ * observador es la que dice el recibo (que es texto: `hash` de un número es el SHA-256 de su decimal canónico y
+ * `sha256(utf8(texto))` el del texto, así que coinciden si el texto es ese decimal); que el observador firmó cabecera ‖
+ * altura y su clave está declarada (before.8.6, las «observer keys» de la cuenta raíz, como en «sealed»); que una salida
+ * de la transacción paga exactamente «cuánto» (en sat) al script «destino»; y, si el recibo trae «puntero», que es el id
+ * de este registro (it.5) y que una salida de la transacción es 6a46 ‖ «agram:<id>» (en cualquier vout). La firma del
+ * emisor va primero y la altura y el observador después de la cabecera: sin recibo (o sin su evidencia, como el de un
+ * pago aún sin bloque, o sin la firma del observador, «unobserved») queda PENDIENTE, nunca verdadera ni falsa.
  */
 export function formulaDePago(p = POSICIONES_DEL_PAGO) {
   const R = '(first (first it.6).8.3)';
@@ -262,12 +272,17 @@ export function formulaDePago(p = POSICIONES_DEL_PAGO) {
   const valor = (clave) => 'lookup(' + en('claves') + ', ' + en('valores') + ', "' + clave + '")';
   const T = '(first tx(bytes(first ' + en('tx') + ')))';
   const C = '(first cabecera(bytes(first ' + en('cabecera') + ')))';
-  return '=signed(bytes(first ' + en('firma') + '), bytes(first ' + en('id') + '), bytes(first ' + en('emisor') + '))'
+  return '=signed(bytes(first ' + en('firmaEmisor') + '), bytes(first ' + en('id') + '), bytes(first ' + en('emisor') + '))'
     + ' and "' + p.marca + '" in ' + en('clase')
     + ' and hex(first ' + T + '.5) in ' + en('sujeto')
     + ' and merkle(first ' + T + '.5, ' + en('lados') + ', ' + en('hermanos') + ', "bitcoin") = first ' + C + '.3'
     + ' and hex(first ' + C + '.7) = first ' + valor('bloque')
     + ' and below(reverse(first ' + C + '.7), first ' + C + '.8)'
+    + ' and hash(le(bytes(first ' + en('alturaLe') + '))) = sha256(utf8(first ' + valor('altura') + '))'
+    + ' and signed(bytes(first ' + en('firma') + '), hash(cat(bytes(first ' + en('cabecera') + '), bytes(first ' + en('alturaLe') + ')), "' + ETIQUETA_DEL_OBSERVADOR + '"), bytes(first ' + en('clave') + '))'
+    + ' and first ' + en('clave') + ' in before.8.6'
     + ' and "' + p.unidad + '" in (first ' + valor('cuánto') + ').2'
-    + ' and count (' + T + '.2 where first it2.0 = first (first ' + valor('cuánto') + ').1 and hex(first it2.1) = first ' + valor('destino') + ') >= 1';
+    + ' and count (' + T + '.2 where first it2.0 = first (first ' + valor('cuánto') + ').1 and hex(first it2.1) = first ' + valor('destino') + ') >= 1'
+    + ' and (not ("' + p.puntero + '" in ' + en('claves') + ') or (first ' + valor(p.puntero) + ' = first it.5'
+    + ' and count (' + T + '.2 where hex(first it2.1) = hex(cat(bytes("' + p.scriptPuntero + '"), utf8("' + p.prefijoPuntero + '"), utf8(first ' + valor(p.puntero) + '))) ) >= 1))';
 }
