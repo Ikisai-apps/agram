@@ -11,6 +11,6 @@
     "Envuelta: lo que el registro es, sus representaciones normalizadas por formato y tamaño mínimo (contrato.representaciones: los formatos de epoch.9.5.1 que admite su plantilla y los tamaños de epoch.9.5.2); el BQL mínimo no normaliza formatos ni tamaños"
   ],
   ["epoch 0"],
-  ["after paid"],
+  ["after authorized by the holder"],
   ["what it is: what the node is, its representations (its text or its resource)"]
 ]

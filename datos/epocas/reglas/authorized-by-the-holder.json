@@ -1,0 +1,36 @@
+[
+  [
+    "authorized by the holder"
+  ],
+  [
+    "X.6.8.7",
+    "autorización",
+    "StateArk/SecondFactor/v1"
+  ],
+  [
+    "=(first it.6).8.7 where count ((down it) where \"autorización\" in (payload(it3)).0 and \"StateArk/SecondFactor/v1\" in (payload(it3)).2 and first (payload(it3)).1 = first it.5 and first (payload(it3)).3 = first (payload(it2)).3 and first it3.3 = first (payload(it2)).3 and nth 1 it3.3 = first (payload(it2)).3) > 0"
+  ],
+  [
+    "X.6.8.8"
+  ],
+  [
+    "read"
+  ],
+  [
+    "*"
+  ],
+  [
+    "VG 12/13-11 (#66, #70; SIP 0 de StateArk, objeto «autorización» en modo segundo factor): lo que pasa una ejecución de «autorizada» a «ejecutada» es un registro de AUTORIZACIÓN anclado sobre ella, escrito y firmado por el titular; su firma de registro, sobre su id, que referencia lo autorizado, es el segundo factor (sin `signed`: la firma la comprueba el suelo al asentar)",
+    "Con it = un registro X: de los criterios que X alcanza (X.6.8.7, «second factor»), los que ya tienen su autorización: un registro anclado sobre X cuyo 0 dice «autorización», su 1 es X (lo autorizado, su «sobre»), su 2 la etiqueta de uso «StateArk/SecondFactor/v1» y su 3 el titular del criterio, y cuyo autor y firmante (el segundo ocupante del 3: «nadie» si no va firmado) son ese titular, la cosa del usuario. Una autorización del propio usuario, de otro o sin firmar no cuenta",
+    "Core AGRAM 13-11: el titular es la identidad de la cosa (su alta, «register a thing»), no su clave x-only como en el SIP: en AGRAM la clave la declara el alta y la firma la comprueba el suelo («who has a key signs»); un titular sin clave no puede firmar, así que nunca autoriza. Se materializa en X.6.8.8"
+  ],
+  [
+    "epoch 0"
+  ],
+  [
+    "after second factor"
+  ],
+  [
+    "authorized by the holder: the authorization anchored on the record is not written and signed by the holder of the criterion it reaches"
+  ]
+]

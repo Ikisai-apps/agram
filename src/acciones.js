@@ -32,6 +32,9 @@
 //   esAgente(eje, identidad)                ¿es una cosa que su dueño declaró agente? (no lanza las plantillas «person»)
 //   estaciones(eje, X)                      lo anunciado en X por estación (E pagar, P decidir, R atender, T trabajar)
 //   ejecuciones(eje, X)                     la fábrica de X para la matriz del 4: cada ejecución con su PV, su posición y su estación
+//   segundoFactor(eje, X)                   ¿espera X su segundo factor? (VG 12/13-11, #66, #70: las lecturas X.6.8.7 y X.6.8.8)
+//   criteriosDeSegundoFactor(eje, yo)       los criterios «second factor» de yo (el 2.4 de su alta)
+//   autorizar(eje, idPropuesta, cosa, priv) construye y firma la autorización de la cosa titular (lo que hará la app de StateArk)
 //
 // Aquí no se decide nada: si una acción no se ofrece, lo dice su 2; qué mueve, su 4; dónde ancla, su 5. Este módulo
 // solo sabe leer el molde y construir el evento. No asienta nada: la carta firma y asienta con lo que ya existe
@@ -42,7 +45,8 @@ import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla, evaluarPlantilla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS, ESCALAS_REALES, SEGUNDOS, ANUNCIADO, esAnunciado, claveToken } from './tokens.js';
-import { exigido as exigidoDe, tDelCoste, escalaQueAlcanza, REGLA_DEL_COSTE } from './escritura.js';
+import { exigido as exigidoDe, tDelCoste, escalaQueAlcanza, REGLA_DEL_COSTE, quemaDelCoste } from './escritura.js';
+import { firmar as firmarEvento } from './autoridad.js';
 import { escalaQueCubre, ESCALA_MINIMA_PROPUESTA } from './tiempo.js';
 import { contarPosiciones } from './modos.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
@@ -597,7 +601,12 @@ export function ejecucion(eje, cual, params = {}, yo, opciones = {}) {
     if (hecha.motivos.length && !incompleto) return { ok: false, motivos: hecha.motivos };
     const payload = prep.payload;
     if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, prep.candidata, yo, X);
-    return { ok: true, incompleto, motivos: prep.motivos, ...resumenDeEjecucion(eje, { payload, movimientos: hecha.motivos.length || incompleto ? [] : hecha.movimientos, yo, t, epoca, nombre, pedida: opciones.denominacion }) };
+    const resumen = resumenDeEjecucion(eje, { payload, movimientos: hecha.motivos.length || incompleto ? [] : hecha.movimientos, yo, t, epoca, nombre, pedida: opciones.denominacion });
+    // El segundo factor (VG 12/13-11, #66, #70): si lo que movería (el coste en la denominación y lo de la plantilla)
+    // alcanza un criterio «second factor» de quien la lanza, se avisa antes de ejecutar.
+    const quema = resumen.denominacion.map((p) => ({ token: 'T', escala: p.escala, cantidad: p.cantidad, de: yo, a: null }));
+    const segundo = segundoFactorDeCandidata(eje, epoca, { ...prep.candidata, payload, movimientos: [...quema, ...(hecha.motivos.length || incompleto ? [] : hecha.movimientos)] });
+    return { ok: true, incompleto, motivos: prep.motivos, ...resumen, segundoFactor: segundo };
   } catch (e) {
     return { ok: false, motivos: [{ regla: nombre, mensaje: nombre + ': ' + e.message }] };
   }
@@ -724,7 +733,9 @@ async function construirTransaccion(eje, plantilla, cual, params, yo, opciones) 
   }
   const textos = await eje.validar(evento);
   const delEje = motivosDelEje(eje, textos, evento, idioma, opciones);
-  return { ok: delEje.length === 0, evento, motivos: delEje, exigido: coste.exigido, ejecucion: resumen };
+  // El segundo factor (VG 12/13-11): si la candidata alcanza un criterio de quien la lanza, el registro se escribe igual y
+  // su estación espera la autorización del titular; aquí solo se dice, para avisar.
+  return { ok: delEje.length === 0, evento, motivos: delEje, exigido: coste.exigido, ejecucion: resumen, segundoFactor: segundoFactorDeCandidata(eje, epoca, evento) };
 }
 
 // ---------- 3b. las opiniones como registros ----------
@@ -839,6 +850,10 @@ export function estacionDeAnuncio(eje, id, opciones = {}) {
  * «datos2», issue #11) son los pendientes que la estación da por autorizados (su `autoriza`): siguen pendientes.
  * `pendientesDeSello` (encargo «verificado-regla», #50 y #67: «sin verificar no se ejecuta») son los hechos (ya
  * movidos) que epoch.4.3 no da por ejecutados: el eje tiene sello configurado y lo que los cumple aún no está «sealed».
+ * `pendientesDeSegundoFactor` (VG 12/13-11, #66, #70) son los hechos que epoch.4.3 deja en autorizada porque algo de lo
+ * que los cumple espera su segundo factor (segundoFactor: la lectura «second factor» sin su «authorized by the holder»);
+ * un hecho que solo espera el segundo factor no está en `pendientesDeSello` (lo que lo cumple está sellado o el eje no
+ * tiene sello configurado).
  */
 export function estaciones(eje, X, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -858,14 +873,28 @@ export function estaciones(eje, X, opciones = {}) {
     const pendientes = [...new Set(de(s + '.4.8'))];
     // La estación de cada anuncio (epoch.4.3); «autorizada» solo si la estación de su familia autoriza (su 4 de epoch.4.2).
     const estacion = new Map(anunciados.map((id) => { const x = estacionDeAnuncio(eje, id, opciones); return [id, x === 'autorizada' && !e.autoriza ? 'propuesta' : x]; }));
+    const sinEjecutar = anunciados.filter((id) => !pendientes.includes(id) && estacion.get(id) !== 'ejecutada' && estacion.get(id) !== 'verificada');
+    const conSegundoFactor = new Set(sinEjecutar.filter((id) => eje.sobre(id).some((h) => esperaSegundoFactor(eje, h, opciones))));
     return {
       ...e, anunciados, pendientes, hechos: anunciados.filter((id) => !pendientes.includes(id)),
       autorizados: pendientes.filter((id) => estacion.get(id) === 'autorizada'),
       verificados: anunciados.filter((id) => estacion.get(id) === 'verificada'),
-      pendientesDeSello: anunciados.filter((id) => !pendientes.includes(id) && estacion.get(id) !== 'ejecutada' && estacion.get(id) !== 'verificada'),
+      pendientesDeSello: sinEjecutar.filter((id) => !conSegundoFactor.has(id) || sinSellar(eje, id, ctx)),
+      pendientesDeSegundoFactor: [...conSegundoFactor],
       estacionDe: Object.fromEntries(estacion),
     };
   });
+}
+
+/** ¿Espera este registro su segundo factor? (segundoFactor) */
+function esperaSegundoFactor(eje, h, opciones) {
+  return segundoFactor(eje, h.id, opciones)?.pendiente === true;
+}
+
+/** ¿Le falta el sello a algo de lo que cumple el anuncio? (el eje tiene «seal url» y la lectura «sealed», X.6.8.5, no da verdadero). */
+function sinSellar(eje, id, ctx) {
+  if ((valores('count before.8.3', ctx).valores ?? [0])[0] === 0) return false;
+  return eje.sobre(id).some((h) => { const r = valores('first (first it.6).8.5', ctx, h.id); return !(r.estado === 'RESUELTO' && r.valores[0] === true); });
 }
 
 /**
@@ -878,6 +907,10 @@ export function estaciones(eje, X, opciones = {}) {
  * sabe va a null (lo propio del payload no tiene ni lo uno ni lo otro): la carta lo pone aparte, sin inventar celda.
  * Encargo «el4» (VG 12-11, #41): cada una lleva además su celda de la matriz del 4 (contrato.celdaDeEjecucion):
  * `oficio` (la fila, el tipo de acción), `ejecucion` (la columna, lo que mueve) y `por` (de dónde sale cada uno).
+ * El segundo factor (VG 12/13-11, #66, #70): un anuncio que epoch.4.3 deja en autorizada porque lo que lo cumple espera
+ * su segundo factor lleva `pendienteDeSegundoFactor: true`; y un registro anclado en X que no es un anuncio y alcanza un
+ * criterio «second factor» de su autor tiene estación propia: «autorizada» con `pendienteDeSegundoFactor` mientras falte
+ * la autorización del titular, «ejecutada» cuando la tiene (sin criterio alcanzado, nada cambia: sin estación).
  */
 export function ejecuciones(eje, X, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -887,8 +920,10 @@ export function ejecuciones(eje, X, opciones = {}) {
   const estacionDe = new Map();
   const plantillaDe = new Map();
   const sinSello = new Set();
+  const sinSegundoFactor = new Set();
   for (const e of estaciones(eje, ev.id, opciones)) {
     for (const id of e.pendientesDeSello ?? []) sinSello.add(id);
+    for (const id of e.pendientesDeSegundoFactor ?? []) sinSegundoFactor.add(id);
     for (const id of e.anunciados) plantillaDe.set(id, e.plantilla);
     // La estación de cada anuncio la dice la época (epoch.4.3; VG 12-11, decisión 8): el motor solo comprueba.
     for (const id of e.anunciados) estacionDe.set(id, e.estacionDe[id] ?? (e.pendientes.includes(id) ? (e.autorizados.includes(id) ? 'autorizada' : 'propuesta') : 'ejecutada'));
@@ -903,13 +938,129 @@ export function ejecuciones(eje, X, opciones = {}) {
     const accion = hojas(h.payload?.[4]).find((x) => typeof x === 'string' && porNombre.has(x)) ?? plantillaDe.get(h.id) ?? null;
     const posicion = Number(String(h.en ?? '0')[0]);
     const celda = celdaDeEjecucion(eje, h.id, opciones);
+    // Lo que no es un anuncio y alcanza un segundo factor de su autor: autorizada hasta que el titular lo autoriza.
+    const sf = estacionDe.has(h.id) ? null : segundoFactor(eje, h.id, opciones);
+    if (sf?.pendiente) sinSegundoFactor.add(h.id);
+    const estacion = estacionDe.get(h.id) ?? (sf?.exige ? (sf.pendiente ? 'autorizada' : 'ejecutada') : null);
     return {
-      ocupante: { ref: h.id }, pv: accion && porNombre.has(accion) ? porNombre.get(accion).pv : null, posicion: Number.isInteger(posicion) ? posicion : null, accion, estacion: estacionDe.get(h.id) ?? null,
+      ocupante: { ref: h.id }, pv: accion && porNombre.has(accion) ? porNombre.get(accion).pv : null, posicion: Number.isInteger(posicion) ? posicion : null, accion, estacion,
       oficio: celda?.oficio ?? null, ejecucion: celda?.ejecucion ?? null, por: celda?.por ?? null,
       // «sin verificar no se ejecuta» (#50, #67): movido, pero el eje tiene sello y lo que lo cumple aún no está «sealed».
       ...(sinSello.has(h.id) ? { pendienteDeSello: true } : {}),
+      // el segundo factor (#66, #70): movido, pero espera la autorización del titular (una cosa del autor).
+      ...(sinSegundoFactor.has(h.id) ? { pendienteDeSegundoFactor: true } : {}),
     };
   })];
+}
+
+// ---------- 4 bis. el segundo factor (VG 12/13-11, #66, #70; SIP 0 de StateArk) ----------
+
+/**
+ * Lo que el segundo factor lee y escribe, por su nombre en la época. Las dos lecturas son reglas de la época
+ * (datos/epocas/reglas/second-factor.json y authorized-by-the-holder.json): aquí solo se leen. La autorización es el
+ * objeto «autorización» del SIP 0 en modo segundo factor: 0 [«autorización», «SIP 0»], 1 lo autorizado (su «sobre»),
+ * 2 la etiqueta de uso, 3 el titular; sin 4 (la firma es la del registro).
+ */
+export const SEGUNDO_FACTOR = Object.freeze({
+  criterio: 'second factor', // la acción en el 4 del criterio (la plantilla PV2 «second factor»)
+  en: '2400000000', // el 2.4 del alta: criterios sobre lo que se hace (el 4)
+  exige: '(first it.6).8.7', // «second factor»: los criterios del autor que el registro alcanza
+  autorizan: '(first it.6).8.8', // «authorized by the holder»: los que ya tienen su autorización
+  objeto: Object.freeze(['autorización', 'SIP 0']),
+  uso: 'StateArk/SecondFactor/v1',
+  ancla: '4000000000', // la autorización se ancla en el 4 de lo autorizado
+});
+
+/** Un criterio «second factor» (un registro del 2.4 de un alta) leído: { id, nombre, familias, cantidad, titular }. */
+function criterioDe(eje, id) {
+  const p = eje.obtener(id)?.payload;
+  return { id, nombre: texto(hoja(p?.[0])) ?? null, familias: hojas(p?.[1]).filter((x) => typeof x === 'string'), cantidad: hoja(p?.[2]) ?? null, titular: texto(hoja(p?.[3])) ?? null };
+}
+
+/** Los criterios «second factor» de `yo`: los que él mismo ancla en el 2.4 de su alta (la plantilla PV2), por llegada. */
+export function criteriosDeSegundoFactor(eje, yo) {
+  const alta = yo ? eje?.alta?.(yo)?.id : null;
+  if (!alta) return [];
+  return eje.sobre(alta, SEGUNDO_FACTOR.en).filter((h) => h.autor === yo && hojas(h.payload?.[4]).includes(SEGUNDO_FACTOR.criterio)).map((h) => criterioDe(eje, h.id));
+}
+
+/** Las autorizaciones ancladas sobre un registro (las que dicen «autorización» en su 0), de quien sean: { id, autor, firmante, titular, uso, sobre }. */
+function autorizacionesSobre(eje, id) {
+  return eje.sobre(id).filter((h) => hojas(h.payload?.[0]).includes(SEGUNDO_FACTOR.objeto[0])).map((h) => ({
+    id: h.id, autor: h.autor, firmante: h.firma && h.firmante ? h.firmante : null, titular: texto(hoja(h.payload?.[3])) ?? null,
+    uso: texto(hoja(h.payload?.[2])) ?? null, sobre: hojas(h.payload?.[1]).find(esReferencia)?.ref ?? null,
+  }));
+}
+
+/**
+ * ¿Espera X su segundo factor? (VG 12/13-11, #66, #70). Fachada sin lógica propia: lee las dos lecturas de la época,
+ * «second factor» (X.6.8.7: los criterios de su autor que X alcanza) y «authorized by the holder» (X.6.8.8: los que ya
+ * tienen la autorización escrita y firmada por su titular). → { exige, pendiente, criterios: [{ id, nombre, familias,
+ * cantidad, titular, autorizado }], titulares (los que faltan), autorizaciones (las ancladas sobre X, valgan o no),
+ * motivo (por qué sigue pendiente, en el idioma), estado } o null si X no está en el eje. Sin criterio alcanzado, nada
+ * cambia (`exige: false`). Una lectura que no se resuelve (PENDIENTE: un límite) deja `estado` y no exige nada.
+ */
+export function segundoFactor(eje, X, opciones = {}) {
+  const ev = eventoDe(eje, X);
+  if (!ev || !eje?.obtener(ev.id)) return null;
+  const epoca = epocaDe(opciones);
+  // Atajo: sin criterios «second factor» de su autor (el 2.4 de su alta, lo que lee la regla) no hay nada que leer.
+  if (!criteriosDeSegundoFactor(eje, ev.autor).length) return { exige: false, pendiente: false, criterios: [], titulares: [], autorizaciones: [], motivo: null, estado: 'RESUELTO' };
+  const ctx = contextoDe(eje, epoca, {});
+  const exigen = valores(SEGUNDO_FACTOR.exige, ctx, ev.id);
+  if (exigen.estado !== 'RESUELTO') return { exige: false, pendiente: false, criterios: [], titulares: [], autorizaciones: [], motivo: null, estado: exigen.estado };
+  const ids = [...new Set(exigen.valores.filter((x) => typeof x === 'string'))];
+  const autorizan = ids.length ? valores(SEGUNDO_FACTOR.autorizan, ctx, ev.id) : { valores: [], estado: 'RESUELTO' };
+  const hechos = new Set((autorizan.valores ?? []).filter((x) => typeof x === 'string'));
+  const criterios = ids.map((id) => ({ ...criterioDe(eje, id), autorizado: hechos.has(id) }));
+  const faltan = criterios.filter((c) => !c.autorizado);
+  const autorizaciones = autorizacionesSobre(eje, ev.id);
+  let motivo = null;
+  if (faltan.length) {
+    const idioma = opciones.idioma ?? 'es';
+    const c = faltan[0];
+    // Una autorización que no vale (la escribe o la firma otro que el titular): se dice quién; si no hay ninguna, falta.
+    const otra = autorizaciones.find((a) => a.autor !== c.titular || a.firmante !== c.titular);
+    motivo = otra
+      ? motivoDe('second factor not by the holder', { holder: c.titular, author: otra.autor, signer: otra.firmante ?? 'nadie' }, { idioma, epoca })
+      : motivoDe('second factor missing', { holder: c.titular, family: c.familias.join(' '), amount: c.cantidad }, { idioma, epoca });
+  }
+  return { exige: criterios.length > 0, pendiente: faltan.length > 0, criterios, titulares: [...new Set(faltan.map((c) => c.titular))], autorizaciones, motivo, estado: autorizan.estado };
+}
+
+/**
+ * Lo que pedirá el segundo factor una candidata aún sin asentar (el aviso del botón de ejecutar, VG 12/13-11): la misma
+ * lectura «second factor» con it = la candidata (lo que declara mover: el coste de escribir y lo que mueve la
+ * plantilla). → { exige, criterios, titulares }.
+ */
+function segundoFactorDeCandidata(eje, epoca, candidata) {
+  const ctx = contextoDe(eje, epoca, { ev: candidata });
+  const r = valores('(first ev.6).8.7', ctx);
+  const criterios = (r.valores ?? []).filter((x) => typeof x === 'string' && eje.obtener(x)).map((id) => criterioDe(eje, id));
+  return { exige: criterios.length > 0, criterios, titulares: [...new Set(criterios.map((c) => c.titular))] };
+}
+
+/**
+ * La autorización de segundo factor (VG 12/13-11, #70; el objeto «autorización» del SIP 0 en modo segundo factor): un
+ * registro anclado en el 4 de la propuesta (lo ejecutado que espera), escrito por la cosa titular y firmado con su clave;
+ * esa firma de registro es el segundo factor. Es lo que hará la app de StateArk; aquí sirve a las pruebas y a la consola
+ * de Core. Paga su coste de escribir (T de la cosa, la que le dio su dueño). Construye, firma y valida en seco (no
+ * asienta): → { ok, evento, motivos }. `opciones.t`, el instante (por defecto, el reloj del libro).
+ */
+export async function autorizar(eje, idPropuesta, cosa, privadaDeLaCosa, opciones = {}) {
+  const epoca = epocaDe(opciones);
+  const idioma = opciones.idioma ?? 'es';
+  if (!eje?.obtener(idPropuesta)) return { ok: false, evento: null, motivos: [{ regla: SEGUNDO_FACTOR.criterio, mensaje: motivoDe('anchor not in ledger', { name: 'autorizar', formula: String(idPropuesta) }, { idioma, epoca }) }] };
+  const payload = [[...SEGUNDO_FACTOR.objeto], [{ ref: idPropuesta }], [SEGUNDO_FACTOR.uso], [cosa]];
+  let evento;
+  try {
+    evento = await crearEvento({ autor: cosa, sobre: idPropuesta, en: SEGUNDO_FACTOR.ancla, t: relojDe(eje, opciones), movimientos: [quemaDelCoste(cosa, payload, undefined, { eje, epoca })], payload });
+    if (privadaDeLaCosa) evento = await firmarEvento(evento, privadaDeLaCosa);
+  } catch (e) {
+    return { ok: false, evento: null, motivos: [{ regla: SEGUNDO_FACTOR.criterio, mensaje: String(e.message ?? e) }] };
+  }
+  const motivos = motivosDelEje(eje, await eje.validar(evento), evento, idioma, opciones);
+  return { ok: motivos.length === 0, evento, motivos };
 }
 
 // ---------- 5. el camino ----------

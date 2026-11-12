@@ -18,7 +18,7 @@
 // sincronizan nunca. Nada de esto bloquea: se escribe en local y la cola sube lo pendiente.
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia, exterior } from '../src/index.js';
-import { arbol, enviar, previsualizar, formulario, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
+import { arbol, enviar, previsualizar, formulario, medidasDePantalla, preferencias, segundoFactorDeConfiguracion, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor, resolverArchivos } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
@@ -227,6 +227,7 @@ function extraDe() {
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
     guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
     exteriorAjustes: estado.config && estado.eje ? guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad) ?? undefined : undefined,
+    segundoFactor: estado.config && estado.eje ? segundoFactorDeConfiguracion(estado.eje, estado.identidad) ?? undefined : undefined,
     arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
     archivo: (id) => archivos.contenido(id), // los archivos adjuntos (el HTML del PV0 en su iframe aislado, las imágenes)
   };
@@ -952,6 +953,8 @@ const manejadores = {
     if (campoIa && altaDeGuia()) guia.guardarClaveIa(almacenLocal(), altaDeGuia(), campoIa.value);
     const valoresGuia = Object.fromEntries([...form.querySelectorAll('[data-guia-campo]')].map((i) => [i.dataset.guiaCampo, i.value]));
     const valoresExterior = Object.fromEntries([...form.querySelectorAll('[data-exterior-campo]')].map((i) => [i.dataset.exteriorCampo, i.value]));
+    // El segundo factor (VG 12/13-11, #66, #70): un criterio más en el 2.4 de mi alta, con la plantilla «second factor», si la familia está escrita.
+    const valoresSegundo = Object.fromEntries([...form.querySelectorAll('[data-segundo-factor-campo]')].map((i) => [i.dataset.segundoFactorCampo, i.value.trim()]));
     if (!preferencias(estado.eje, estado.identidad, valores)) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }
     try {
       await escribirPreferencias(valores);
@@ -960,6 +963,11 @@ const manejadores = {
       // Los ajustes del exterior (relé, archivos, sello): otro registro más en el 9 del alta, con la misma forma que el de la guía.
       const ajustesExterior = guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad, valoresExterior);
       if (ajustesExterior?.cambiado) await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: ajustesExterior.sobre, en: ajustesExterior.en, payload: ajustesExterior.payload }, privadaDe(estado.identidad));
+      if (valoresSegundo.family) {
+        const familias = valoresSegundo.family.split(/[\s,]+/).filter(Boolean);
+        const r = await enviar(estado.eje, estado.eje.alta(estado.identidad).id, 'second factor', { family: familias.length === 1 ? familias[0] : familias, amount: Number(valoresSegundo.amount || 0), ...(valoresSegundo.holder ? { holder: valoresSegundo.holder } : {}) }, estado.identidad, firmarCon(estado.identidad));
+        if (!r.asentado) throw new Error((r.motivos ?? []).map((m) => m.mensaje ?? m).join(' · ') || 'second factor');
+      }
       guardar();
       estado.config = false;
       estado.motivosPreferencias = [];
