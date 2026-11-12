@@ -83,7 +83,7 @@ test('la clave privada se guarda tal cual (hex) y se comprueba al leerla', async
 // ---------- BIP-340: formato, vectores oficiales y la librería vendorizada ----------
 
 /** El sha256 del archivo vendorizado (src/vendor/LEEME.md); la función de borde lleva una copia idéntica. */
-const SHA256_VENDOR = '3c696677168a6b926157d84023bb960b820d12c7241e0df7976754ba4b396190';
+const SHA256_VENDOR = '75335671f06a2a71b38c663cda8938f5478037e953632e5a3dbe866841f04a64';
 const N = 'fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141'; // el orden de secp256k1
 const P = 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f'; // el primo del cuerpo
 

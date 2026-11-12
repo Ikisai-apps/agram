@@ -10,9 +10,9 @@ Un solo módulo ESM, sin dependencias ni `import`, que exporta `schnorr` (BIP-34
 |---|---|
 | Origen | [`@noble/curves`](https://github.com/paulmillr/noble-curves) **2.3.0** (`secp256k1.js`: `schnorr`) y lo que usa de [`@noble/hashes`](https://github.com/paulmillr/noble-hashes) **2.3.0** (`sha256`, `hmac`, utilidades), de Paul Miller, publicados en npm el 06-08-2026 con procedencia firmada (*Trusted Publishing*) |
 | Integridad npm | `@noble/curves@2.3.0` `sha512-v7cY+4oWYPQszRj6ZFGzTVL7uP2TaLo1xMhWHzYC5wj0ZhOXQ5x+sBre8rF3hi8cAoi0bh1qXoovoOkdFtvqEg==` · `@noble/hashes@2.3.0` `sha512-oN+QwyX7VSHotibwubG3kpzbwKrfnyR6OOO+3Nk/53ADL7FmgHHz4TgrbaYKvvOw09u6QTx0oiH1cNCIOuN0CQ==` |
-| Empaquetado | con `esbuild` **0.28.2**, sin minificar (se puede leer y comparar con el original): `--bundle --format=esm --platform=neutral --target=es2022`, solo lo que alcanza `schnorr` |
+| Empaquetado | con `esbuild` **0.28.2**, sin minificar (se puede leer y comparar con el original): `--bundle --format=esm --platform=neutral --target=es2022`, solo lo que alcanza `schnorr`. Un solo retoque a mano sobre el empaquetado (12-11-2026, #67): el bloque `export` final exporta también `sha256` (el de `@noble/hashes`, que ya iba dentro) para que `src/cripto.js` no lleve una copia propia; nada más cambia |
 | Licencia | MIT (© 2022 Paul Miller), copiada entera en la cabecera del archivo |
-| **sha256** | `3c696677168a6b926157d84023bb960b820d12c7241e0df7976754ba4b396190` |
+| **sha256** | `75335671f06a2a71b38c663cda8938f5478037e953632e5a3dbe866841f04a64` |
 
 `servidor/supabase/funciones/eventos/noble-secp256k1.js` es **el mismo archivo, byte a byte** (la función de borde se despliega sola, sin el núcleo). `test/autoridad.test.js` comprueba que los dos dan este sha256 y que este LEEME lo dice.
 

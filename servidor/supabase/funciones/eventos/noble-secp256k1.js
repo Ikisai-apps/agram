@@ -2076,5 +2076,6 @@ var schnorr = /* @__PURE__ */ (() => {
   });
 })();
 export {
-  schnorr
+  schnorr,
+  sha256
 };
