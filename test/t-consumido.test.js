@@ -9,8 +9,8 @@
 //   3. T no cruza de persona: de una persona a otra se rechaza y se transforma
 //      en E; una persona sí da su T a una cosa (la máquina gasta el de su
 //      dueño); no hay grupos que reciban T (VG, 8-11: solo delegación);
-//   4. la escala del T consumido declara el orden de magnitud de lo emitido;
-//      si no casa, es una incongruencia que se enseña, nunca un rechazo.
+//   4. (retirado por VG 12-11, #65: ya no hay «incongruencia de escala»; la escala
+//      que cubre lo emitido la propone el 4: tiempo.escalaQueCubre, test/ui.test.js.)
 // T como asignación diaria (VG, 8-11, sustituye a acuñar al gastar y al tope
 // del reloj): «llega a las 12 de la noche y te da todo el T del día
 // siguiente […]. Te lo gastas como quieras, no te puedes gastar más». Lo no
@@ -27,7 +27,6 @@ import { evaluar } from '../src/bql.js';
 import * as motor from '../src/motor.js';
 import { elegibles } from '../src/elegibles.js';
 import { ocupantes } from '../src/encaje.js';
-import { incongruenciaDe } from '../src/tiempo.js';
 import { validez } from '../src/validez.js';
 import { esPresente } from '../src/evento.js';
 import { leerEvento } from '../src/lectura.js';
@@ -361,31 +360,4 @@ test('propiedad: cambiar el T gastado no cambia recuentos, topes de E, elegibles
     const { tiempo: _b, ...baseSinT } = base;
     assert.deepEqual(sinT, baseSinT, 'caso ' + caso + ' (' + gastos + ')');
   }
-});
-
-// ---------- 4 · escala de T frente al tamaño de lo emitido ----------
-
-test('incongruenciaDe: la escala del T gastado declara el orden de lo emitido; si no casa, se enseña y no se rechaza', async () => {
-  const ev = (movimientos, payload) => ({ autor: 'ana', movimientos, payload });
-  const decena = Array.from({ length: 10 }, (_, i) => 'p' + i);
-  const cien = Array.from({ length: 10 }, () => [...decena]);
-  // Un segundo para una nota: casa (orden 1); un minuto para cien posiciones, también (orden 2).
-  assert.equal(incongruenciaDe(ev([gasta('ana', 1, 'segundo')], 'nota')), null);
-  assert.equal(incongruenciaDe(ev([gasta('ana', 1, 'minuto')], cien)), null);
-  // Un minuto para una nota: lo emitido es más pequeño de lo que declara su escala.
-  assert.deepEqual(incongruenciaDe(ev([gasta('ana', 1, 'minuto')], 'nota')), { escala: 'minuto', ordenEsperado: 2, ordenEmitido: 1, posiciones: 1 });
-  // Con varias escalas manda la mayor; un segundo para cien posiciones es demasiado poco.
-  assert.deepEqual(incongruenciaDe(ev([gasta('ana', 1, 'minuto'), gasta('ana', 1, 'hora')], cien)), { escala: 'hora', ordenEsperado: 3, ordenEmitido: 2, posiciones: 100 });
-  assert.deepEqual(incongruenciaDe(ev([gasta('ana', 1, 'segundo')], cien)), { escala: 'segundo', ordenEsperado: 1, ordenEmitido: 2, posiciones: 100 });
-  // Sin consumo del autor, o en el génesis, no hay nada que comparar.
-  assert.equal(incongruenciaDe(ev([gasta('bea', 1, 'hora')], 'nota')), null);
-  assert.equal(incongruenciaDe({ ...ev([{ token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'ana' }], 'g'), contexto: { genesis: true } }), null);
-  // El eje no la rechaza; la capa de interpretación la enseña.
-  const { eje, alta } = await mundo();
-  const nota = await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'nota', movimientos: [gasta('g', 1, 'minuto')] });
-  const v = await validez(eje, nota.id);
-  assert.equal(v.interpretacion.estado, 'ok');
-  assert.deepEqual(v.interpretacion.incongruenciaT, { escala: 'minuto', ordenEsperado: 2, ordenEmitido: 1, posiciones: 1 });
-  const bien = await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'otra nota', movimientos: [gasta('g', 1, 'segundo')] });
-  assert.equal((await validez(eje, bien.id)).interpretacion.incongruenciaT, null);
 });

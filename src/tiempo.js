@@ -13,8 +13,7 @@
 import { SEGUNDOS, ESCALAS_REALES } from './tokens.js';
 import { direccion, resolver } from './btml.js';
 import { propuestas } from './motor.js';
-import { MODOS, orden, ordenDeEscala, contarPosiciones, ORDENES_DE_ESCALA } from './modos.js';
-import { esConsumoT } from './evento.js';
+import { MODOS, orden, ORDENES_DE_ESCALA } from './modos.js';
 
 export { HITOS, ALCANCES, MEDIDAS, etiquetaClave, proyectoDe, comparables, confluir, SIN_BASE_ESCRITA } from './bases.js';
 
@@ -58,49 +57,22 @@ export function ejeTemporal(eje, foco, { ahora = new Date().toISOString(), maxim
   return { foco, ahora, pasado: unico(pasado).slice(0, maximo), futuro: unico(futuro).slice(0, maximo), totalPasado: pasado.length, totalFuturo: futuro.length };
 }
 
-// ---------- la escala de T frente al tamaño de lo emitido ----------
+// ---------- la escala que cubre lo emitido (utilidad del 4) ----------
 
 /**
- * Incongruencia entre la escala del T que consume un evento y el tamaño de lo
- * que emite (VG, 7-11 noche, «T, corregido por VG», punto 4: «que un T de
- * segundo sea un árbol de información más pequeño que el que se emite, y un T
- * de hora o de día un árbol más grande»). La escala declara el orden de
- * magnitud esperado (modos.ordenDeEscala: segundo 1-10 posiciones, minuto
- * 10-100, hora 100-1000, día 1000-10000, semana 10^4-10^5, ciclo 10^5-10^6,
- * año 10^6-10^7) y lo emitido se mide igual (modos.orden sobre
- * modos.contarPosiciones del payload). Si el evento consume varias escalas,
- * manda la mayor: es la que declara el árbol más grande. Devuelve null si
- * casan, si el evento no consume T de su autor o si es el génesis; si no,
- * { escala, ordenEsperado, ordenEmitido, posiciones }. Se ENSEÑA (validez,
- * capa de interpretación), nunca se rechaza: falsear T solo da incongruencias
- * ([X] decidir VG si quiere rechazo).
+ * La escala del calendario que cubre un número de posiciones: la más pequeña
+ * cuyo orden de magnitud (modos.ordenDeEscala: segundo 1-10 posiciones,
+ * minuto 10-100, hora 100-1000, día 1000-10000, semana 10^4-10^5, ciclo
+ * 10^5-10^6, año 10^6-10^7) alcanza el de lo emitido (modos.orden); la mayor
+ * si se pasa de todas. 0 posiciones y 1-10 caen en el segundo.
+ *
+ * Es la utilidad con la que el 4 (quien ejecuta) propone la denominación de T
+ * de un registro a partir de lo emitido (VG 12-11, #65; docs/notas/
+ * DECISIONES_2026-11-12.md, tema 4). Ya no hay «incongruencia de escala»: la
+ * escala no la declara el autor a ojo, la propone el 4, así que el desajuste
+ * solo sería un fallo del propio 4 (cosa de una prueba, no de una marca).
  */
-export function incongruenciaDe(ev) {
-  if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true || !Array.isArray(ev.movimientos)) return null;
-  // Solo las escalas reales tienen orden: las informativas (pasado, futuro, inventado) no (VG, 8-11).
-  const escalas = ev.movimientos.filter((m) => esConsumoT(m, ev.autor) && ESCALAS_REALES.includes(m.escala)).map((m) => m.escala);
-  if (!escalas.length) return null;
-  const escala = escalas.reduce((a, b) => (ESCALAS_REALES.indexOf(b) > ESCALAS_REALES.indexOf(a) ? b : a));
-  const posiciones = contarPosiciones(ev.payload);
-  const ordenEsperado = ordenDeEscala(escala);
-  const ordenEmitido = orden(posiciones);
-  return ordenEmitido === ordenEsperado ? null : { escala, ordenEsperado, ordenEmitido, posiciones };
-}
-
-/** Cada escala real con su artículo, para leer la recomendación. */
-const CON_ARTICULO = Object.freeze({ segundo: 'un segundo', minuto: 'un minuto', hora: 'una hora', dia: 'un día', semana: 'una semana', ciclo: 'un ciclo', anio: 'un año' });
-
-/**
- * Lo que se recomienda cuando lo emitido es más grande que el orden de la
- * escala gastada (VG, 8-11: «se recomienda la escala de orden superior»; sin
- * rechazar): { escala, recomendada, texto } con la escala cuyo orden es el
- * de lo emitido (la mayor si se pasa de todas), o null si casa, si es más
- * pequeño o si no hay incongruencia (incongruenciaDe).
- * «este registro es grande para un minuto: se recomienda una hora».
- */
-export function recomendacionDeEscala(ev) {
-  const inc = incongruenciaDe(ev);
-  if (!inc || inc.ordenEmitido <= inc.ordenEsperado) return null;
-  const recomendada = ESCALAS_REALES.find((e) => ORDENES_DE_ESCALA[e] >= inc.ordenEmitido) ?? ESCALAS_REALES[ESCALAS_REALES.length - 1];
-  return { escala: inc.escala, recomendada, texto: 'este registro es grande para ' + CON_ARTICULO[inc.escala] + ': se recomienda ' + CON_ARTICULO[recomendada] };
+export function escalaQueCubre(posiciones) {
+  const n = orden(posiciones);
+  return ESCALAS_REALES.find((e) => ORDENES_DE_ESCALA[e] >= n) ?? ESCALAS_REALES[ESCALAS_REALES.length - 1];
 }

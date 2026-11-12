@@ -95,9 +95,8 @@ export const ORDENES_DE_ESCALA = Object.freeze({ segundo: 1, minuto: 2, hora: 3,
  * Orden de magnitud que declara una escala de T: el tamaño esperado del
  * árbol que se emite gastándola («que un T de segundo sea un árbol de
  * información más pequeño que el que se emite, y un T de hora o de día uno
- * más grande»). SOLO informativa: nadie la aplica todavía; si lo emitido se
- * sale del orden, será una incongruencia que se enseña, no un rechazo ([X]
- * si VG quiere rechazo).
+ * más grande»). Informativa: la usa `tiempo.escalaQueCubre` para proponer la
+ * escala que cubre lo emitido (VG 12-11, #65; ya no hay incongruencia de escala).
  */
 export function ordenDeEscala(escala) {
   // Las tres escalas informativas de T (VG, 8-11) son de las diez, pero no tienen orden.

@@ -14,8 +14,8 @@ import { listaOcupantes, elegirOrden, ordenOcupantes, procedenciaCorta, lineaEnc
 import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso, propuestaVigente } from '../antigua/ui/fabrica.js';
 import { familiasDe, htmlSaldos, enCarteras, nombreSerie } from '../antigua/ui/saldos.js';
 import { EJEMPLOS, crearEjemplo, elegirEjemplo, ejemploElegido, cargarModulo, motivoAusente, restaurarEjemplo, etiquetaOpcion } from '../antigua/ui/ejemplos.js';
-import { dirCorta, vectorCorto, escapar, textoCifras, htmlCifras, htmlRecomendacionT } from '../antigua/ui/comun.js';
-import { recomendacionDeEscala } from '../src/tiempo.js';
+import { dirCorta, vectorCorto, escapar, textoCifras, htmlCifras } from '../antigua/ui/comun.js';
+import { escalaQueCubre } from '../src/tiempo.js';
 
 const { motor, encaje, PV, EPOCA_0 } = nucleo;
 
@@ -324,14 +324,14 @@ test('las tres cifras del modo, discretas junto a su nombre (VG, 7-11 noche)', (
   assert.match(htmlCifras('Pointed', nucleo.alcanceDe(10, 'pointed')), /^<span class="cifras" title="[^"]*">Pointed · 10 · mín 1 · máx 10<\/span>$/);
 });
 
-test('escritura: si lo emitido es grande para la escala de T gastada, se recomienda la de orden superior, sin rechazar (VG, 8-11)', () => {
-  const gasta = (escala, cantidad) => [{ token: 'T', escala, cantidad, de: 'a', a: null }];
-  const matriz = Array(10).fill(Array(10).fill(Array(10).fill('z'))); // mil posiciones: el orden de la hora
-  const grande = { autor: 'a', sobre: 'x', movimientos: gasta('minuto', 1000), payload: matriz };
-  assert.deepEqual(recomendacionDeEscala(grande), { escala: 'minuto', recomendada: 'hora', texto: 'este registro es grande para un minuto: se recomienda una hora' });
-  assert.equal(htmlRecomendacionT(grande), '<div class="pista recomendacion-t">Este registro es grande para un minuto: se recomienda una hora.</div>');
-  // Si casa, o si es más pequeño que su escala, nada: solo se recomienda subir.
-  assert.equal(htmlRecomendacionT({ ...grande, movimientos: gasta('hora', 1) }), '');
-  assert.equal(htmlRecomendacionT({ ...grande, movimientos: gasta('dia', 1), payload: 'nota' }), '');
-  assert.equal(recomendacionDeEscala({ ...grande, movimientos: gasta('segundo', 1) }).recomendada, 'hora');
+test('escalaQueCubre: la escala del calendario cuyo orden alcanza el de lo emitido (utilidad del 4, VG 12-11 #65); ya no hay incongruencia de escala', () => {
+  assert.equal(escalaQueCubre(0), 'segundo');
+  assert.equal(escalaQueCubre(1), 'segundo');
+  assert.equal(escalaQueCubre(10), 'segundo');
+  assert.equal(escalaQueCubre(11), 'minuto');
+  assert.equal(escalaQueCubre(100), 'minuto');
+  assert.equal(escalaQueCubre(1000), 'hora');
+  assert.equal(escalaQueCubre(1001), 'dia');
+  assert.equal(escalaQueCubre(10 ** 7), 'anio');
+  assert.equal(escalaQueCubre(10 ** 9), 'anio'); // se pasa de todas: la mayor
 });
