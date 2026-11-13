@@ -24,6 +24,7 @@ import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
 import { t, idiomaDeInterfaz } from './textos.js';
 import * as cuentas from './cuentas.js';
+import * as ajustesDelSitio from './sitio.js';
 import * as sinc from './sincronia.js';
 import * as guia from './guia.js';
 import * as externa from './externa.js';
@@ -217,16 +218,19 @@ function marcarNuevos() {
   for (const e of d.entradas) estado.vistos.add(e.id);
 }
 
+/** Los defectos del sitio (carta/sitio.js, ./sitio.json) que a mi cuenta aún le faltan: el formulario de la configuración los enseña; no se guardan hasta que se guarda. */
+const porDefectoDelSitio = () => (estado.cuenta ? ajustesDelSitio.faltantes(estado.eje, estado.identidad) : { preferencias: {}, exterior: {} });
+
 /** Lo que la carta no decide y la app sabe (dom.js html, `extra`). */
 function extraDe() {
   return {
     ejemplos: EJEMPLOS.map((e) => ({ id: e.id, etiqueta: e.etiqueta })), ejemplo: ejemploElegido(), guardado: estado.guardado, aviso: estado.aviso, exito: estado.exito, nuevos: estado.nuevos,
     leidoTexto: estado.leido && estado.foco.X && estado.eje ? leerTexto(estado.foco.X) : undefined,
-    preferencias: estado.config && estado.eje ? preferencias(estado.eje, estado.identidad) : null, motivosPreferencias: estado.motivosPreferencias,
+    preferencias: estado.config && estado.eje ? preferencias(estado.eje, estado.identidad, porDefectoDelSitio().preferencias) : null, motivosPreferencias: estado.motivosPreferencias,
     claveLectura: estado.cuenta && estado.config ? cuentas.claveLectura(estado.cuenta.alta) ?? '' : undefined, sincronia: estado.lineaSincronia,
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
     guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
-    exteriorAjustes: estado.config && estado.eje ? guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad) ?? undefined : undefined,
+    exteriorAjustes: estado.config && estado.eje ? guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad, porDefectoDelSitio().exterior) ?? undefined : undefined,
     segundoFactor: estado.config && estado.eje ? segundoFactorDeConfiguracion(estado.eje, estado.identidad) ?? undefined : undefined,
     parteConfiguracion: estado.config || undefined, arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
     archivo: (id) => archivos.contenido(id), // los archivos adjuntos (el HTML del PV0 en su iframe aislado, las imágenes)
@@ -1286,7 +1290,7 @@ const manejadores = {
     ar.ocupado = true;
     await pintar();
     try {
-      const r = await cuentas.crearCuenta({ nombre: ar.valores.nombre, idioma: ar.valores.idioma });
+      const r = await cuentas.crearCuenta({ nombre: ar.valores.nombre, idioma: ar.valores.idioma, ajustes: ajustesDelSitio.defectos() });
       const guardada = await cuentas.guardarCuenta(r);
       entrarCon(r);
       estado.guardado = guardada ? t('guardadoEnNavegador', { cuantos: r.eje.orden.length }) : t('sinAlmacenamiento');
@@ -1423,6 +1427,7 @@ async function reiniciar() {
 
 async function arrancar() {
   gestos = instalar(raiz, manejadores);
+  await ajustesDelSitio.cargar(); // ./sitio.json, opcional: los defectos del sitio (silencioso si no está)
   opinar.instalar({
     raiz, cuenta: () => estado.cuenta?.nombre ?? 'ejemplo', alCambiar: () => { void pintar(); },
     // Con «opinions anchor» (los ajustes de la guía), cada opinión se escribe además como un registro anclado en el proyecto.

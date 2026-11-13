@@ -145,9 +145,10 @@ export async function arrancar({ puerto = 0, archivo, secreto = process.env.AGRA
     const url = new URL(request.url);
     const nombre = url.searchParams.get('eje') ?? '';
     const fila = await almacen.eje(nombre);
-    if (!fila) return responder(404, { error: 'eje desconocido: ' + nombre });
+    // Eje inexistente y clave mala: la misma respuesta (401), para no revelar qué ejes existen (#106).
     const clave = request.headers.get('x-clave-lectura');
-    if (!clave || (await hashDeClave(clave)) !== fila.clave_lectura_hash) return responder(401, { error: 'clave de lectura ausente o incorrecta' });
+    const hash = clave ? await hashDeClave(clave) : null;
+    if (!fila || !hash || hash !== fila.clave_lectura_hash) return responder(401, { error: 'clave de lectura ausente o incorrecta' });
     const recibo = await almacen.recibo(nombre, url.searchParams.get('id') ?? '');
     return recibo ? responder(200, recibo) : responder(404, { error: 'sin recibo para ese id en ese eje' });
   };

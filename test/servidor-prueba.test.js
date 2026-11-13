@@ -64,10 +64,26 @@ test('POST /ejes: protegido, nombres válidos, la clave de lectura una sola vez 
   await cerrado.cerrar();
 });
 
-test('GET /eventos: 404 eje desconocido, 401 sin clave o con otra, parámetros válidos, vacío al empezar', async () => {
+test('GET /eventos: 401 igual para eje desconocido, sin clave o con otra (no se revela qué ejes existen, #106); parámetros válidos, vacío al empezar', async () => {
   const { claveLectura } = await crear('lectura');
   let r = await fetch(servidor.url + '/eventos?eje=nadie', { headers: { 'X-Clave-Lectura': claveLectura } });
-  assert.equal(r.status, 404);
+  assert.equal(r.status, 401);
+  // Mismo código y MISMO cuerpo para el eje que no existe y para la clave mala (también en POST /eventos y /eventos/recibo): sin fuga de existencia.
+  const cuerpoDe = async (respuesta) => [respuesta.status, await respuesta.text()];
+  const sinEje = await cuerpoDe(r);
+  assert.deepEqual(await cuerpoDe(await fetch(servidor.url + '/eventos?eje=lectura', { headers: { 'X-Clave-Lectura': 'otra' } })), sinEje, 'clave mala = eje inexistente');
+  assert.deepEqual(await cuerpoDe(await fetch(servidor.url + '/eventos?eje=nadie')), sinEje, 'sin clave en un eje inexistente');
+  assert.deepEqual(await cuerpoDe(await fetch(servidor.url + '/eventos?eje=lectura')), sinEje, 'sin clave en un eje que existe');
+  const subir = (eje, clave) => fetch(servidor.url + '/eventos', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(clave ? { 'X-Clave-Lectura': clave } : {}) }, body: JSON.stringify({ eje, evento: { id: 'x' } }) });
+  assert.deepEqual(await cuerpoDe(await subir('nadie', claveLectura)), sinEje, 'POST /eventos a un eje inexistente');
+  assert.deepEqual(await cuerpoDe(await subir('lectura', 'otra')), sinEje, 'POST /eventos con clave mala');
+  const recibo = (eje, clave) => fetch(servidor.url + '/eventos/recibo?eje=' + eje + '&id=' + 'e'.repeat(64), { headers: clave ? { 'X-Clave-Lectura': clave } : {} });
+  assert.deepEqual(await cuerpoDe(await recibo('nadie', claveLectura)), sinEje, '/eventos/recibo a un eje inexistente');
+  assert.deepEqual(await cuerpoDe(await recibo('lectura', 'otra')), sinEje, '/eventos/recibo con clave mala');
+  assert.match(sinEje[1], /clave de lectura ausente o incorrecta/);
+  assert.doesNotMatch(sinEje[1], /nadie|desconocido/, 'el cuerpo no repite el nombre ni dice que no exista');
+  // El nombre mal formado sigue siendo un 400 (la forma, no la existencia).
+  assert.equal((await fetch(servidor.url + '/eventos?eje=MAL NOMBRE', { headers: { 'X-Clave-Lectura': claveLectura } })).status, 400);
   r = await fetch(servidor.url + '/eventos?eje=lectura');
   assert.equal(r.status, 401);
   r = await fetch(servidor.url + '/eventos?eje=lectura', { headers: { 'X-Clave-Lectura': 'x' } });

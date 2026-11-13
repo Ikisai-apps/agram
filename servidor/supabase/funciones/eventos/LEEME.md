@@ -25,7 +25,7 @@ curl -s -X POST $BASE/eventos -H "X-Clave-Lectura: $CLAVE" -H "Content-Type: app
 # → 201 {"orden":1,"recibido":"…"}; repetirlo → 200 {"orden":1,"recibido":"…","duplicado":true}
 # 3. Bajar.
 curl -s "$BASE/eventos?eje=vg&desde=0" -H "X-Clave-Lectura: $CLAVE"
-# Sin la cabecera → 401; un eje que no existe → 404; un evento con la firma tocada → 400; un autor sin alta → 403.
+# Sin la cabecera → 401; un eje que no existe → 401 igual que la clave mala (no se revela qué ejes hay, #106); un evento con la firma tocada → 400; un autor sin alta → 403.
 ```
 
 Un génesis y unos eventos firmados para pegar se obtienen con el núcleo:

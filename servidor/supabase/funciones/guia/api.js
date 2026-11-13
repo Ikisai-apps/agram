@@ -5,7 +5,7 @@
 //   POST {url}/guia   { eje, modelo?, mensajes: [{ role, content }…], contexto, instrucciones? }
 //                     con X-Clave-Lectura (la del libro compartido del eje)
 //                     → 200 { texto, uso: { entrada, salida } }
-//                     400 forma; 401 clave de lectura; 404 eje; 413 contexto o cuerpo demasiado grandes;
+//                     400 forma; 401 clave de lectura (o eje que no existe: la misma respuesta, #106); 413 contexto o cuerpo demasiado grandes;
 //                     429 más de 30 preguntas por minuto en el eje o cuota del proveedor; 502 el proveedor falla.
 //   OPTIONS           CORS (los mismos orígenes que la función `eventos`).
 //
@@ -116,9 +116,10 @@ export function crearGuia({ almacen, llamar, origenes = ORIGENES, ahora = () => 
       const { eje, modelo, mensajes, contexto, instrucciones = '' } = datos;
       if (typeof eje !== 'string' || !NOMBRE_EJE.test(eje)) return error(request, 400, 'eje: nombre inválido');
       const fila = await almacen.eje(eje);
-      if (!fila) return error(request, 404, 'eje desconocido: ' + eje);
+      // Eje inexistente y clave mala: la misma respuesta (401), para no revelar qué ejes existen (#106).
       const clave = request.headers.get('x-clave-lectura');
-      if (!clave || (await hash(clave)) !== fila.clave_lectura_hash) return error(request, 401, 'clave de lectura ausente o incorrecta');
+      const claveHash = clave ? await hash(clave) : null;
+      if (!fila || !claveHash || claveHash !== fila.clave_lectura_hash) return error(request, 401, 'clave de lectura ausente o incorrecta');
       if (modelo !== undefined && (typeof modelo !== 'string' || !/^[A-Za-z0-9._-]{1,80}$/.test(modelo))) return error(request, 400, 'modelo: nombre inválido');
       if (typeof contexto !== 'string') return error(request, 400, 'contexto: texto');
       if (typeof instrucciones !== 'string') return error(request, 400, 'instrucciones: texto');

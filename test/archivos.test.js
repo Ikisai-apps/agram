@@ -58,11 +58,11 @@ test('GET /archivos/<id>: devuelve el archivo con su tipo, inline, nosniff y la 
   assert.equal((await bajar('no-es-un-id')).status, 400);
 });
 
-test('se rechaza: sin clave o con otra (401), eje desconocido (404), tipo no admitido (415), más de 2 MB (413), vacío o contenido que no es del tipo (400)', async () => {
+test('se rechaza: sin clave o con otra (401), eje desconocido (401, igual que la clave mala: #106), tipo no admitido (415), más de 2 MB (413), vacío o contenido que no es del tipo (400)', async () => {
   assert.equal((await subir(HTML, 'text/html', { conClave: null })).status, 401);
   assert.equal((await subir(HTML, 'text/html', { conClave: 'otra' })).status, 401);
   assert.equal((await bajar(sha(HTML), { conClave: null })).status, 401);
-  assert.equal((await subir(HTML, 'text/html', { eje: 'nadie' })).status, 404);
+  assert.equal((await subir(HTML, 'text/html', { eje: 'nadie' })).status, 401);
   for (const tipo of ['application/javascript', 'text/javascript', 'application/pdf', 'image/gif', '']) {
     const r = await subir(HTML, tipo);
     assert.equal(r.status, 415, tipo);

@@ -183,13 +183,14 @@ test('vía servidor: POST {sync url}/guia con la clave de lectura devuelve el ec
   assert.match(r.texto, /^\(guía de prueba\) ¿qué estoy viendo\? \[modelo-x\]\n/);
   assert.ok(r.texto.includes(contexto.split('\n')[0]), 'las primeras líneas del contexto');
   assert.ok(r.uso.entrada > 0);
-  // Mala clave: 401 con su motivo; eje que no existe: 404.
+  // Mala clave: 401 con su motivo; eje que no existe: el mismo 401 (no se revela qué ejes existen, #106).
   const mala = await G.preguntar({ via: 'server', url: servidor.url, ejeCompartido: 'guia-uno', claveLectura: 'otra', modelo: 'm', instrucciones: '', contexto: '', historial: [], pregunta: 'x' });
   assert.equal(mala.ok, false);
   assert.equal(mala.estado, 401);
   assert.match(mala.motivo, /clave de lectura/);
   const sinEje = await G.preguntar({ via: 'server', url: servidor.url, ejeCompartido: 'no-existe', claveLectura, modelo: 'm', instrucciones: '', contexto: '', historial: [], pregunta: 'x' });
-  assert.equal(sinEje.estado, 404);
+  assert.equal(sinEje.estado, 401);
+  assert.equal(sinEje.motivo, mala.motivo, 'mismo motivo que con la clave mala');
 });
 
 test('vía servidor sin servidor, eje o clave de lectura: motivo y no llama', async () => {
@@ -299,7 +300,7 @@ test('la función /guia: comprueba la clave de lectura contra el hash del eje, l
   assert.equal((await r.json()).texto.split('|')[0], 'otro');
   assert.equal((await pedir(valido, { 'x-clave-lectura': 'otra' })).status, 401);
   assert.equal((await pedir(valido, { 'x-clave-lectura': '' })).status, 401);
-  assert.equal((await pedir({ ...valido, eje: 'dos' })).status, 404);
+  assert.equal((await pedir({ ...valido, eje: 'dos' })).status, 401);
   assert.equal((await pedir({ ...valido, eje: 'MAL NOMBRE' })).status, 400);
   assert.equal((await pedir({ ...valido, contexto: 'x'.repeat(LIMITE_CONTEXTO + 1) })).status, 413);
   assert.equal((await pedir({ ...valido, contexto: 'x'.repeat(LIMITE_CONTEXTO) })).status, 200);

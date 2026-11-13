@@ -29,9 +29,10 @@
 //
 // Sin DOM: lo prueba test/cuentas.test.js con el WebCrypto de Node. carta/app.js lo engancha a la pantalla.
 
-import { Eje, autoridad, persistencia, contrato, salida } from '../src/index.js';
+import { Eje, autoridad, persistencia, contrato, salida, exterior } from '../src/index.js';
 import { plantillaDePreferencias, preferencias } from './carta.js';
-import { CLAVES as GUIA } from './guia.js';
+import { CLAVES as GUIA, ajustesEditablesDe } from './guia.js';
+import { esDePreferencias } from './sitio.js';
 
 /** Las claves de localStorage de las cuentas. Las de los ejemplos, aparte (CLAVES_EJEMPLO), y no se cruzan. */
 export const CLAVES = Object.freeze({
@@ -133,10 +134,11 @@ export function camposDelAlta({ idioma, epoca } = {}) {
  * Crea mi cuenta: genera el par de claves en este dispositivo y un eje nuevo cuyo génesis es mi alta, escrita por
  * mí (persona), con el nombre en su 0, la clave pública declarada en ella (su 5) y firmada con la privada. El
  * génesis referencia la época 0 (lo hace Eje.genesis) y es la única alta sin invitación. Si `idioma` difiere del
- * de la época, escribe además mi configuración (un registro «preferences» en el 9 de mi alta, firmado) con él.
+ * de la época, escribe además mi configuración (un registro «preferences» en el 9 de mi alta, firmado) con él; y los
+ * `ajustes` (los defectos del sitio, carta/sitio.js) en el mismo registro y en el de «exterior settings».
  * → { cuenta, eje, privada, publica } (las dos claves en hexadecimal)
  */
-export async function crearCuenta({ nombre, idioma, t = new Date().toISOString(), epoca } = {}) {
+export async function crearCuenta({ nombre, idioma, ajustes, t = new Date().toISOString(), epoca } = {}) {
   const limpio = String(nombre ?? '').trim();
   if (!limpio) throw new Error('la cuenta necesita un nombre: el 0 de tu alta');
   const { publica, privada } = await autoridad.generarClaves();
@@ -144,9 +146,18 @@ export async function crearCuenta({ nombre, idioma, t = new Date().toISOString()
   const eje = await Eje.genesis({ identidad, foco: limpio, t, clave: publica, privada });
   const alta = eje.alta(identidad).id;
   const o = epoca ? { epoca } : {};
-  if (idioma && idioma !== contrato.configuracion(eje, identidad, o)[claveIdioma(o)]) {
-    const p = preferencias(eje, identidad, { [claveIdioma(o)]: idioma }, o);
+  // Los defectos del sitio (carta/sitio.js, `ajustes`: { 'sync url': …, 'guide url': … }) nacen con la cuenta, en los mismos
+  // registros de ajustes que escribiría la persona: las preferencias (con el idioma) y, aparte, «exterior settings».
+  const propios = Object.fromEntries(Object.entries(ajustes ?? {}).filter(([k]) => esDePreferencias(k)));
+  const fuera = Object.fromEntries(Object.entries(ajustes ?? {}).filter(([k]) => !esDePreferencias(k)));
+  if (idioma && idioma !== contrato.configuracion(eje, identidad, o)[claveIdioma(o)]) propios[claveIdioma(o)] = idioma;
+  if (Object.keys(propios).length) {
+    const p = preferencias(eje, identidad, propios, o);
     if (p) await salida.escribirDesde(eje, { modo: 'sequenced', autor: identidad, sobre: p.sobre, en: p.en, payload: p.payload, t }, privada);
+  }
+  if (Object.keys(fuera).length) {
+    const x = ajustesEditablesDe(exterior.AJUSTES.plantilla, eje, identidad, fuera, o);
+    if (x?.cambiado) await salida.escribirDesde(eje, { modo: 'sequenced', autor: identidad, sobre: x.sobre, en: x.en, payload: x.payload, t }, privada);
   }
   const cuenta = { nombre: limpio, idioma: idioma ?? contrato.configuracion(eje, identidad, o)[claveIdioma(o)], identidad, alta, publica };
   return { cuenta, eje, privada, publica };

@@ -326,6 +326,6 @@ test('el recibo de llegada (X.6.8.1): el servidor de prueba sirve /eventos/recib
   assert.equal((await pedir(e1.id, {})).status, 401);
   assert.equal((await pedir(e1.id, { 'X-Clave-Lectura': 'x' })).status, 401);
   assert.equal((await pedir('e'.repeat(64), { 'X-Clave-Lectura': claveLectura })).status, 404);
-  assert.equal((await fetch(servidor.url + '/eventos/recibo?eje=nadie&id=' + e1.id, { headers: { 'X-Clave-Lectura': claveLectura } })).status, 404);
+  assert.equal((await fetch(servidor.url + '/eventos/recibo?eje=nadie&id=' + e1.id, { headers: { 'X-Clave-Lectura': claveLectura } })).status, 401, 'eje inexistente: como la clave mala (#106)');
   assert.equal((await fetch(servidor.url + '/eventos/recibo?eje=recibo&id=' + e1.id, { method: 'POST', headers: { 'X-Clave-Lectura': claveLectura } })).status, 405);
 });

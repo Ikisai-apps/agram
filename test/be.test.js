@@ -189,7 +189,7 @@ test('buscar, diario y contexto', async () => {
   assert.ok(c.salida.includes('tres platos y postre'));
 });
 
-test('errores del servidor tal cual: clave de lectura mala (401) y eje que no existe (404)', async () => {
+test('errores del servidor tal cual: clave de lectura mala (401) y eje que no existe (también 401: no se revela qué ejes existen, #106)', async () => {
   const mala = join(carpeta, 'mala.json');
   writeFileSync(mala, JSON.stringify({ sync_url: servidor.url, eje: 'vg', clave_lectura: 'no-es-la-clave' }));
   const r401 = await be('estado', '--config', mala);
@@ -197,9 +197,9 @@ test('errores del servidor tal cual: clave de lectura mala (401) y eje que no ex
   assert.match(r401.error, /servidor 401/);
   const nada = join(carpeta, 'nada.json');
   writeFileSync(nada, JSON.stringify({ sync_url: servidor.url, eje: 'no-existe', clave_lectura: claveLectura }));
-  const r404 = await be('estado', '--config', nada);
-  assert.equal(r404.codigo, 1);
-  assert.match(r404.error, /servidor 404/);
+  const rSinEje = await be('estado', '--config', nada);
+  assert.equal(rSinEje.codigo, 1);
+  assert.match(rSinEje.error, /servidor 401/);
 });
 
 // ---------- Core escribe (encargo core-escribe, VG 11-11): su identidad «cosa», su alta y sus propuestas ----------

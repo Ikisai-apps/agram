@@ -203,7 +203,7 @@ describe('sim aarpia: servicio HTTP', () => {
     const estados = Object.fromEntries(pasos.map((p) => [p.nombre, p.estado]));
     assert.deepEqual(estados, {
       'crear eje': 201, 'eje repetido': 409, 'no génesis en eje vacío': 400, 'génesis': 201, 'génesis repetido': 200, 'sin clave': 401,
-      'alta': 201, 'firma tocada': 400, 'autor sin alta': 403, 'pago': 201, 'bajar': 200, 'bajar desde 2': 200, 'eje desconocido': 404, 'clave mala': 401,
+      'alta': 201, 'firma tocada': 400, 'autor sin alta': 403, 'pago': 201, 'bajar': 200, 'bajar desde 2': 200, 'eje desconocido': 401, 'clave mala': 401,
     });
     const bajar = pasos.find((p) => p.nombre === 'bajar').cuerpo;
     assert.deepEqual(bajar.eventos.map((e) => [e.orden, e.evento.id]), [[1, ev.genesis.id], [2, ev.alta.id], [3, ev.pago.id]]);
@@ -321,7 +321,7 @@ describe('sim aarpia: Blossom y archivos', () => {
     const pasos = await recorrido(s.manejar, clave);
     assert.deepEqual(Object.fromEntries(pasos.map((p) => [p.nombre, p.estado])), {
       'subir png': 201, 'subir png otra vez': 200, 'subir html': 201, 'png que no es png': 400, 'tipo no admitido': 415,
-      'sin clave': 401, 'eje desconocido': 404, 'bajar png': 200, 'bajar html': 200, 'bajar desconocido': 404,
+      'sin clave': 401, 'eje desconocido': 401, 'bajar png': 200, 'bajar html': 200, 'bajar desconocido': 404,
     });
     // Lo que vuelve es el original, con su tipo y la política de AGRAM.
     const r = await s.manejar(new Request('http://p/archivos/' + (await sha(HTML)) + '?eje=vg', { headers: { 'X-Clave-Lectura': clave } }));

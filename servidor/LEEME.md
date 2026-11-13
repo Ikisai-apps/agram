@@ -113,7 +113,7 @@ La carta tiene una guía de solo lectura en el PV9 que pregunta a Claude con el 
 curl -s -X POST https://<ref>.supabase.co/functions/v1/guia \
   -H "X-Clave-Lectura: $CLAVE" -H "Content-Type: application/json" \
   -d '{"eje":"vg","mensajes":[{"role":"user","content":"¿qué es AGRAM?"}],"contexto":"pantalla de prueba"}'
-# → 200 {"texto":"…","uso":{"entrada":…,"salida":…}}; sin la cabecera → 401; eje que no existe → 404;
+# → 200 {"texto":"…","uso":{"entrada":…,"salida":…}}; sin la cabecera → 401; eje que no existe → 401 (igual que la clave mala, #106);
 #   contexto de más de 8 000 caracteres → 413; más de 30 preguntas por minuto en el eje → 429.
 ```
 4. **La carta.** Sin cambios: la guía usa el mismo `sync url`, `sync ledger` y clave de lectura del libro compartido; los ajustes de la guía (modelo, vía `server`, historial, tope del contexto) están en «configuración». Con el servidor de prueba (`servidor/prueba/servidor.mjs`), `/guia` responde con un eco fijo, sin llamar a nadie.
@@ -138,6 +138,21 @@ curl -s -D - "https://<ref>.supabase.co/functions/v1/archivos/<sha256>?eje=vg" -
 4. **La carta.** Sin cambios: usa el mismo `sync url`, `sync ledger` y clave de lectura de la cuenta. Supabase Storage puede guardar el HTML como `text/plain`: la función sirve el tipo por el contenido (`tipoPorContenido`). CORS: los mismos orígenes que `eventos` (`ORIGENES` en `api.js`).
 
 Con el servidor de prueba (`servidor/prueba/servidor.mjs`), `/archivos` y `/archivos/<id>` responden igual, con los archivos en memoria (no van al `--archivo` JSON).
+
+## Servir la carta desde el nodo (y el `sitio.json`)
+
+La carta es estática (`index.html` + `carta/` + `src/` + `datos/` + `antigua/` + `ejemplos/` + `arte/`, lo mismo que GitHub Pages sirve de la raíz del repositorio): un nodo propio (`https://aarpia.ikisai.com`) puede servirla junto a la API de `eventos`. Se sirve **lo que sirve la raíz salvo lo que no es la web**; es la misma lista de exclusión que usa `beta/publicar.mjs` (`EXCLUIR`): `.git`, `node_modules`, `test`, `bench`, `.github`, `servidor`, `beta`, `.playwright-mcp`, `.wrangler`. Con `servidor/` fuera, los secretos y las funciones no se publican.
+
+**`sitio.json`** (opcional, `docs/CONTRATO.md` §16.2 ter): en la raíz de lo que se sirve, junto a `index.html`, con los defectos de esa casa:
+
+```sh
+cp sitio.ejemplo.json sitio.json     # y editar: "sync url", "sync ledger", "guide url" (solo ajustes; NUNCA una clave)
+```
+
+- Está en `.gitignore`: no va al repositorio (solo `sitio.ejemplo.json`). Como `beta/publicar.mjs` copia la raíz **del disco**, un `sitio.json` que haya en la carpeta desde la que se publica **sí** se publica con la beta (no está en `EXCLUIR`, a propósito: es lo que la hace apuntar al nodo). El de `sitio.ejemplo.json` también viaja, es inocuo.
+- Cada cuenta **nueva** nace con esos ajustes; la configuración (el 9) los enseña a quien no tiene el suyo. La **clave de lectura** la mete cada persona en su navegador: si el `sitio.json` trae una, se ignora y la consola avisa.
+- `sw.js` sirve primero lo que tiene en caché y refresca detrás: tras cambiar `sitio.json`, la primera carga puede enseñar el anterior y la siguiente el nuevo (la beta no cachea: `_headers` y un `sw.js` que se da de baja).
+- Servirlo con `Cache-Control: no-cache` y con el tipo `application/json`; si falta el archivo, la carta sigue como siempre.
 
 ## Lo que queda para desplegar
 

@@ -8,7 +8,8 @@
 //                              (solo se guarda su hash). Protegido: Authorization: Bearer <clave de servicio> o
 //                              X-Crear-Ejes: <AGRAM_CREAR_EJES>. 409 si ya existe; 503 si no está habilitado.
 //   POST {url}/eventos         { eje, evento } → 201 { orden, recibido } (200 y duplicado: true si ya estaba: idempotente).
-//                              400 forma, id o firma; 403 autor sin alta en el eje; 404 eje; 401 sin clave de lectura;
+//                              400 forma, id o firma; 403 autor sin alta en el eje; 401 sin clave de lectura, clave mala o eje que no existe (la
+//                              misma respuesta: no se revela si un eje existe, #106);
 //                              413 cuerpo > 256 KB; 429 más de 60 escrituras por minuto en el eje.
 //   GET  {url}/eventos?eje=…&desde=<orden>&cuantos=<≤500>
 //                              → { eventos: [{ orden, recibido, evento }], siguiente } con orden > desde, por llegada;
@@ -90,13 +91,17 @@ export function crearApi({ almacen, cripto = verificar, crearEjes = {}, origenes
     }
   }
 
-  /** El eje y su clave de lectura: { eje } o { respuesta } con el error. */
+  /**
+   * El eje y su clave de lectura: { eje } o { respuesta } con el error. Un eje que no existe y una clave mala dan la MISMA
+   * respuesta (401, mismo cuerpo): desde fuera no se puede saber si un eje existe probando nombres (#106). Por eso no hay
+   * «404 eje desconocido»; el hash de la clave se calcula igual en los dos casos.
+   */
   async function abrirEje(request, nombre) {
     if (typeof nombre !== 'string' || !NOMBRE_EJE.test(nombre)) return { respuesta: error(request, 400, 'eje: nombre inválido') };
     const fila = await almacen.eje(nombre);
-    if (!fila) return { respuesta: error(request, 404, 'eje desconocido: ' + nombre) };
     const clave = request.headers.get('x-clave-lectura');
-    if (!clave || (await hashDeClave(clave)) !== fila.clave_lectura_hash) return { respuesta: error(request, 401, 'clave de lectura ausente o incorrecta') };
+    const hash = clave ? await hashDeClave(clave) : null;
+    if (!fila || !hash || hash !== fila.clave_lectura_hash) return { respuesta: error(request, 401, 'clave de lectura ausente o incorrecta') };
     return { eje: fila };
   }
 

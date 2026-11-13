@@ -6,7 +6,7 @@
 //   POST {url}/archivos?eje=…        con X-Clave-Lectura (la del libro compartido del eje), Content-Type uno de TIPOS y
 //                                    el cuerpo binario (tope 2 MB) → 201 { id, tipo, bytes } (200 si ya estaba:
 //                                    idempotente, el id es el SHA-256 del contenido). 400 eje, cuerpo vacío o contenido
-//                                    que no es del tipo; 401 clave; 404 eje; 413 más de 2 MB; 415 tipo no admitido;
+//                                    que no es del tipo; 401 clave (o eje que no existe: la misma respuesta, #106); 413 más de 2 MB; 415 tipo no admitido;
 //                                    429 más de 30 subidas por minuto en el eje.
 //   GET  {url}/archivos/<id>?eje=…   con X-Clave-Lectura → 200 el archivo con su Content-Type; 404 si no está.
 //   OPTIONS                          CORS (los mismos orígenes que la función `eventos`).
@@ -105,9 +105,10 @@ export function crearArchivos({ almacen, origenes = ORIGENES, limite = LIMITE_AR
   async function abrirEje(request, nombre) {
     if (typeof nombre !== 'string' || !NOMBRE_EJE.test(nombre)) return { respuesta: error(request, 400, 'eje: nombre inválido') };
     const fila = await almacen.eje(nombre);
-    if (!fila) return { respuesta: error(request, 404, 'eje desconocido: ' + nombre) };
+    // Eje inexistente y clave mala: la misma respuesta (401), para no revelar qué ejes existen (#106).
     const clave = request.headers.get('x-clave-lectura');
-    if (!clave || (await sha256(clave)) !== fila.clave_lectura_hash) return { respuesta: error(request, 401, 'clave de lectura ausente o incorrecta') };
+    const hash = clave ? await sha256(clave) : null;
+    if (!fila || !hash || hash !== fila.clave_lectura_hash) return { respuesta: error(request, 401, 'clave de lectura ausente o incorrecta') };
     return { eje: fila };
   }
 
