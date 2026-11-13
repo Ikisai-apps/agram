@@ -1158,7 +1158,7 @@ export async function camino(eje, X, yo, opciones = {}) {
     const porQuien = new Map();
     for (const m of a.movimientos) porQuien.set(m.de, [...(porQuien.get(m.de) ?? []), m]);
     for (const [de, ms] of porQuien) {
-      const que = (mensaje(eje, 'stage', idioma, opciones) ?? 'stage') + ' · ' + (a.que ?? '') + ' ' + ms.map((m) => m.cantidad + ' ' + m.serie + ' ' + m.de + ' → ' + m.a).join('; ');
+      const que = (mensaje(eje, 'stage', idioma, opciones) ?? 'stage') + ' · ' + (a.que ?? '') + ' ' + ms.map((m) => m.cantidad + ' ' + m.serie + ' ' + m.de + (m.a ? ' → ' + m.a : '')).join('; '); // sin destino resuelto (a: null) no se imprime «→ null» (repaso beta #2)
       const estacion = estacionDe.get(partirClave(ms[0].serie).token);
       if (de === yo && estacion) {
         const paso = mio(estacion.plantilla, { announcement: { ref: anuncio.id } });

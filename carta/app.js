@@ -382,7 +382,20 @@ function colocarSecuencia(antes, mismoFoco) {
   const barra = raiz.querySelector('.cero-columna')?.offsetHeight ?? 0;
   const ahora = nucleo.getBoundingClientRect().top;
   if (antes !== null && mismoFoco) window.scrollBy({ top: ahora - antes, behavior: 'instant' });
-  else window.scrollTo({ top: Math.max(0, window.scrollY + ahora - barra), behavior: 'instant' });
+  else {
+    window.scrollTo({ top: Math.max(0, window.scrollY + ahora - barra), behavior: 'instant' });
+    // Al llegar a un foco, la tarjeta se queda arriba aunque lo de encima (el pasado, las fuentes, las imágenes) acabe de
+    // medirse después: se recoloca mientras nadie haya movido el scroll (repaso beta #26: abría a mitad del hilo del pasado).
+    let puesto = window.scrollY;
+    const recolocar = () => {
+      const n = raiz.querySelector('.secuencia-ahora > .nucleo');
+      if (!n || Math.abs(window.scrollY - puesto) > 1 || irTrasPintar !== null) return;
+      const dif = n.getBoundingClientRect().top - (raiz.querySelector('.cero-columna')?.offsetHeight ?? 0);
+      if (Math.abs(dif) > 2) { window.scrollTo({ top: Math.max(0, window.scrollY + dif), behavior: 'instant' }); puesto = window.scrollY; }
+    };
+    globalThis.requestAnimationFrame?.(() => globalThis.requestAnimationFrame?.(recolocar));
+    globalThis.document?.fonts?.ready?.then?.(recolocar);
+  }
   const ir = irTrasPintar;
   irTrasPintar = null;
   if (ir === null) return;
@@ -945,14 +958,21 @@ const manejadores = {
     if (!form) { estado.config = true; estado.motivosPreferencias = []; estado.formulario = null; estado.aro = null; estado.sitio = null; pintar(); return; }
     const valores = {};
     for (const input of form.querySelectorAll('input[name]')) valores[input.name] = input.value.trim().split(/\s+/).filter(Boolean);
+    const valoresGuia = Object.fromEntries([...form.querySelectorAll('[data-guia-campo]')].map((i) => [i.dataset.guiaCampo, i.value]));
+    const valoresExterior = Object.fromEntries([...form.querySelectorAll('[data-exterior-campo]')].map((i) => [i.dataset.exteriorCampo, i.value]));
+    // Un número que no lo es o unas claves del observador mal escritas avisan y no se guarda nada (repaso beta #13).
+    const avisos = [
+      ...guia.avisosDeAjustes(preferencias(estado.eje, estado.identidad)?.campos, Object.fromEntries(Object.entries(valores).map(([k, v]) => [k, v.join(' ')])), { positivo: false }),
+      ...guia.avisosDeAjustes(guia.ajustesEditables(estado.eje, estado.identidad)?.campos, valoresGuia),
+      ...guia.avisosDeAjustes(guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad)?.campos, valoresExterior),
+    ];
+    if (avisos.length) { estado.motivosPreferencias = avisos.map((mensaje) => ({ mensaje })); pintar(); return; }
     // La clave de lectura, aparte: al almacén local de la cuenta, nunca al registro de preferencias (que va en el eje).
     const campoClave = form.querySelector('[data-clave-lectura]');
     if (campoClave && estado.cuenta) cuentas.guardarClaveLectura(estado.cuenta.alta, campoClave.value);
     // Lo de la guía: la clave de la API, también aparte (solo en este navegador); los demás ajustes son un registro más.
     const campoIa = form.querySelector('[data-clave-ia]');
     if (campoIa && altaDeGuia()) guia.guardarClaveIa(almacenLocal(), altaDeGuia(), campoIa.value);
-    const valoresGuia = Object.fromEntries([...form.querySelectorAll('[data-guia-campo]')].map((i) => [i.dataset.guiaCampo, i.value]));
-    const valoresExterior = Object.fromEntries([...form.querySelectorAll('[data-exterior-campo]')].map((i) => [i.dataset.exteriorCampo, i.value]));
     // El segundo factor (VG 12/13-11, #66, #70): un criterio más en el 2.4 de mi alta, con la plantilla «second factor», si la familia está escrita.
     const valoresSegundo = Object.fromEntries([...form.querySelectorAll('[data-segundo-factor-campo]')].map((i) => [i.dataset.segundoFactorCampo, i.value.trim()]));
     if (!preferencias(estado.eje, estado.identidad, valores)) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }

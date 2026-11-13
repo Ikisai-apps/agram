@@ -2337,6 +2337,13 @@ function fechaLegible(v, idioma) {
   }
 }
 
+/** El plural del nombre de una escala de T («minuto» → «minutos»): los nombres de la época están en singular. */
+export function pluralDeEscala(nombre) {
+  const n = String(nombre ?? '');
+  if (!n || /s$/i.test(n)) return n;
+  return /[aeiouáéíóú]$/i.test(n) ? n + 's' : n + 'es';
+}
+
 /**
  * Un valor de una posición o de un parámetro, legible: { texto, partes }. `tipo` es el de la plantilla (las hojas de su
  * d.1: number, ref, identity, instant, level, o la décupla; lo demás, texto) y orienta la lectura; lo que el valor es se
@@ -2362,7 +2369,9 @@ export function legible(eje, valor, tipo, { idioma = 'en', ...opciones } = {}) {
   // Un movimiento o un asiento: { serie, cantidad }.
   if (valor && typeof valor === 'object' && !Array.isArray(valor) && !esReferencia(valor) && typeof valor.cantidad === 'number' && typeof valor.serie === 'string') {
     const serie = otro(valor.serie);
-    return { texto: F('amount', { amount: valor.cantidad, series: serie.texto }), partes: { cantidad: valor.cantidad, serie: serie.partes } };
+    // Concordancia (repaso beta #10): «69 minutos», «1 minuto»; las escalas de T se dicen en singular en la época.
+    const serieTexto = serie.partes?.familia === 'T' && serie.partes.nombre && Math.abs(valor.cantidad) !== 1 ? F('series T', { scale: pluralDeEscala(serie.partes.nombre) }) : serie.texto;
+    return { texto: F('amount', { amount: valor.cantidad, series: serieTexto }), partes: { cantidad: valor.cantidad, serie: serie.partes } };
   }
   if (esReferencia(valor)) {
     const X = eje?.obtener?.(valor.ref) ? valor.ref : null;
