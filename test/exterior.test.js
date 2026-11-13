@@ -301,7 +301,7 @@ test('en la carta, «verificado» es una marca discreta: en el reverso (cara 5) 
   assert.match(matriz, /data-confirmaciones="4"[^>]*>◆ verificado · 4 confirmaciones<\//, 'la de altura 3: 6 − 3 + 1');
 
   // La configuración: el desplegable de los ajustes del exterior, con sus campos (sin `name`: la app los escribe como su registro).
-  const form = htmlConfiguracion(preferencias(eje, 'huesped'), { exterior: G.ajustesEditablesDe(PLANTILLA, eje, 'huesped', {}, { idioma: 'es' }) });
+  const form = htmlConfiguracion(preferencias(eje, 'huesped'), { exterior: G.ajustesEditablesDe(PLANTILLA, eje, 'huesped', {}, { idioma: 'es' }), parte: '9' }); // los ajustes del exterior van en «guía y exterior» (#92)
   assert.match(form, new RegExp('<details class="exterior-ajustes"[^>]*><summary>' + t('exteriorAjustes') + '</summary>'));
   for (const clave of ['relay url', 'blossom url', 'seal url']) assert.match(form, new RegExp('data-exterior-campo="' + clave + '"'));
   assert.doesNotMatch(form, /name="relay url"/);
