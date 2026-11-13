@@ -369,7 +369,8 @@ function htmlPersona(p) {
  */
 function htmlCajaDelTres(c) {
   const filtro = `<button type="button" class="filtro-caja"${nodo('control')} data-filtro-caja="${c.caja}" data-filtro="${attr(c.filtro)}" title="${attr(t('filtroTitulo'))}">${escapar(t('filtro_' + c.filtro))}</button>`;
-  const cuerpo = c.personas.length ? `<ul class="personas">${c.personas.map((p) => `<li>${htmlPersona(p)}</li>`).join('')}</ul>` : `<span class="hijo-vacio">${escapar(t(c.total ? 'cajaFiltrada' : 'cajaVacia'))}</span>`;
+  // Una caja vacía dice qué la llena (VG 14-11, #88: la frase de su grupo en la época), no solo «nadie».
+  const cuerpo = c.personas.length ? `<ul class="personas">${c.personas.map((p) => `<li>${htmlPersona(p)}</li>`).join('')}</ul>` : `<span class="hijo-vacio">${escapar(c.total ? t('cajaFiltrada') : c.llena ?? t('cajaVacia'))}</span>`;
   const m = c.minimo ?? {};
   const pie = [
     typeof m.cantidad === 'number' ? t('cajaMinimo', { n: m.cantidad }) : '',
@@ -392,7 +393,16 @@ function htmlSitio(s, arbol = null, extra = {}) {
     const k = p.celda.join(',');
     celdas.set(k, [...(celdas.get(k) ?? []), p]);
   }
-  const posicion = (p) => `<div class="sitio-posicion" data-posicion="${p.posicion}" data-color="${p.posicion}"><span class="numero">${p.posicion}</span><span class="nombre">${escapar(p.nombre ?? '')}</span><span class="valor">${escapar(p.valor || '—')}</span>${controles[p.posicion] ? `<div class="sitio-controles"${nodo('sitio-controles', { posicion: p.posicion })}>${controles[p.posicion]}</div>` : ''}${p.accion ? `<button type="button" class="accion"${nodo('accion')} data-sitio-lanzar="${attr(p.accion.id)}" data-x="${attr(s.X)}" data-valores="${attr(JSON.stringify(p.accion.valores ?? {}))}" title="${attr(p.accion.etiqueta)}">${escapar(p.accion.etiqueta)}</button>` : ''}</div>`;
+  // VG 14-11, #85: la celda enseña el 0 de su nodo (su término) y su valor; tocarla es configurar esa posición (no hay un botón
+  // repetido); las opciones propias del 0 de mi alta se muestran con su nombre en su celda (y, con ellas, la celda no es un botón).
+  const posicion = (p) => {
+    const con = controles[p.posicion];
+    const texto = `<span class="nombre">${escapar(p.nombre ?? '')}</span>${p.valor || !con ? `<span class="valor${p.valor ? '' : ' sin-configurar'}">${escapar(p.valor || t('sinConfigurar'))}</span>` : ''}`;
+    const tocar = p.accion && !con
+      ? `<button type="button" class="sitio-tocar"${nodo('accion')} data-sitio-lanzar="${attr(p.accion.id)}" data-x="${attr(s.X)}" data-valores="${attr(JSON.stringify(p.accion.valores ?? {}))}" title="${attr(t('sitioConfigurarTitulo', { que: p.nombre ?? '', accion: p.accion.etiqueta }))}">${texto}</button>`
+      : texto;
+    return `<div class="sitio-posicion${p.accion && !con ? ' tocable' : ''}" data-posicion="${p.posicion}" data-color="${p.posicion}"><span class="numero">${p.posicion}</span>${tocar}${con ? `<div class="sitio-controles"${nodo('sitio-controles', { posicion: p.posicion })}>${con}</div>` : ''}</div>`;
+  };
   const cuerpo = [...celdas.entries()].map(([k, ps]) => { const [f, c] = k.split(','); return `<li class="sitio-celda" style="--fila:${Number(f) + 1};--columna:${Number(c) + 1}">${ps.map(posicion).join('')}</li>`; }).join('');
   return `<div class="sitio-fondo" data-cerrar><div class="sitio-cruceta"${nodo('sitio', { lugar: s.lugar })} data-x="${attr(s.X)}" data-sitio-de="${attr(s.lugar)}"${s.general ? ' data-sitio-general' : ''} role="dialog" aria-label="${attr(t('sitioDe', { lugar: s.lugar, que: s.texto }))}"><header><h2><span class="sitio-icono" aria-hidden="true">?</span> ${escapar(t(s.general ? 'sitioCeroDe' : 'sitioDe', { lugar: s.lugar, que: s.texto }))}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header><ol class="sitio-posiciones">${cuerpo}</ol></div></div>`;
 }
@@ -1143,26 +1153,31 @@ function htmlSegundoFactor(sf) {
   return `<details class="segundo-factor"${nodo('control')}${sf.criterios.length ? ' open' : ''}><summary>${t('segundoFactor')}</summary><p class="ayuda">${escapar(t('segundoFactorAyuda'))}</p>${actuales}<fieldset class="guia-ajustes">${campos}</fieldset></details>`;
 }
 
+/** Los ajustes de preferencias que son de la guía y el exterior (el 9 de mi alta) y no de mis criterios: el servidor y el eje compartido. */
+const DE_LA_PARTE_9 = new Set(['sync url', 'sync ledger']);
+
 /**
  * El formulario de la configuración, generado desde la plantilla «preferences»: cada campo por su clave, con su
  * etiqueta en el idioma. En una cuenta (`claveLectura` es una cadena, quizá vacía), además el campo aparte de la clave
  * de lectura del libro compartido: sin `name` (no entra en el registro de preferencias: la app lo lee por
  * data-clave-lectura y lo guarda en el almacén local de la cuenta, nunca en el eje).
  */
-export function htmlConfiguracion(p, { motivos = [], claveLectura, guia, exterior, segundoFactor } = {}) {
+export function htmlConfiguracion(p, { motivos = [], claveLectura, guia, exterior, segundoFactor, parte = '2' } = {}) {
   if (!p) return '';
   // Un campo con opciones (el modelo, #4) es un desplegable con ellas; los demás, texto.
   const control = (c) => (c.opciones
     ? `<select id="pref-${c.pv}" name="${attr(c.clave)}" title="${attr(c.ayuda)}">${c.opciones.map((o) => `<option value="${attr(o.valor)}"${o.valor === c.valor ? ' selected' : ''}>${escapar(o.texto)}</option>`).join('')}</select>`
     : `<input id="pref-${c.pv}" name="${attr(c.clave)}" type="text" value="${attr(valorInput(Array.isArray(c.valor) ? c.valor.join(' ') : c.valor))}" placeholder="${attr(c.marcador.join(' '))}" title="${attr(c.ayuda)}" autocomplete="off">`);
-  const campos = p.campos.map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label>${control(c)}<small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('')
-    + (typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '')
-    + htmlAjustesGuia(guia)
-    + htmlAjustesExterior(exterior)
-    + htmlSegundoFactor(segundoFactor);
-  return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion"${nodo('configuracion')} data-configuracion aria-label="${attr(t('configuracion'))}">
-    <header><h2>${t('miConfiguracion')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
-    <p class="ayuda">${escapar(t('configuracionAyuda', { plantilla: p.nombre }))}</p>
+  // Separada por posición (VG 14-11, #92): el 2 = mis criterios y preferencias (idioma, sobrio o animado, tamaños, segundo factor); el 9 =
+  // guía y exterior (servidor y eje compartido, clave de lectura, la guía, relé, archivos, sello, observadores, confirmaciones).
+  const del9 = parte === '9';
+  const esDelNueve = (c) => DE_LA_PARTE_9.has(c.clave);
+  const campos = p.campos.filter((c) => esDelNueve(c) === del9).map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label>${control(c)}<small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('')
+    + (del9 && typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '')
+    + (del9 ? htmlAjustesGuia(guia) + htmlAjustesExterior(exterior) : htmlSegundoFactor(segundoFactor));
+  return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion"${nodo('configuracion')} data-configuracion data-parte="${del9 ? 9 : 2}" aria-label="${attr(t(del9 ? 'ajustesGuiaExterior' : 'configuracionCriterios'))}">
+    <header><h2><span class="numero">${del9 ? 9 : 2}</span> ${t(del9 ? 'ajustesGuiaExterior' : 'configuracionCriterios')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
+    <p class="ayuda">${escapar(t(del9 ? 'configuracionAyuda9' : 'configuracionAyuda2'))}</p>
     ${campos}${motivos.length ? `<ul class="motivos" role="alert">${motivos.map((m) => `<li>${escapar(m.mensaje ?? m)}</li>`).join('')}</ul>` : ''}
     <footer><button type="submit">${t('guardar')}</button></footer>
   </form></div>`;
@@ -1178,7 +1193,7 @@ function htmlSoy(arbol, { cuentas = [], cuenta = null } = {}) {
     ? `<optgroup label="${attr(t('ejemplos'))}"><option value="ejemplo">${t('probarConEjemplo')}</option></optgroup>`
     : `<optgroup label="${attr(t('ejemplos'))}">${arbol.identidades.map((i) => `<option value="${attr(i.id)}" ${i.id === arbol.yo ? 'selected' : ''}>${escapar(i.id)}${i.persona ? '' : ' ' + t('cosa')}</option>`).join('')}</optgroup>`;
   const nuevas = `<optgroup label="${attr(t('cuenta'))}"><option value="nueva">${t('crearMiCuenta')}…</option><option value="restaurar">${t('restaurarUnaCuenta')}…</option></optgroup>`;
-  return `<label class="ajuste"${nodo('control')}>${t('soy')} <select data-quien>${mias}${ejemplo}${nuevas}</select></label>`;
+  return `<label class="ajuste"${nodo('control')}>${t('verComo')} <select data-quien>${mias}${ejemplo}${nuevas}</select></label>`;
 }
 
 /**
@@ -1221,15 +1236,16 @@ function htmlInterruptor(i) {
  * data-olvidar, data-reiniciar, data-preferencia, data-opinar-ctl, data-sincronia). → { [posición]: html }.
  */
 function controlesDelCero(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null, opinar = null } = {}) {
-  const quien = htmlSoy(arbol, { cuentas, cuenta });
+  // «soy» es del modo ejemplo (VG 14-11, #86): en una cuenta la identidad es la cuenta y no se cambia desde aquí; en el ejemplo, «ver como» (el visor de la demo).
+  const quien = cuenta ? '' : htmlSoy(arbol, { cuentas, cuenta });
   const ej = !cuenta && ejemplos.length ? `<label class="ajuste"${nodo('control')}>${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
   const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${v === 1 ? t('escalaUna_' + k) : t('escala_' + k)}`).join(' · ') : '';
   const local = arbol.local ? `<span class="tiempo" title="${attr(t('tiempoLocalTitulo', { serie: arbol.local.serie }))}">${escapar(t('hoy', { segundos: arbol.local.gastadoHoy }))}${tiempo ? ' · ' + escapar(tiempo) : ''}</span><button type="button" class="englobar"${nodo('control')} data-englobar ${arbol.local.pendientes ? '' : 'disabled'} title="${attr(t('englobarTitulo', { cuantas: arbol.local.pendientes }))}">${t('englobar')}${arbol.local.pendientes ? ` · ${arbol.local.pendientes}` : ''}</button>` : '';
   const propios = cuenta
     ? `<button type="button"${nodo('control')} data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button"${nodo('control')} data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`
     : `<button type="button"${nodo('control')} data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button>`;
-  const config = `<button type="button"${nodo('control')} data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>`;
-  const ajustes = `<button type="button"${nodo('control')} data-config title="${attr(t('ajustesGuiaExteriorTitulo'))}">${t('ajustesGuiaExterior')}</button>`;
+  const config = `<button type="button"${nodo('control')} data-config="2" title="${attr(t('configuracionTitulo'))}">${t('configuracionCriterios')}</button>`;
+  const ajustes = `<button type="button"${nodo('control')} data-config="9" title="${attr(t('ajustesGuiaExteriorTitulo'))}">${t('ajustesGuiaExterior')}</button>`;
   return {
     0: quien + ej,
     1: local,
@@ -1352,7 +1368,7 @@ export function html(arbol, extra = {}) {
     ${htmlAro(a.aro)}
     ${htmlSitio(a.sitio, a, extra)}
     ${htmlFormulario(a.formulario)}
-    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes, exterior: extra.exteriorAjustes, segundoFactor: extra.segundoFactor }) : ''}
+    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes, exterior: extra.exteriorAjustes, segundoFactor: extra.segundoFactor, parte: extra.parteConfiguracion }) : ''}
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}
     ${htmlCopia(extra.copia)}
   </div>`;

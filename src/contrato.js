@@ -1265,6 +1265,22 @@ export function leerRuta(eje, N, ruta, { yo, t: _t, tope = SIN_TOPE, ...opciones
 
 // ---------- 4.5 el 3 por tema: las cajas de personas y la conversación (encargo pv3, VG 11/12-11) ----------
 
+/**
+ * Lo que llena cada caja del 3, una frase por caja en el idioma (VG 14-11, #88): la hoja «<idioma>: <frase>» de la fila de
+ * su grupo en epoch.1.2.1 (su cuarto elemento); si falta en el idioma, la del inglés; si no hay, null.
+ */
+function frasesDeLasCajas(idioma, opciones) {
+  const frases = [];
+  for (const g of hojas(en(raizDe(epocaDe(opciones)), [1, 2, 1])).filter(Array.isArray)) {
+    const zona = hoja(g[1]);
+    if (!Number.isInteger(zona)) continue;
+    const porIdioma = new Map();
+    for (const h of hojas(g[3])) { const i = typeof h === 'string' ? h.indexOf(': ') : -1; if (i > 0 && !porIdioma.has(h.slice(0, i))) porIdioma.set(h.slice(0, i), h.slice(i + 2)); }
+    frases[zona] = porIdioma.get(idioma) ?? porIdioma.get('en') ?? null;
+  }
+  return frases;
+}
+
 /** Los nombres de las seis cajas del 3: los de los grupos de la época (epoch.1.2.1), por su zona. */
 function nombresDeLasCajas(opciones) {
   const nombres = [];
@@ -1297,7 +1313,7 @@ export function gruposDelTres(eje, X, { filtros, rangoDe, ...opciones } = {}) {
     return r && Number.isInteger(r.nivel) && Number.isInteger(r.grado) ? r.nivel + '.' + r.grado : null;
   };
   return cajasDelTres(eje, ev.id, { nombres: nombresDeLasCajas(opciones), filtros, rangoDe: typeof rangoDe === 'function' ? rangoDe : delAlta }).map((c) => ({
-    ...c, personas: c.personas.map((p) => ({ ...p, texto: legible(eje, p.identidad, TIPO.identidad, { idioma, epoca }).texto })),
+    ...c, llena: frasesDeLasCajas(idioma, opciones)[c.caja] ?? null, personas: c.personas.map((p) => ({ ...p, texto: legible(eje, p.identidad, TIPO.identidad, { idioma, epoca }).texto })),
   }));
 }
 
@@ -1319,10 +1335,10 @@ export function conversacionDelTres(eje, X, persona, { caja, ...opciones } = {})
 function cajasComoHijos(eje, X, d, { cuantos, ...opciones }) {
   const porCaja = new Map(gruposDelTres(eje, X, opciones).map((c) => [c.caja, c]));
   return d.hijos.map((digito) => {
-    const c = porCaja.get(digito) ?? { caja: digito, nombre: null, personas: [], total: 0, filtro: 'todos', minimo: { cantidad: null, rango: null, modo: null }, fuera: 0, rangoPendiente: false };
+    const c = porCaja.get(digito) ?? { caja: digito, nombre: null, llena: null, personas: [], total: 0, filtro: 'todos', minimo: { cantidad: null, rango: null, modo: null }, fuera: 0, rangoPendiente: false };
     const personas = c.personas.slice(0, cuantos ?? paso(opciones));
     return {
-      digito, nombre: c.nombre, ocupantes: personas.map((p) => p.identidad), total: c.total, vacio: c.total === 0,
+      digito, nombre: c.nombre, llena: c.llena, ocupantes: personas.map((p) => p.identidad), total: c.total, vacio: c.total === 0,
       personas, filtro: c.filtro, minimo: c.minimo, fuera: c.fuera, rangoPendiente: c.rangoPendiente, enLista: c.personas.length,
     };
   });

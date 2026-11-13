@@ -228,7 +228,7 @@ function extraDe() {
     guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
     exteriorAjustes: estado.config && estado.eje ? guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad) ?? undefined : undefined,
     segundoFactor: estado.config && estado.eje ? segundoFactorDeConfiguracion(estado.eje, estado.identidad) ?? undefined : undefined,
-    arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
+    parteConfiguracion: estado.config || undefined, arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
     archivo: (id) => archivos.contenido(id), // los archivos adjuntos (el HTML del PV0 en su iframe aislado, las imágenes)
   };
 }
@@ -954,10 +954,11 @@ const manejadores = {
     }
     pintar();
   },
-  async configurar(form) {
-    if (!form) { estado.config = true; estado.motivosPreferencias = []; estado.formulario = null; estado.aro = null; estado.sitio = null; pintar(); return; }
+  /** La configuración, separada por posición (VG 14-11, #92): parte '2' = mis criterios y preferencias, '9' = guía y exterior; cada una guarda solo lo suyo. */
+  async configurar(form, parte) {
+    if (!form) { estado.config = parte === '9' ? '9' : '2'; estado.motivosPreferencias = []; estado.formulario = null; estado.aro = null; estado.sitio = null; pintar(); return; }
     const valores = {};
-    for (const input of form.querySelectorAll('input[name]')) valores[input.name] = input.value.trim().split(/\s+/).filter(Boolean);
+    for (const input of form.querySelectorAll('input[name], select[name]')) valores[input.name] = input.value.trim().split(/\s+/).filter(Boolean);
     const valoresGuia = Object.fromEntries([...form.querySelectorAll('[data-guia-campo]')].map((i) => [i.dataset.guiaCampo, i.value]));
     const valoresExterior = Object.fromEntries([...form.querySelectorAll('[data-exterior-campo]')].map((i) => [i.dataset.exteriorCampo, i.value]));
     // Un número que no lo es o unas claves del observador mal escritas avisan y no se guarda nada (repaso beta #13).

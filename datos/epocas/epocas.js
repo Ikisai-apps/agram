@@ -173,6 +173,10 @@ export const EPOCA_0_BTML_DATOS = [
             [
               1
             ]
+          ],
+          [
+            "es: aquí entra quien te escribe",
+            "en: whoever writes to you comes in here"
           ]
         ],
         [
@@ -189,6 +193,10 @@ export const EPOCA_0_BTML_DATOS = [
             [
               1
             ]
+          ],
+          [
+            "es: quien compra o vende contigo",
+            "en: who buys or sells with you"
           ]
         ],
         [
@@ -205,6 +213,10 @@ export const EPOCA_0_BTML_DATOS = [
             [
               1
             ]
+          ],
+          [
+            "es: quien opina sobre tus criterios",
+            "en: who weighs in on your criteria"
           ]
         ],
         [
@@ -221,6 +233,10 @@ export const EPOCA_0_BTML_DATOS = [
             [
               1
             ]
+          ],
+          [
+            "es: a quien das tu R",
+            "en: whom you give your R to"
           ]
         ],
         [
@@ -237,6 +253,10 @@ export const EPOCA_0_BTML_DATOS = [
             [
               1
             ]
+          ],
+          [
+            "es: con quien trabajas",
+            "en: whom you work with"
           ]
         ],
         [
@@ -253,6 +273,10 @@ export const EPOCA_0_BTML_DATOS = [
             [
               0
             ]
+          ],
+          [
+            "es: a quien has vetado",
+            "en: whom you have blocked"
           ]
         ]
       ],
@@ -18134,7 +18158,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "487bf3a0307e9e836111d174f43f0122aaed6f2afb5fa17445af2b6a69db8df2";
+export const EPOCA_0_BTML_ID = "19c2652f893b7c3813e33b37092bdf56685654cda4078e27f82acac31173e667";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
