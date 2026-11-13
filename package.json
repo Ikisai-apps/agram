@@ -7,7 +7,7 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "test": "node --test",
-    "test:carta": "node --test test/carta.test.js test/carta-mapped.test.js test/division-mundos.test.js test/animado-capas.test.js test/estilo.test.js test/modelos.test.js test/personaje-del-sitio.test.js",
+    "test:carta": "node --test test/carta.test.js test/carta-mapped.test.js test/division-mundos.test.js test/animado-capas.test.js test/estilo.test.js test/modelos.test.js test/personaje-del-sitio.test.js test/arreglos-repaso.test.js test/segundo-factor.test.js",
     "bench": "node bench/eje.mjs",
     "epocas": "node datos/epocas/generar.mjs"
   },
