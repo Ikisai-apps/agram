@@ -308,6 +308,6 @@ test('en la carta, «verificado» es una marca discreta: en el reverso (cara 5) 
   assert.match(form, />relé<\/label>/);
   assert.equal(htmlConfiguracion(preferencias(eje, 'huesped'), {}).includes('exterior-ajustes'), false, 'sin plantilla de exterior, nada');
   // Y por la pantalla entera (html con lo que la app sabe): la configuración abierta lleva el desplegable.
-  const entera = html(await arbol({ foco: { X: compra.id, pv: 0 } }, ORDENADOR), { preferencias: preferencias(eje, 'huesped'), exteriorAjustes: G.ajustesEditablesDe(PLANTILLA, eje, 'huesped', {}, { idioma: 'es' }) });
+  const entera = html(await arbol({ foco: { X: compra.id, pv: 0 } }, ORDENADOR), { preferencias: preferencias(eje, 'huesped'), exteriorAjustes: G.ajustesEditablesDe(PLANTILLA, eje, 'huesped', {}, { idioma: 'es' }), parteConfiguracion: '9' }); // la parte 9: guía y exterior (#92)
   assert.match(entera, /data-exterior-campo="seal url"/);
 });
