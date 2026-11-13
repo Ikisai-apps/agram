@@ -146,7 +146,7 @@ export async function crearCuenta({ nombre, idioma, ajustes, t = new Date().toIS
   const eje = await Eje.genesis({ identidad, foco: limpio, t, clave: publica, privada });
   const alta = eje.alta(identidad).id;
   const o = epoca ? { epoca } : {};
-  // Los defectos del sitio (carta/sitio.js, `ajustes`: { 'sync url': …, 'guide url': … }) nacen con la cuenta, en los mismos
+  // Los defectos del sitio (carta/sitio.js, `ajustes`: { <clave del ajuste>: valor }) nacen con la cuenta, en los mismos
   // registros de ajustes que escribiría la persona: las preferencias (con el idioma) y, aparte, «exterior settings».
   const propios = Object.fromEntries(Object.entries(ajustes ?? {}).filter(([k]) => esDePreferencias(k)));
   const fuera = Object.fromEntries(Object.entries(ajustes ?? {}).filter(([k]) => !esDePreferencias(k)));
