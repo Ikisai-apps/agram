@@ -65,7 +65,7 @@
       ["=me", "who writes"]
     ]
   ],
-  ["=first me.6.3 = first it.3 and count ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0) > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4) = 0"],
+  ["=first me.6.3 = first it.3 and count ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0) > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4 or \"close by decision\" in it2.4) = 0"],
   [["me"], ["agent"]],
   ["write"],
   ["4"],

@@ -2621,3 +2621,7 @@ export function opciones(eje, X, pv, { yo, idioma, parametro, ...resto } = {}) {
   }
   return unicas(escritos);
 }
+
+// Lo que está por autorizar para quien mira (VG 14-11, #70 (2)): la lectura vive con el segundo factor, en acciones.js; se
+// expone aquí con el resto de lo que lee la carta (acciones ya importa contrato: el ciclo solo vale en tiempo de llamada).
+export { porAutorizar } from './acciones.js';

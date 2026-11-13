@@ -474,9 +474,10 @@ const ESCALAS_A_PROBAR = Object.freeze(['minuto', 'segundo', 'hora', 'dia', 'sem
  * por el minuto, en la que su saldo de T cubre lo exigido (`eje.saldoT`); el minuto si en ninguna. Para quien no pide
  * escala (las bases, las pruebas); el ajuste fino por escalas (1 h 11 min) es de la carta.
  */
-export function escalaQueAlcanza(eje, autor, payload, t, opciones) {
+export function escalaQueAlcanza(eje, autor, payload, t, opciones, extra = 0) {
   for (const escala of ESCALAS_A_PROBAR) {
-    const quema = quemaDelCoste(autor, payload, escala, { ...opciones, eje });
+    // extra: segundos de más que se queman junto al coste (la autorización prepagada, VG 14-11, #70 (3)).
+    const quema = extra > 0 ? tDelCoste(exigido(payload, { ...opciones, eje }) + extra, escala) : quemaDelCoste(autor, payload, escala, { ...opciones, eje });
     if (quema && eje.saldoT(autor, escala, t) >= quema.cantidad) return escala;
   }
   return 'minuto';

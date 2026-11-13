@@ -510,6 +510,8 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
     const d = contrato.diario(eje, X, 0, cuantos, vertical);
     // Cada asiento, legible: la primitiva del libro y la cantidad con su serie como la dice el núcleo.
     nodo.diario = { total: d.total, entradas: d.entradas.map((e) => ({ id: e.id, t: e.t, autor: e.autor, movimientos: e.movimientos.map((m) => m.primitiva + ' ' + legibleDe(eje, m, null, ctx.opciones).texto), ancla: e.ancla })) };
+    // Lo por autorizar, en el 6 de mi alta (VG 14-11, #70): una línea por registro con lo que le falta.
+    nodo.porAutorizar = porAutorizarDe(eje, X, pv, ctx);
     // Las opiniones ancladas en este registro, si es el proyecto donde se anclan (acciones.opiniones): con sus respuestas.
     if (ctx.proyecto === X) {
       const cuenta = (l) => l.reduce((n, r) => n + 1 + cuenta(r.respuestas), 0);
@@ -632,7 +634,19 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
     division: mapa ? { pvs: d.pvs, datos: d.datos, cargarMas: d.cargarMas } : null,
     rejilla: mapa?.rejilla ?? null,
     medida: medidaDe(ctx, pv),
+    porAutorizar: porAutorizarDe(eje, X, pv, ctx),
   };
+}
+
+/**
+ * Lo por autorizar de quien mira (VG 14-11, #70 (2): nada se rechaza; lo que requiere autorización queda registrado y se ve
+ * en el 6 de mi alta): acciones.porAutorizar, una línea por registro: su 0 y lo que falta. null si no es el 6 de mi alta o no
+ * hay nada pendiente.
+ */
+function porAutorizarDe(eje, X, pv, ctx) {
+  if (pv !== 6 || !ctx.yo || eje.alta(ctx.yo)?.id !== X) return null;
+  const lista = contrato.porAutorizar(eje, ctx.yo, { epoca: ctx.opciones.epoca, idioma: ctx.opciones.idioma });
+  return lista.length ? lista.map((x) => ({ id: x.id, que: x.que, falta: x.falta, propio: x.propio })) : null;
 }
 
 /** El nombre de la plantilla de datos de X en el idioma, o null si no tiene. */

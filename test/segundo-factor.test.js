@@ -8,6 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as A from '../src/acciones.js';
+import * as contrato from '../src/contrato.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
 import { ANUNCIO } from '../src/motor.js';
 import { generarClaves, firmarPosesion } from '../src/autoridad.js';
@@ -210,4 +211,115 @@ test('carta: la configuración (personaje del 0 → 2) tiene el desplegable «se
   const h1 = htmlConfiguracion(preferencias(m.eje, 'huesped'), { segundoFactor: segundoFactorDeConfiguracion(m.eje, 'huesped') });
   assert.match(h1, /<details class="segundo-factor"[^>]* open><summary>/);
   assert.match(h1, /<ul class="segundo-factor-actuales"><li>E desde 5 → cartera<\/li><\/ul>/);
+});
+
+// ---------- #70 (3): autorizar también quema T, precalculado desde el 4 (VG 14-11) ----------
+
+/** Lo que quema de T real quien escribe un evento, en segundos del calendario. */
+const quemaDe = (ev, de) => ev.movimientos.filter((m) => m.token === 'T' && m.de === de && m.a === null).reduce((s, m) => s + m.cantidad * { segundo: 1, minuto: 60, hora: 3600 }[m.escala], 0);
+
+test('coste de autorizar: un segundo por criterio alcanzado, mínimo un minuto; se suma a lo exigido y se quema en la propuesta (prepagado)', async () => {
+  const m0 = await mundo();
+  const sin = A.ejecucion(m0.eje, 'pay', { X: m0.encargo.id }, 'huesped', { t: T1 });
+  assert.deepEqual([sin.autorizacion, sin.elementos, sin.partes.map((p) => p.parte), sin.exigido], [0, 0, ['coste', 'plantilla'], 300], 'sin criterio alcanzado, no hay parte de autorización');
+  const r0 = await A.transaccion(m0.eje, 'pay', { X: m0.encargo.id }, 'huesped', { t: T1 });
+  assert.deepEqual([r0.autorizacion, quemaDe(r0.evento, 'huesped')], [0, 300], 'lo de siempre: el coste de escribir, 5 posiciones, 5 minutos');
+  // Un criterio alcanzado: un segundo, pero el mínimo es un minuto. Se suma a lo exigido y se quema en la propuesta.
+  const m = await mundo();
+  await criterio(m, 'E', 5);
+  const e = A.ejecucion(m.eje, 'pay', { X: m.encargo.id }, 'huesped', { t: T1 });
+  assert.deepEqual([e.autorizacion, e.elementos, e.partes.map((p) => p.parte), e.partes[2]], [60, 1, ['coste', 'plantilla', 'autorizacion'], { parte: 'autorizacion', segundos: 60, elementos: 1 }]);
+  assert.deepEqual([e.coste, e.exigido, e.denominacion, e.paga, e.cubre], [300, 360, [{ escala: 'minuto', cantidad: 6 }], 360, true]);
+  const r = await pagar(m);
+  assert.equal(r.autorizacion, 60);
+  assert.equal(quemaDe(r.evento, 'huesped'), 360, 'la propuesta quema lo exigido (5 min) y la autorización (1 min)');
+  assert.deepEqual(r.ejecucion.partes.map((p) => p.parte), ['coste', 'plantilla', 'autorizacion']);
+  // El botón de ejecutar (con denominación) quema lo mismo, en las piezas elegidas.
+  const m1 = await mundo();
+  await criterio(m1, 'E', 5);
+  const conDen = await A.transaccion(m1.eje, 'pay', { X: m1.encargo.id }, 'huesped', { t: T1, denominacion: 'minuto' });
+  assert.ok(conDen.ok, JSON.stringify(conDen.motivos));
+  assert.equal(quemaDe(conDen.evento, 'huesped'), 360);
+});
+
+test('coste de autorizar: 65 criterios alcanzados son 65 segundos (más que el minuto); se redondea a la escala del minuto al quemar y la autorización llega pagada', async () => {
+  assert.deepEqual([0, 1, 59, 60, 61, 70].map(A.segundosDeAutorizar), [0, 60, 60, 60, 61, 70]);
+  const m = await mundo();
+  for (let i = 0; i < 65; i++) await criterio(m, ['E:casa/EUR', 'E:otra/U' + i], 1); // cada criterio, distinto (una serie más que no se mueve)
+  assert.equal(A.criteriosDeSegundoFactor(m.eje, 'huesped').length, 65);
+  const e = A.ejecucion(m.eje, 'pay', { X: m.encargo.id }, 'huesped', { t: T1 });
+  assert.deepEqual([e.elementos, e.autorizacion, e.exigido, e.cubre, e.alcanza], [65, 65, 365, true, true], 'un criterio por elemento: 65 s, no 60');
+  assert.ok(e.paga >= 365);
+  // Quemar en la propuesta, sin denominación pedida: sube al minuto entero (nunca por debajo, #78): 7 minutos.
+  const r = await pagar(m);
+  assert.deepEqual([r.autorizacion, quemaDe(r.evento, 'huesped')], [65, 420]);
+  assert.equal(A.estacionDeAnuncio(m.eje, m.anuncio.id), 'autorizada');
+  // La autorización llega pagada: la propuesta ya quemó la tarifa; lo que la cosa titular escribe al firmar es su propio
+  // registro (sin excepciones en «writing burns today's T»): 5 posiciones, 5 minutos de la T de la cosa, y ni un segundo más a la huésped.
+  const antes = m.eje.saldoT('huesped', 'minuto', T1);
+  const buena = await A.autorizar(m.eje, r.evento.id, 'cartera', m.cosa.privada, { t: T1 });
+  assert.ok(buena.ok, JSON.stringify(buena.motivos));
+  assert.deepEqual([quemaDe(buena.evento, 'cartera'), quemaDe(buena.evento, 'huesped')], [300, 0]);
+  await m.eje.anadir(buena.evento);
+  assert.equal(m.eje.saldoT('huesped', 'minuto', T1), antes, 'autorizar no cobra nada más a quien propuso');
+  assert.equal(A.estacionDeAnuncio(m.eje, m.anuncio.id), 'ejecutada');
+});
+
+test('un criterio sobre T se alcanza también con la T de la autorización (la T quemada cuenta): el punto fijo no se queda corto', async () => {
+  const m = await mundo();
+  await criterio(m, 'T', 3);
+  const e = A.ejecucion(m.eje, 'pay', { X: m.encargo.id }, 'huesped', { t: T1 });
+  assert.deepEqual([e.elementos, e.autorizacion], [1, 60]);
+  const r = await pagar(m);
+  assert.equal(r.autorizacion, 60);
+  assert.equal(A.estacionDeAnuncio(m.eje, m.anuncio.id), 'autorizada');
+});
+
+test('porAutorizar: los registros míos pendientes de segundo factor y los que me toca autorizar como titular (o mi cosa); nada pendiente, nada; autorizado, sale', async () => {
+  const m = await mundo();
+  await criterio(m, 'E', 5);
+  // El criterio se lee sobre lo ya movido: la compra de la huésped (7 EUR) ya lo alcanza, y espera, igual que su estación.
+  const compra = A.porAutorizar(m.eje, 'huesped');
+  assert.deepEqual([compra.length, compra[0].que], [1, 'Compra del menú del día']);
+  const { evento: pago } = await pagar(m);
+  const [uno] = A.porAutorizar(m.eje, 'huesped');
+  assert.deepEqual([A.porAutorizar(m.eje, 'huesped').length, uno.id, uno.autor, uno.propio, uno.titular, uno.titulares], [2, pago.id, 'huesped', true, true, ['cartera']], 'del más reciente al más antiguo');
+  assert.equal(typeof uno.que, 'string');
+  assert.match(uno.falta, /falta la autorización de cartera/);
+  assert.deepEqual(uno.faltan.map((c) => [c.titular, c.familias, c.cantidad]), [['cartera', ['E'], 5]]);
+  // La cosa titular lo ve como suyo por autorizar (no lo escribió); la cocina y quien no tiene nada que ver, nada.
+  assert.deepEqual(A.porAutorizar(m.eje, 'cartera').map((x) => [x.id === pago.id, x.propio, x.titular]), [[true, false, true], [false, false, true]]);
+  assert.equal(A.porAutorizar(m.eje, 'huesped', { cuantos: 1 }).length, 1);
+  assert.deepEqual([A.porAutorizar(m.eje, 'cocina'), A.porAutorizar(m.eje, 'nadie'), A.porAutorizar(m.eje, '')], [[], [], []]);
+  // El contrato la expone con el resto de las lecturas.
+  assert.equal(contrato.porAutorizar, A.porAutorizar);
+  // Una autorización que no vale (la de otro) no lo quita; la buena, sí: pasa a ejecutado.
+  await m.eje.anadir((await A.autorizar(m.eje, pago.id, 'cocina', undefined, { t: T1 })).evento);
+  assert.equal(A.porAutorizar(m.eje, 'huesped').length, 2);
+  await m.eje.anadir((await A.autorizar(m.eje, pago.id, 'cartera', m.cosa.privada, { t: T1 })).evento);
+  assert.deepEqual([A.porAutorizar(m.eje, 'huesped').map((x) => x.id), A.porAutorizar(m.eje, 'cartera').map((x) => x.id)], [[compra[0].id], [compra[0].id]], 'solo queda lo de antes');
+  assert.equal(A.estacionDeAnuncio(m.eje, m.anuncio.id), 'ejecutada');
+});
+
+test('carta: el formulario de ejecutar muestra la parte «autorización» en lo exigido; el 6 de mi alta lista lo por autorizar, una línea por registro', async () => {
+  const m = await mundo();
+  await criterio(m, 'E', 5);
+  const conForm = () => arbolEnIdioma({ foco: { X: m.encargo.id, pv: 4 }, formulario: { X: m.encargo.id, accion: 'pay', valores: {}, ejecutar: true } }, m.eje, 'huesped', ORDENADOR, { idioma: 'es' });
+  const f = (await conForm()).formulario;
+  assert.deepEqual([f.ejecucion.partes.map((p) => p.parte), f.ejecucion.exigido], [['coste', 'plantilla', 'autorizacion'], 360]);
+  const h = html(await conForm());
+  assert.match(h, /<li data-parte="autorizacion">autorización: 1 min \(1 que piden segundo factor\), se quema ya, en esta propuesta<\/li>/);
+  // Sin nada por autorizar, el 6 de mi alta no pinta la lista.
+  const seis = async (yo, X) => html(await arbolEnIdioma({ foco: { X, pv: 6 } }, m.eje, yo, ORDENADOR, { idioma: 'es' }));
+  // (la compra de la huésped, ya movida, alcanza el criterio retroactivamente: una línea)
+  assert.equal([...(await seis('huesped', m.altaH)).matchAll(/data-por-autorizar=/g)].length, 1);
+  const { evento: pago } = await pagar(m);
+  const h6 = await seis('huesped', m.altaH);
+  assert.match(h6, /<section class="por-autorizar"[^>]*><ul><li class="por-autorizar-linea" data-por-autorizar="[0-9a-f]{64}"><button type="button" class="enlace" data-abrir="[0-9a-f]{64}">por autorizar: [^<]+<\/button> · <small>falta la autorización de cartera[^<]*<\/small><\/li>/);
+  assert.equal([...h6.matchAll(/data-por-autorizar=/g)].length, 2, 'una línea por registro');
+  // Solo en mi alta: en el alta de otro, no.
+  assert.doesNotMatch(await seis('huesped', m.eje.alta('cocina').id), /por-autorizar/);
+  // Autorizado, sale: el registro pasa a ejecutado.
+  await m.eje.anadir((await A.autorizar(m.eje, pago.id, 'cartera', m.cosa.privada, { t: T1 })).evento);
+  assert.equal([...(await seis('huesped', m.altaH)).matchAll(/data-por-autorizar=/g)].length, 1, 'queda la compra de antes');
 });

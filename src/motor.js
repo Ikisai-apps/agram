@@ -280,26 +280,35 @@ export function cerrado(eje, X) {
   if (!eje.obtener(id)) throw new Error('registro desconocido: ' + String(id).slice(0, 8));
   const { porNombre, defecto } = plantillas(1);
   // Los otros dos finales (VG 12-11, #71.2): cerrado con error y caducado, antes que la plantilla del dueño.
-  const otro = finDe(eje, id, porNombre);
+  const otro = finDe(eje, id, porNombre, FINES_ANTES);
   if (otro) return { cerrado: true, plantilla: otro.plantilla, estado: 'RESUELTO', motivo: null, fin: otro.fin, causa: otro.causa, plazo: otro.plazo, registro: otro.registro };
   const nombre = delCriterio(eje, id, 7).filter((x) => porNombre.has(x)).pop();
   const plantilla = nombre ?? defecto;
   const r = leer(eje, porNombre.get(plantilla), id);
+  const cumplido = r.estado === 'RESUELTO' && r.valor[0] === true;
+  // El cierre por decisión (VG 14-11, #80) no deshace lo cumplido: solo cierra lo que aún no lo estaba.
+  const decidido = cumplido ? null : finDe(eje, id, porNombre, FINES_DESPUES);
+  if (decidido) return { cerrado: true, plantilla: decidido.plantilla, estado: 'RESUELTO', motivo: null, fin: decidido.fin, causa: decidido.causa, plazo: decidido.plazo, registro: decidido.registro };
   if (r.estado !== 'RESUELTO') return { cerrado: null, plantilla, estado: r.estado, motivo: r.motivo, fin: null };
-  const v = r.valor[0];
-  return { cerrado: v === true, plantilla, estado: 'RESUELTO', motivo: null, fin: v === true ? 'cumplido' : null };
+  return { cerrado: cumplido, plantilla, estado: 'RESUELTO', motivo: null, fin: cumplido ? 'cumplido' : null };
 }
 
 /**
  * Los finales de un proceso que no son «cumplido» (VG 12-11, #71.2; CONVERGENCIA de AARPIA §2.1): `fin` es el valor que
  * `cerrado` da, `plantilla` la de cerrado de la época (epoch.9.0.1) que lo lee y `accion` lo que dice en su 4 el registro
- * que lo escribe, anclado en el 4 del proceso (las plantillas de transacción «close with error» y «expire»). El orden
- * es el de prioridad: si un proceso tiene los dos, es «cerrado con error».
+ * que lo escribe, anclado en el 4 del proceso (las plantillas de transacción «close with error», «expire» y, VG 14-11 #80, «close by decision»). El orden
+ * es el de prioridad: con error gana a caducado; lo cumplido es lo que lee la plantilla del dueño, después de esos dos, y solo si no lo está, cuenta el cierre por decisión (que no deshace lo cumplido).
  */
 export const FINES = Object.freeze([
   Object.freeze({ fin: 'error', plantilla: 'closed with error', accion: 'close with error' }),
   Object.freeze({ fin: 'caducado', plantilla: 'expired', accion: 'expire' }),
+  // El cuarto (VG 14-11, #80): un cierre bueno por decisión del dueño (retirar, archivar), ni cumplido, ni error, ni caducidad.
+  Object.freeze({ fin: 'decidido', plantilla: 'closed by decision', accion: 'close by decision' }),
 ]);
+
+/** Los finales que `cerrado` lee antes que la plantilla del dueño (error y caducado) y el que lee después, solo si no está cumplido (decidido). */
+const FINES_ANTES = FINES.filter((f) => f.fin !== 'decidido');
+const FINES_DESPUES = FINES.filter((f) => f.fin === 'decidido');
 
 /** Quien manda en `quien`: el autor de su alta (una persona, ella misma; una cosa, su dueño). */
 const principalDe = (eje, quien) => {
@@ -312,16 +321,16 @@ const principalDe = (eje, quien) => {
  * lee si hay un registro de cierre del dueño de X (o de una cosa suya) anclado en su 4; y este recoge ese registro, su
  * causa (el 0 del de error) y el plazo vencido (el 2.1 del de caducado). null si no.
  */
-function finDe(eje, id, porNombre) {
+function finDe(eje, id, porNombre, fines = FINES) {
   const dueno = eje.obtener(id).autor;
-  for (const f of FINES) {
+  for (const f of fines) {
     const formula = porNombre.get(f.plantilla);
     if (!formula) continue;
     const r = leer(eje, formula, id);
     if (r.estado !== 'RESUELTO' || r.valor[0] !== true) continue;
     const registro = eje.sobre(id, FABRICA).find((e) => [e.payload?.[4]].flat(Infinity).includes(f.accion) && principalDe(eje, e.autor) === dueno);
     const hoja = (x) => [x].flat(Infinity)[0];
-    return { ...f, registro: registro?.id ?? null, causa: f.fin === 'error' ? hoja(registro?.payload?.[0]) ?? null : null, plazo: f.fin === 'caducado' ? hoja(registro?.payload?.[2]?.[1]) ?? null : null };
+    return { ...f, registro: registro?.id ?? null, causa: f.fin === 'error' || f.fin === 'decidido' ? hoja(registro?.payload?.[0]) ?? null : null, plazo: f.fin === 'caducado' ? hoja(registro?.payload?.[2]?.[1]) ?? null : null };
   }
   return null;
 }
@@ -377,9 +386,9 @@ export function siguiente(eje, X, yo) {
   const id = typeof X === 'string' ? X : X?.id;
   const reg = eje.obtener(id);
   if (!reg) throw new Error('registro desconocido: ' + String(id).slice(0, 8));
-  // Un proceso cerrado con error o caducado deja de pedir pasos (VG 12-11, #71.2): no falta nada de nadie.
+  // Un proceso cerrado con error, caducado o por decisión (VG 12-11, #71.2; 14-11, #80) deja de pedir pasos: no falta nada de nadie.
   const cierre = cerrado(eje, id);
-  if (cierre.fin === 'error' || cierre.fin === 'caducado') return { cerrado: true, fin: cierre.fin, ...(cierre.fin === 'error' ? { causa: cierre.causa } : { plazo: cierre.plazo }), faltaDeMi: [], espera: [] };
+  if (FINES.some((f) => f.fin === cierre.fin)) return { cerrado: true, fin: cierre.fin, ...(cierre.fin === 'caducado' ? { plazo: cierre.plazo } : { causa: cierre.causa }), faltaDeMi: [], espera: [] };
   const { porNombre } = plantillas(3);
   const faltaDeMi = [];
   const espera = [];
@@ -629,9 +638,11 @@ export function ocupacion(eje, id) {
     .filter((o) => o.id !== id && cerrado(eje, o.id).fin === 'cumplido')
     .map((o) => ({ id: o.id, autor: o.autor, anclado: o.sobre === ev.sobre && o.en === ev.en, tramo: tramoOTodo(eje, o.id) }))
     .filter((o) => o.tramo.inicio < tramo.fin && tramo.inicio < o.tramo.fin);
+  // Lo cerrado por decisión del dueño (VG 14-11, #80) no es cumplido ni fracaso: no ocupa ni libera, se cuenta aparte.
+  const decididos = registrosEn(eje, ev.sobre, ev.en).filter((o) => o.id !== id && cerrado(eje, o.id).fin === 'decidido').map((o) => o.id);
   const aLaVez = maximoALaVez(validos.map((o) => o.tramo), tramo);
   return conCapacidad.map((c) => {
     const capacidad = capacidadDe(c.contenido);
-    return { sobre: ev.sobre, dir: ev.en, camino: c.indices, capacidad, tramo, validos, aLaVez, cabe: aLaVez < capacidad };
+    return { sobre: ev.sobre, dir: ev.en, camino: c.indices, capacidad, tramo, validos, decididos, aLaVez, cabe: aLaVez < capacidad };
   });
 }

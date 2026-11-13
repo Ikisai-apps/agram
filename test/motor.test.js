@@ -334,3 +334,39 @@ test('los finales: lo cumplido sigue siendo «cumplido» (fin) y con error gana 
   await registrar(e2, { autor: 'casa', sobre: encargo.id, en: FABRICA, t, payload: [['falló'], ['x'], ['closed with error'], ['casa'], ['close with error']], movimientos: [minuto('casa')] });
   assert.deepEqual([cerrado(e2, encargo.id).fin, cerrado(e2, encargo.id).causa], ['error', 'falló']);
 });
+
+// ---------- el cuarto fin: cerrado por decisión (VG 14-11, #80; APPS_PARA_AGRAM.md de Core AARPIA) ----------
+
+test('cerrado por decisión: «close by decision» (modo person, solo el dueño, causa opcional) cierra el proceso sin cumplirlo ni fracasar; fin = decidido, siguiente y el camino callan', async () => {
+  const { eje, encargo } = await encargoConPlazo();
+  const t = '2026-11-08T13:00:00Z';
+  const ofrece = (yo) => A.acciones(eje, encargo.id, 4, yo).map((a) => a.nombre).filter((n) => n === 'close by decision');
+  assert.deepEqual([ofrece('casa'), ofrece('huesped'), ofrece('cocina')], [['close by decision'], [], []], 'solo el dueño');
+  assert.equal(A.modoDeEjecucion(eje, 'close by decision').modo, 'person');
+  assert.equal(cerrado(eje, encargo.id).fin, null);
+  // La causa es opcional: sin ella, el texto por defecto en su 0.
+  const sin = await A.transaccion(eje, 'close by decision', { X: encargo.id }, 'casa', { t });
+  assert.deepEqual([sin.ok, sin.modo, sin.evento.en, sin.evento.payload[0], sin.evento.payload[4]], [true, 'person', FABRICA, ['closed by decision'], ['close by decision']], JSON.stringify(sin.motivos));
+  // Lo de quien no es el dueño se escribe, pero no cierra nada.
+  await registrar(eje, { autor: 'huesped', sobre: encargo.id, en: FABRICA, t, payload: [['no lo quiero'], ['x'], ['closed by decision'], ['huesped'], ['close by decision']], movimientos: [minuto('huesped')] });
+  assert.equal(cerrado(eje, encargo.id).fin, null, 'la huésped no es la dueña');
+  // Con causa: el dueño la escribe y queda en el cierre.
+  const r = await A.transaccion(eje, 'close by decision', { X: encargo.id, cause: 'retirada de la oferta' }, 'casa', { t });
+  assert.deepEqual([r.ok, r.evento.payload[0]], [true, ['retirada de la oferta']], JSON.stringify(r.motivos));
+  await eje.anadir(r.evento);
+  const c = cerrado(eje, encargo.id);
+  assert.deepEqual([c.cerrado, c.fin, c.plantilla, c.causa, c.registro], [true, 'decidido', 'closed by decision', 'retirada de la oferta', r.evento.id]);
+  assert.notEqual(c.fin, 'cumplido');
+  assert.notEqual(c.fin, 'error');
+  // Deja de pedir pasos, aunque lo anunciado siga pendiente; el camino tampoco lo lista; ya cerrado, no se ofrece otro cierre.
+  assert.deepEqual(siguiente(eje, encargo.id, 'cocina'), { cerrado: true, fin: 'decidido', causa: 'retirada de la oferta', faltaDeMi: [], espera: [] });
+  assert.deepEqual((await A.camino(eje, encargo.id, 'cocina', { t })).pasos.filter((p) => p.regla === 'stage'), []);
+  assert.deepEqual(A.acciones(eje, encargo.id, 4, 'casa').map((a) => a.nombre).filter((n) => ['close with error', 'expire', 'close by decision'].includes(n)), []);
+  // Lo cumplido no se deshace: un proceso ya cumplido sigue «cumplido» aunque su dueño escriba el cierre a mano; y con error gana.
+  const { eje: e2, compra } = await ejemploCompra();
+  const k = await consolidar(e2, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
+  await registrar(e2, { autor: 'huesped', sobre: k.id, en: FABRICA, t: T, payload: [['archivado'], ['x'], ['closed by decision'], ['huesped'], ['close by decision']], movimientos: [minuto('huesped')] });
+  assert.equal(cerrado(e2, k.id).fin, 'cumplido', 'el cierre por decisión no deshace lo cumplido');
+  await registrar(eje, { autor: 'casa', sobre: encargo.id, en: FABRICA, t, payload: [['falló'], ['x'], ['closed with error'], ['casa'], ['close with error']], movimientos: [minuto('casa')] });
+  assert.equal(cerrado(eje, encargo.id).fin, 'error', 'con error gana a decidido');
+});

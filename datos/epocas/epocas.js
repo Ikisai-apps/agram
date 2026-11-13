@@ -3159,6 +3159,14 @@ export const EPOCA_0_BTML_DATOS = [
             [
               "=count (it.4 where \"expire\" in it2.4 and first (first it2.3).6.3 = first it.3) > 0"
             ]
+          ],
+          [
+            [
+              "closed by decision"
+            ],
+            [
+              "=count (it.4 where \"close by decision\" in it2.4 and first (first it2.3).6.3 = first it.3) > 0"
+            ]
           ]
         ],
         [
@@ -5242,6 +5250,18 @@ export const EPOCA_0_BTML_DATOS = [
           "template expire param who label: quién",
           "template expire param who help: quién escribe",
           "template expire message: expire: {me} caduca {first it.0}: el plazo {first ev.2.1} ha vencido",
+          "template close by decision: cerrar por decisión",
+          "template close by decision param cause label: causa",
+          "template close by decision param cause help: por qué se cierra por decisión: texto opcional; sin él, «closed by decision»",
+          "template close by decision param actions label: acción",
+          "template close by decision param actions help: la acción",
+          "template close by decision param about label: sobre",
+          "template close by decision param about help: de qué trata el registro: X",
+          "template close by decision param criteria label: criterio",
+          "template close by decision param criteria help: la plantilla de cerrado del registro",
+          "template close by decision param who label: quién",
+          "template close by decision param who help: quién escribe",
+          "template close by decision message: close by decision: {me} cierra {first it.0} por decisión: {first ev.0}",
           "template commit P: comprometer P",
           "template commit P param power label: poder",
           "template commit P param power help: la serie de P que se compromete: P mío en el dominio de X",
@@ -5505,6 +5525,7 @@ export const EPOCA_0_BTML_DATOS = [
           "template all announced movements happened: todos los movimientos anunciados ocurrieron",
           "template closed with error: cerrado con error",
           "template expired: caducado",
+          "template closed by decision: cerrado por decisión",
           "launch mode person: persona",
           "launch mode agent: agente",
           "launch mode system: sistema",
@@ -6018,10 +6039,13 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "d02a0aff64f103e35a95d317fb3f1aa35e5b8101610a643df6605a2d0ee40b56"
         },
         {
-          "ref": "f9cd4e8d95d6770b7e31ed832b2f9e42f17410961e7cb190f01f14b86a9fa414"
+          "ref": "c06d071dcccff1aa7f9a132eeefdf091842f299e6727b1a6a1df4fa12c70dd23"
         },
         {
-          "ref": "84a69c3c8d8d140386ca2705a5e2daf9cae003f828f05d984da90e0d6183ae4a"
+          "ref": "ccf3f334eb268ac5582c82f505aeb09777724a35a4329aa5def64942ced10fa5"
+        },
+        {
+          "ref": "fbb8b7791e9a62a9025a44422916f8c1b31bb29a7aa5401195f486b89a5e5ac6"
         },
         {
           "ref": "4d453575c924896213b169bc37c92322eb7b7c9222ebbc4da011a22b3e09f544"
@@ -15689,7 +15713,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "close-with-error.json",
-    "id": "f9cd4e8d95d6770b7e31ed832b2f9e42f17410961e7cb190f01f14b86a9fa414",
+    "id": "c06d071dcccff1aa7f9a132eeefdf091842f299e6727b1a6a1df4fa12c70dd23",
     "registro": [
       [
         "close with error"
@@ -15862,7 +15886,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "=first it.3 = me and count (first it.4).8 > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4) = 0"
+        "=first it.3 = me and count (first it.4).8 > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4 or \"close by decision\" in it2.4) = 0"
       ],
       [
         [
@@ -15898,7 +15922,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "expire.json",
-    "id": "84a69c3c8d8d140386ca2705a5e2daf9cae003f828f05d984da90e0d6183ae4a",
+    "id": "ccf3f334eb268ac5582c82f505aeb09777724a35a4329aa5def64942ced10fa5",
     "registro": [
       [
         "expire"
@@ -16071,7 +16095,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "=first me.6.3 = first it.3 and count ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0) > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4) = 0"
+        "=first me.6.3 = first it.3 and count ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0) > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4 or \"close by decision\" in it2.4) = 0"
       ],
       [
         [
@@ -16102,6 +16126,215 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       ],
       [
         "expire: {me} expires {first it.0}: the deadline {first ev.2.1} has passed"
+      ]
+    ]
+  },
+  {
+    "archivo": "close-by-decision.json",
+    "id": "fbb8b7791e9a62a9025a44422916f8c1b31bb29a7aa5401195f486b89a5e5ac6",
+    "registro": [
+      [
+        "close by decision"
+      ],
+      [
+        [
+          [
+            "cause"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "0"
+          ],
+          [
+            "VG 14-11 (#80, tipo de contexto de AARPIA): parámetro de «close by decision»"
+          ],
+          [
+            "optional"
+          ],
+          [
+            1
+          ],
+          [
+            "closed by decision",
+            "why the process is closed by decision: optional text; without it, «closed by decision»"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "VG 14-11 (#80, tipo de contexto de AARPIA): parámetro de «close by decision»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "close by decision",
+            "the action"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "VG 14-11 (#80, tipo de contexto de AARPIA): parámetro de «close by decision»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first it.5",
+            "what the record is about: X"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "VG 14-11 (#80, tipo de contexto de AARPIA): parámetro de «close by decision»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "closed by decision",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "VG 14-11 (#80, tipo de contexto de AARPIA): parámetro de «close by decision»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
+        ]
+      ],
+      [
+        "=first it.3 = me and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4 or \"close by decision\" in it2.4) = 0"
+      ],
+      [
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
+      ],
+      [
+        "write"
+      ],
+      [
+        "4"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe (una posición «1.2»; si no se escribe en él, un hueco con nombre «{parámetro}»: nada de «-»), 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "VG 14-11 (#80; APPS_PARA_AGRAM.md de Core AARPIA: retirar una oferta, archivar una conversación): el cuarto fin de un proceso, un cierre BUENO por decisión del dueño que no es cumplido, ni error, ni caducidad: un registro anclado en el 4 del proceso, con la causa OPCIONAL en su 0 (sin ella, «closed by decision»); solo el dueño, y en cualquier momento (también sin nada anunciado pendiente, que es lo que lo distingue de «close with error»); la plantilla de cerrado «closed by decision» (epoch.9.0.1) lo lee, motor.cerrado devuelve fin = decidido (después de error y caducado, antes que lo cumplido) y motor.siguiente calla. Modo «persona»: cerrar es una decisión de su dueño. El 8 y la ocupación lo cuentan aparte: ni cumplido ni fracaso. La plantilla «close» de la época, la del cerrado cumplido, no cambia",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        "close by decision: {me} closes {first it.0} by decision: {first ev.0}"
       ]
     ]
   },
@@ -18134,7 +18367,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "487bf3a0307e9e836111d174f43f0122aaed6f2afb5fa17445af2b6a69db8df2";
+export const EPOCA_0_BTML_ID = "50cc63b336b94f002a6dc0c3c7d786fb7247bac019f56b78e9175c1c14ec92d4";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

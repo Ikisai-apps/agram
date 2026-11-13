@@ -597,3 +597,15 @@ test('con claves, cada identidad firma lo suyo y el eje se reconstruye verifican
   assert.equal(evaluar(otro, reserva.id, [1, 3]).texto, '165 EUR');
   assert.deepEqual(ocupacion(otro, reserva.id).map((o) => o.cabe), [true]);
 });
+
+test('ocupación: lo cerrado por decisión del dueño (VG 14-11, #80) no es cumplido ni fracaso: no ocupa la plaza y se cuenta aparte, en `decididos`', async () => {
+  const { eje, habitacion } = await ejemploReserva({ confirmar: false });
+  const litera = (noches, minuto) => reservar(eje, { autor: 'huesped', habitacion, plaza: PLAZAS.litera, noches, t: '2026-11-08T19:' + minuto + ':00Z' });
+  const a = await litera(['2026-11-20', '2026-11-22'], 10);
+  const b = await litera(['2026-11-21', '2026-11-23'], 11);
+  assert.deepEqual(ocupacion(eje, b.id).map((o) => [o.validos.length, o.decididos]), [[0, []]]);
+  // La huésped, dueña de su reserva, la cierra por decisión (la retira): no la confirma nadie.
+  await registrar(eje, { autor: 'huesped', sobre: a.id, en: '4000000000', t: '2026-11-08T20:00:00Z', payload: [['la retiro'], ['x'], ['closed by decision'], ['huesped'], ['close by decision']], movimientos: [minutos('huesped')] });
+  assert.equal(cerrado(eje, a.id).fin, 'decidido');
+  assert.deepEqual(ocupacion(eje, b.id).map((o) => [o.validos.length, o.decididos, o.aLaVez, o.cabe]), [[0, [a.id], 0, true]]);
+});

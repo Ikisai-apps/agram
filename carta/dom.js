@@ -557,7 +557,9 @@ function htmlEjecutarEnCelda(a) {
 function htmlEjecucion(e) {
   if (!e) return '';
   const [coste, plantilla] = e.partes;
+  const autorizacion = e.partes.find((p) => p.parte === 'autorizacion');
   const partes = [`<li data-parte="coste">${escapar(t('exigidoCoste', { n: coste.posiciones, t: textoDeSegundos(coste.segundos) }))}</li>`]
+    .concat(autorizacion ? [`<li data-parte="autorizacion">${escapar(t('exigidoAutorizacion', { n: autorizacion.elementos, t: textoDeSegundos(autorizacion.segundos) }))}</li>`] : [])
     .concat(plantilla?.segundos > 0 ? [`<li data-parte="plantilla">${escapar(t('exigidoPlantilla', { t: textoDeSegundos(plantilla.segundos) }))}</li>`] : [])
     .concat(plantilla?.anunciado > 0 ? [`<li data-parte="anunciado">${escapar(t('exigidoAnunciado', { t: textoDeSegundos(plantilla.anunciado) }))}</li>`] : [])
     .concat([`<li data-parte="total"><b>${escapar(t('exigidoTotal', { t: textoDeSegundos(e.exigido) }))}</b></li>`]);
@@ -813,6 +815,13 @@ function htmlPropuestasFuera(p) {
   return `<div class="propuestas"${nodo('propuestas')}><h5>${t('propuestasPendientes', { cuantas: p.fuera.length + p.aqui })}</h5>${p.aqui ? `<small class="ayuda">${t('propuestaAqui', { cuantas: p.aqui })}</small>` : ''}<ul>${p.fuera.map(fila).join('')}</ul></div>`;
 }
 
+/** Lo por autorizar de mi alta (VG 14-11, #70): una línea por registro, «por autorizar: <su 0> · <qué falta>». */
+function htmlPorAutorizar(l) {
+  if (!l?.length) return '';
+  const filas = l.map((x) => `<li class="por-autorizar-linea" data-por-autorizar="${attr(x.id)}"><button type="button" class="enlace" data-abrir="${attr(x.id)}">${escapar(t('porAutorizar'))}: ${escapar(x.que)}</button> · <small>${escapar(x.falta ?? '')}</small></li>`).join('');
+  return `<section class="por-autorizar"${nodo('por-autorizar')} title="${attr(t('porAutorizarTitulo'))}"><ul>${filas}</ul></section>`;
+}
+
 /** Las opiniones ancladas en un registro (el proyecto donde yo las ancla), con cuántas respuestas lleva cada una. */
 function htmlOpiniones(o) {
   if (!o?.length) return '';
@@ -877,7 +886,7 @@ function htmlLateral(n, arbol, { enFila = false } = {}) {
     const fondo = capas || ligera ? capaPieza(n.fondo, { clase: 'pieza-fondo capa-fondo' }) : '';
     const nuevo = capas ? htmlEfectosCapa(n.nuevos) : '';
     const lista = n.vacio ? `<p class="vacio-pv"${htmlHueco(n.X, n.pv)}>${htmlEscribir(n.escribir)}</p>` : htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion, capa: capas || ligera });
-    cuerpo = fondo + (enFila ? '' : cabeza) + escenario + (n.rejilla ? htmlRejilla(n.rejilla, { apilada: enFila }) : lista) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
+    cuerpo = fondo + (enFila ? '' : cabeza) + escenario + (n.rejilla ? htmlRejilla(n.rejilla, { apilada: enFila }) : lista) + (n.nivel >= NIVEL.tarjeta ? htmlPorAutorizar(n.porAutorizar) : '') + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
       + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + nuevo + marco;
   }
   return `<section class="${clases}"${nodo('pv', { tam: n.pasoDeTamano?.nombre ?? NOMBRE_NIVEL[n.nivel], rep: repDe(n.representacion) })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;
@@ -933,7 +942,7 @@ function htmlHilo(n, { capa = false } = {}) {
   const cabeza = `<header class="pv-cabeza hilo-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">${escapar(n.etiqueta)}</span><small>${escapar(t(pasado ? 'hiloPasado' : 'hiloFuturo', { n: total }))}</small></header>`;
   const lista = `<ol class="hilo-cartas">${vacio}${cartas.join('')}${mas}</ol>`;
   const clases = ['pv', `pv-${n.pv}`, 'zona-hilo', `zona-${n.hilo}`, `grupo-${n.grupo}`, `lado-${n.lado ?? ''}`, `nivel-${n.nivel}`].join(' ');
-  return `<section class="${clases}"${nodo('pv', { tam: NOMBRE_NIVEL[n.nivel] })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" data-hilo-zona="${n.pv}" aria-label="${attr(n.etiqueta)}">${pasado ? htmlOpiniones(n.opiniones) + lista + cabeza : cabeza + lista}</section>`;
+  return `<section class="${clases}"${nodo('pv', { tam: NOMBRE_NIVEL[n.nivel] })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" data-hilo-zona="${n.pv}" aria-label="${attr(n.etiqueta)}">${pasado ? htmlPorAutorizar(n.porAutorizar) + htmlOpiniones(n.opiniones) + lista + cabeza : cabeza + lista}</section>`;
 }
 
 /** Sequenced: la fila fina y fija de abajo con los diez dígitos en su color; tocar uno lleva a su fila y la abre (los del hilo, a su zona). */
@@ -984,7 +993,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
   return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'abierto', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}"${c.estilo && !c.rejilla ? ` data-id="${attr(c.X)}"` : ''} aria-label="${attr(c.etiqueta)}">
     <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quienConEtapa}${cero}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
     ${c.rejilla ? '' : htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
-    ${c.rejilla ? htmlRejilla(c.rejilla, { completa: true, arbol }) : htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
+    ${htmlPorAutorizar(c.porAutorizar)}${c.rejilla ? htmlRejilla(c.rejilla, { completa: true, arbol }) : htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
     <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' && !c.rejilla?.camino ? htmlGuia(arbol.guia) : ''}${c.rejilla ? '' : htmlMarcoCapa(c.marco)}
   </section>`;
 }

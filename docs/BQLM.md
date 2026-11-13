@@ -631,3 +631,44 @@ ERROR     no es BQL mínimo: «sign» (no hay funciones con nombre)
 ```
 
 Leído: el SHA-256 de «abc»; bytes y texto no son iguales; la hora del génesis; su hash, al revés, es el que enseña un explorador; cumple su prueba de trabajo; y las tres formas mal escritas dan ERROR con su motivo: una primitiva sin paréntesis, `merkle` sin esquema y una firma, que no existe.
+
+## 13. Evaluar sin eje («BQL puro»)
+
+Interfaz estable para quien usa BQL sin libro (AARPIA la usa en su caja Wasm; Core AGRAM 13-11, #81; documentada como estable el 14-11). Son tres piezas y no cambian sin avisar:
+
+1. **`evaluar(src, contexto, opciones)`** de `src/bqlm.js`: `src` es el texto (con o sin `=`) o el árbol de `analizar`; no lanza nunca; devuelve `{ estado, valor, texto }` o `{ estado, motivo }`. `opciones.sujeto` fija `it`; `opciones.limites` cambia los límites de cálculo (§3).
+2. **`new ContextoEje(null, { ev, epoch, me, ahora })`** de `src/contexto-eje.js`: sin eje (`null`) no hay libro de antes. `ev` es el registro que se mira, `{ autor, t, movimientos, payload }`, la candidata o uno ya escrito; `epoch` la época (`EPOCA_0_BTML`) o cualquier décupla (§9: «sin eje, sobre un payload cualquiera leído como `epoch`»); `me` quién mira. `ahora` es el reloj del libro (`before.6.0`) para quien lo fija: sin eje `before` no existe, así que no se lee y no cambia nada (se pasa igualmente, para que la firma sea la misma con o sin libro).
+3. **Los tres estados**, y nada más: `RESUELTO` (lo puro y lo del registro: `ev`, `memo`, `epoch`, `me`, las primitivas), `PENDIENTE` (lo que necesita el libro: `before`, el saldo de una identidad, las vistas `A.1`…; no es un fallo: con libro se resolvería) y `ERROR` (la expresión está mal escrita o compara lo que no se compara, y ningún libro lo arreglaría). Un `PENDIENTE` nunca es verdadero: quien decide con BQL lo trata como «todavía no sé».
+
+**Leer la décupla sin lo implícito: `payload(X)`.** `ev.3` es el autor y `ev.5` el id (y las claves que declara) porque el contexto los despliega por delante de lo escrito (D-META, §4); `ev.4`, `ev.6`, `ev.7`… llevan también las lecturas de la época. `payload(ev)` devuelve la décupla tal como se escribió, sin nada de eso, así que `(payload(ev)).3` es lo que se escribió en el 3 y `ev.3` quien lo escribió. Quien lea contenido de una app con BQL puro lee de `payload(ev)`.
+
+**Convención de posiciones de contenido libre.** Lo que una app escribe a su gusto va en el **0** (la representación, el nombre), el **1** (lo que tiene dentro: recursos, detalle), el **2** (el criterio, el estado) y el **8** (la medida); **nunca en el 3** (el autor y firmante, que pone quien escribe, no el contenido) **ni en el 5** (el reverso: su id y lo que declara). Las demás (4 lo que mueve, 6 el pasado, 7 el futuro, 9 lo que se aprende) tienen su sentido en la época y no son contenido libre.
+
+Ejemplo ejecutable: un registro de una app, sin libro.
+
+```js
+import { evaluar } from './src/bqlm.js';
+import { ContextoEje } from './src/contexto-eje.js';
+import { EPOCA_0_BTML } from './src/epocas.js';
+
+const ev = { autor: 'maria', t: '2026-11-14T10:00:00Z', movimientos: [], payload: [['Oferta del menú'], [['pan'], ['vino']], ['borrador'], [], [], [], [], [], [8]] };
+const ctx = new ContextoEje(null, { ev, epoch: EPOCA_0_BTML, me: 'maria', ahora: '2026-11-14T12:00:00Z' });
+for (const e of ['first (payload(ev)).0', 'first (payload(ev)).2 = "borrador"', 'first ev.3', 'first (payload(ev)).3', 'first (payload(ev)).8', 'before.6.0', 'first before.1', 'first ev.2 = "borrador"', 'FILTRAR(ev)']) {
+  const r = evaluar(e, ctx);
+  console.log(e.padEnd(38), r.estado.padEnd(9), r.texto ?? r.motivo);
+}
+```
+
+```text
+first (payload(ev)).0                  RESUELTO  Oferta del menú
+first (payload(ev)).2 = "borrador"     RESUELTO  true
+first ev.3                             RESUELTO  maria
+first (payload(ev)).3                  RESUELTO  []
+first (payload(ev)).8                  RESUELTO  8
+before.6.0                             PENDIENTE no hay before en este contexto
+first before.1                         PENDIENTE no hay before en este contexto
+first ev.2 = "borrador"                ERROR     comparar: una décupla no tiene valor; lee una de sus posiciones
+FILTRAR(ev)                            ERROR     no es BQL mínimo: «FILTRAR» (no hay funciones con nombre)
+```
+
+Leído: el nombre, el estado y la medida salen de `payload(ev)` y resuelven; `ev.3` es quien escribe (maría) y el 3 del payload, vacío, es lo que se escribió; lo que necesita el libro (`before`) queda `PENDIENTE` sin romper nada; y comparar una décupla entera o llamar a una función que no existe es `ERROR`. Prueba: `test/bqlm.test.js` y el ejemplo de arriba (`node docs/comprobar.mjs BQLM`).
