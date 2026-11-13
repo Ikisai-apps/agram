@@ -54,32 +54,38 @@
         [
           ["desconocidos"],
           [0],
-          [["their R"], [1]]
+          [["their R"], [1]],
+          ["es: aquí entra quien te escribe", "en: whoever writes to you comes in here"]
         ],
         [
           ["comercial"],
           [1],
-          [["their R"], [1]]
+          [["their R"], [1]],
+          ["es: quien compra o vende contigo", "en: who buys or sells with you"]
         ],
         [
           ["expertos"],
           [2],
-          [["their R"], [1]]
+          [["their R"], [1]],
+          ["es: quien opina sobre tus criterios", "en: who weighs in on your criteria"]
         ],
         [
           ["cercanos"],
           [3],
-          [["their R"], [1]]
+          [["their R"], [1]],
+          ["es: a quien das tu R", "en: whom you give your R to"]
         ],
         [
           ["equipo"],
           [4],
-          [["their R"], [1]]
+          [["their R"], [1]],
+          ["es: con quien trabajas", "en: whom you work with"]
         ],
         [
           ["vetados"],
           [5],
-          [["nothing"], [0]]
+          [["nothing"], [0]],
+          ["es: a quien has vetado", "en: whom you have blocked"]
         ]
       ],
       [

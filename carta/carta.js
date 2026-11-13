@@ -1405,7 +1405,7 @@ function celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar, base = []) {
   return {
     fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, caja: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total,
     ocupantes: [], ocupante: null, personas, entra: personas.some((p) => p.entra), escribir: null,
-    filtro: h.filtro, minimo: h.minimo, fuera: h.fuera, rangoPendiente: h.rangoPendiente, sitio: sitioDeHijo(R, pv, base, h.digito),
+    filtro: h.filtro, llena: h.llena ?? null, minimo: h.minimo, fuera: h.fuera, rangoPendiente: h.rangoPendiente, sitio: sitioDeHijo(R, pv, base, h.digito),
   };
 }
 
@@ -1443,8 +1443,58 @@ function nodoSitio(eje, s, yo, ctx) {
   if (!n) return null;
   return {
     X: n.X, lugar: n.direccion, general: Boolean(s.general), texto: legibleDe(eje, { ref: n.X }, null, ctx.opciones).texto,
-    posiciones: n.posiciones.map((p) => ({ ...p, valor: p.valor.map(String).join(' · '), celda: GEOMETRIA[p.posicion].celda })),
+    posiciones: n.posiciones.map((p) => {
+      const nombre = p.nombre ?? '';
+      const valor = valorEnLlano(eje, p, ctx);
+      const nombreDelValor = valor ? etiquetaDelValor(p, ctx) : null;
+      // VG 14-11, #85: cada celda enseña el 0 de su posición (el nombre de la fila de la época, en el idioma de la cuenta: lo escrito en
+      // X.<lugar>.<posición> ya es su valor, porque x.y.0 ocupa la dirección de x.y) y su valor actual o «sin configurar».
+      return { ...p, nombre, valor: nombreDelValor ? t('sitioValor', { que: nombreDelValor, valor }) : valor, celda: GEOMETRIA[p.posicion].celda };
+    }),
   };
+}
+
+/**
+ * Cómo se llama lo que se escribe en una posición, si su acción es la de esa posición y no la genérica de configurar un sitio
+ * («cantidad: 2», «rango: 3.1»): la etiqueta del parámetro que se ancla ahí (su posición 0) en la plantilla de la acción; null si no hay.
+ */
+function etiquetaDelValor(p, ctx) {
+  const plantilla = p.accion ? acciones.plantillaDeTransaccion(p.accion.id, ctx.opciones) : null;
+  if (!plantilla) return null;
+  const lista = acciones.parametros(plantilla, ctx.opciones);
+  if (lista.some((x) => x.nombre === 'position')) return null; // la genérica («configure a place»): su valor no tiene nombre propio
+  return lista.find((x) => x.posicion === '0')?.etiqueta ?? null;
+}
+
+/** La hora de un instante como «10:14» (la del navegador) y si es de hoy. */
+function horaLlana(instante, ahora = Date.now()) {
+  const d = new Date(instante);
+  if (Number.isNaN(d.getTime())) return null;
+  const dos = (n) => String(n).padStart(2, '0');
+  const hora = dos(d.getHours()) + ':' + dos(d.getMinutes());
+  const hoy = new Date(ahora);
+  return d.getFullYear() === hoy.getFullYear() && d.getMonth() === hoy.getMonth() && d.getDate() === hoy.getDate()
+    ? t('ratoHoy', { hora }) : t('ratoFecha', { dia: dos(d.getDate()) + '/' + dos(d.getMonth() + 1), hora });
+}
+
+/**
+ * El valor actual de una posición del sitio en llano (VG 14-11, #85 y #95): lo anclado ahí, o '' si nada (la carta dice «sin configurar»). Si lo anclado es
+ * un registro (no una hoja), su 0, no el volcado: el de «guardar este rato» (un registro de escala minuto cuyo 6 trae el primer y el
+ * último instante) dice «un rato en la carta · 2 min · hoy 10:14»; el volcado entero, en el 5 (el editor de BTML).
+ */
+function valorEnLlano(eje, p, ctx) {
+  const plano = p.valor.map(String).join(' · ');
+  const pl = p.de ? eje.obtener(p.de)?.payload : null;
+  if (!esDecupla(pl) || pl.length < 2) return plano;
+  const cero = hojas(pl[0]).find((h) => typeof h === 'string' || typeof h === 'number');
+  const partes = [cero !== undefined ? String(cero) : legibleDe(eje, { ref: p.de }, null, ctx.opciones).texto];
+  const [desde, hasta] = hojas(hojas(pl[6])[2]);
+  if (typeof desde === 'string' && typeof hasta === 'string' && Date.parse(desde) <= Date.parse(hasta)) {
+    partes.push(t('ratoMinutos', { n: Math.max(1, Math.round((Date.parse(hasta) - Date.parse(desde)) / 60000)) }));
+    const cuando = horaLlana(hasta);
+    if (cuando) partes.push(cuando);
+  }
+  return partes.join(' · ');
 }
 
 /**

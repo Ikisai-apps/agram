@@ -861,7 +861,7 @@ test('el 3 por tema: en cada caja, primero quienes tienen R mía (doy) y luego q
   assert.deepEqual((await caja('recibo')).personas.map((p) => p.identidad), ['ana']);
   // en la pantalla: el botón dice su estado y cada persona su marcador (↑ lo que doy, ↓ lo que recibo; solo CSS)
   const h = html(await arbol({ foco: { X: alta, pv: 3 }, filtrosDelTres: { 3: 'recibo' } }, eje, 'casa', GRANDE));
-  assert.match(h, /data-filtro-caja="3" data-filtro="recibo"[^>]*>recibo<\/button>/);
+  assert.match(h, /data-filtro-caja="3" data-filtro="recibo"[^>]*>← lo que recibo<\/button>/);
   assert.match(h, /data-persona="ana" data-caja="3"[^>]*>[\s\S]*?<small class="recibo"[^>]*>1<\/small>/);
   assert.match(html(await arbol({ foco: { X: alta, pv: 3 } }, eje, 'casa', GRANDE)), /data-persona="huesped" data-caja="3"[^>]*>[\s\S]*?<small class="doy"/);
   // gestos.js: un clic en el botón llama a filtroCaja con su caja (la app cicla: carta/app.js)
@@ -886,10 +886,10 @@ test('el personaje del sitio (#38): el interrogante de cada caja del 3 (y del 3 
   const b = await arbol({ foco: { X: alta, pv: 3 }, sitio: { X: alta, lugar: '3.3' } }, eje, 'casa', GRANDE);
   assert.deepEqual(b.sitio.posiciones.map((p) => p.posicion), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   const uno = b.sitio.posiciones[1];
-  assert.deepEqual([uno.nombre, uno.valor, uno.accion.nombre, uno.accion.valores], ['cuánto', '1', 'set a minimum', { box: 3 }]);
+  assert.deepEqual([uno.nombre, uno.valor, uno.accion.nombre, uno.accion.valores], ['cuánto', 'cantidad: 1', 'set a minimum', { box: 3 }]);
   assert.deepEqual(b.sitio.posiciones[5].accion.valores, { place: '3.3', position: 5 }, 'el 5, el estilo de lo de abajo (X.3.3.5.0), ya tiene dónde tocarse');
   const hb = html(b);
-  assert.equal((hb.match(/class="sitio-posicion"/g) ?? []).length, 10);
+  assert.equal((hb.match(/class="sitio-posicion[ "]/g) ?? []).length, 10);
   assert.match(hb, new RegExp(`data-sitio-lanzar="${uno.accion.id}" data-x="${alta}" data-valores="\\{&quot;box&quot;:3\\}"`));
   // una posición: gestos → lanzarCon(X, acción, valores) → el formulario de siempre con los parámetros del sitio
   const k = gestosDeMentira();

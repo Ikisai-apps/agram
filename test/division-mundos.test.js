@@ -434,7 +434,7 @@ test('la regla del vacío pinta el paso del camino: «escribir aquí · <acción
   const tres = await arbol(completa(compra.id, 3), eje, 'huesped', GRANDE);
   const vacia = tres.centro.rejilla.celdas.find((c) => c.vacio);
   assert.equal(vacia.escribir, null);
-  assert.ok(rejillaHtml(html(tres)).includes(`data-caja="${vacia.caja}" data-fila="${vacia.fila}" data-columna="${vacia.columna}" data-vacio>`) && html(tres).includes(`<span class="hijo-vacio">${t('cajaVacia')}</span>`));
+  assert.ok(rejillaHtml(html(tres)).includes(`data-caja="${vacia.caja}" data-fila="${vacia.fila}" data-columna="${vacia.columna}" data-vacio>`) && html(tres).includes(`<span class="hijo-vacio">${vacia.llena}</span>`));
 });
 
 test('el nivel 2 del 2 son cinco columnas con el nivel siguiente dentro (contrato.hijosDe al nivel + 1, con la misma regla del vacío)', async () => {

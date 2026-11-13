@@ -1105,4 +1105,11 @@ html.mapped body{padding:0}
 .sitio-posicion .nombre{font-weight:600}
 .sitio-posicion .valor{color:var(--muted);overflow-wrap:anywhere}
 .sitio-posicion .accion{font-size:11px;min-height:26px;justify-self:start}
+/* tocar la celda es configurar esa posición (VG 14-11, #85): el botón cubre toda la celda; sin valor, «sin configurar» */
+.sitio-posicion.tocable{position:relative;cursor:pointer}
+.sitio-posicion.tocable:hover,.sitio-posicion.tocable:focus-within{border-color:var(--c,var(--accent));background:color-mix(in oklab,var(--c,var(--rule)) 16%,var(--bg))}
+.sitio-tocar{display:grid;gap:3px;width:100%;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;min-width:0;min-height:0}
+.sitio-tocar::after{content:'';position:absolute;inset:0}
+.sitio-posicion .valor.sin-configurar{font-style:italic;opacity:.75}
+.configuracion h2 .numero{font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;background:color-mix(in oklab,var(--rule) 50%,transparent);vertical-align:middle}
 @media (max-width:520px){.sitio-posiciones{grid-template-columns:1fr}.sitio-celda{grid-row:auto;grid-column:auto}}

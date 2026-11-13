@@ -142,18 +142,18 @@ test('la barra no existe: cada acción de la barra tiene su sitio en la cruceta 
     assert.equal(a.sitio.general, true);
     const h = html(a, extra);
     assert.match(h, /<div class="sitio-cruceta"[^>]*data-sitio-de="0" data-sitio-general/);
-    const pos = (k) => (h.match(new RegExp(`<div class="sitio-posicion" data-posicion="${k}"[^]*?(?=<div class="sitio-posicion" data-posicion=|</ol>)`)) ?? [''])[0];
+    const pos = (k) => (h.match(new RegExp(`<div class="sitio-posicion[^"]*" data-posicion="${k}"[^]*?(?=<div class="sitio-posicion[^"]*" data-posicion=|</ol>)`)) ?? [''])[0];
     // 0 quién soy (y el ejemplo) · 1 hoy y «guardar este rato» · 2 la configuración · 4 lo que se hace con la cuenta ·
     // 5 el estilo (sobrio o animado) · 8 opinar · 9 cómo: los ajustes de la guía y del exterior, lo guardado y la sincronía
     assert.match(pos(0), /data-quien[^]*data-ejemplo/);
-    assert.match(pos(2), /data-config/);
+    assert.match(pos(2), /data-config="2"/);
     assert.match(pos(4), /data-reiniciar/);
     assert.match(pos(5), /class="interruptor"[^]*data-preferencia="render"/);
     assert.match(pos(8), /data-opinar-ctl="alternar"/);
-    assert.match(pos(9), /data-config[^]*class="guardado">guardado en este navegador[^]*data-sincronia/);
+    assert.match(pos(9), /data-config="9"[^]*class="guardado">guardado en este navegador[^]*data-sincronia/);
     assert.equal((h.match(/data-quien/g) ?? []).length, 1);
     // las demás posiciones siguen siendo las del nodo: su acción de configurar el sitio
-    assert.equal((h.match(/class="sitio-posicion"/g) ?? []).length, 10);
+    assert.equal((h.match(/class="sitio-posicion[ "]/g) ?? []).length, 10);
     assert.match(pos(3), /data-sitio-lanzar/);
   }
   // con el tiempo local, el 1 lleva «hoy» y «guardar este rato»
@@ -167,7 +167,7 @@ test('la barra no existe: cada acción de la barra tiene su sitio en la cruceta 
   // una cuenta: en el 4, la copia de seguridad y olvidar en lugar de reiniciar
   const conCuenta = html(await arbol(abiertaCero(eje, compra.id), eje, 'huesped', GRANDE), { ...extra, ejemplos: [], cuenta: { nombre: 'yo', alta: eje.alta('huesped').id, identidad: 'huesped' }, cuentas: [] });
   assert.match(conCuenta, /data-posicion="4"[^]*?data-copia[^]*?data-olvidar/);
-  assert.doesNotMatch(conCuenta, /data-reiniciar|data-ejemplo/);
+  assert.doesNotMatch(conCuenta, /data-reiniciar|data-ejemplo|data-quien/, 'en una cuenta no hay «soy» (VG 14-11, #86)');
 });
 
 test('gestos y app: el personaje del 0 abre la cruceta del 0 de mi alta (general); los controles de la barra siguen con sus manejadores', () => {
@@ -190,7 +190,7 @@ test('gestos y app: el personaje del 0 abre la cruceta del 0 de mi alta (general
   // la app: sin barra ni menú; la escena es la ventana entera; la cruceta se cierra al abrir la configuración o la copia y al cambiar de identidad
   assert.doesNotMatch(APP, /estado\.menu|\.barra'/);
   assert.match(APP, /sitio\(X, lugar, \{ general = false \} = \{\}\)/);
-  assert.match(APP, /estado\.config = true;[^\n]*estado\.sitio = null/);
+  assert.match(APP, /estado\.config = parte === '9' \? '9' : '2';[^\n]*estado\.sitio = null/);
   assert.match(APP, /raiz\.querySelector\('\.sitio-cruceta\[data-sitio-general\] \.guardado'\)/);
   assert.match(CSS, /\.cero-columna\{position:sticky;top:0/);
 });

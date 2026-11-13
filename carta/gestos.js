@@ -46,7 +46,7 @@ const UMBRAL_ARRASTRE = 24;
  *   denominacion(escala, form)  ejecutar: la escala de la que parte la T que se quema (el formulario sigue con lo escrito)
  *   cerrar()                 cerrar el aro, el formulario o la configuración
  *   enviar(form)             enviar el formulario de una acción
- *   configurar(form | null)  abrir la configuración (null) o guardarla (el formulario)
+ *   configurar(form | null, parte)  abrir la configuración de una parte (null, '2' mis criterios y preferencias | '9' guía y exterior) o guardarla (el formulario)
  *   campo(X, pv, texto, { nuevo })  escribir un ocupante nuevo en la posición pv de X (nuevo: desde el aro de un hueco: crea el elemento y abre su aro)
  *   aroNuevo(X, pv, { ancla })  mantener sobre un hueco (data-hueco-x, data-hueco-pv; issue #22): el aro con un input nuevo que crea el elemento en X.pv
  *   cargarMas(pv)            una página más de ocupantes del PV
@@ -202,7 +202,7 @@ export function instalar(raiz, m) {
     if ((el = b('[data-previsualizar]'))) { e.preventDefault(); m.previsualizar?.(el.dataset.x ?? xDe(el), el.dataset.accion, Number(el.dataset.previsualizar)); return; }
     if ((el = b('[data-cohorte]'))) { e.preventDefault(); m.cohorte?.(el.dataset.cohorte); return; }
     if ((el = b('[data-englobar]'))) { e.preventDefault(); m.englobar?.(); return; }
-    if ((el = b('[data-config]'))) { e.preventDefault(); m.configurar?.(null); return; }
+    if ((el = b('[data-config]'))) { e.preventDefault(); m.configurar?.(null, el.dataset.config === '9' ? '9' : '2'); return; }
     if ((el = b('[data-reiniciar]'))) { e.preventDefault(); m.reiniciar?.(); return; }
     if ((el = b('[data-arranque]'))) { e.preventDefault(); m.arranque?.(el.dataset.arranque); return; }
     if ((el = b('[data-copia]'))) { e.preventDefault(); m.copia?.(null); return; }
